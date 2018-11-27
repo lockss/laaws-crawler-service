@@ -57,7 +57,7 @@ EOF_API_DELEGATE_EDIT
 
 # Edit CrawlsApi.java.
 API=src/generated/java/org/lockss/laaws/crawler/api/CrawlsApi.java
-sed -i -e "s/public interface CrawlsApi/public interface CrawlsApi extends org.lockss.spring.status.SpringLockssBaseApi/" $API
+sed -i".bak" -e "s/public interface CrawlsApi/public interface CrawlsApi extends org.lockss.spring.status.SpringLockssBaseApi/" $API
 
 TEMPFILE="$(mktemp)"
 sed -e "s/^}$//" $API > "$TEMPFILE" && cat <<EOF_API_EDIT >> "$TEMPFILE" && mv "$TEMPFILE" $API
@@ -67,5 +67,4 @@ sed -e "s/^}$//" $API > "$TEMPFILE" && cat <<EOF_API_EDIT >> "$TEMPFILE" && mv "
     }
 }
 EOF_API_EDIT
-
-rm $API-e
+rm $API.bak

@@ -16,7 +16,6 @@
   <description>LAAWS Crawler Service</description>
 
   <properties>
-    <gitProjectId>laaws-crawlerservice</gitProjectId>
     <skipSpringBootRepackage>false</skipSpringBootRepackage>
     <springServicePort>24620</springServicePort>
     <!-- The main class to start by executing java -jar -->

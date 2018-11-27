@@ -1,0 +1,38 @@
+language: java
+
+sudo: required
+
+services:
+  - docker
+
+jdk:
+  - openjdk8
+
+branches:
+  only:
+  - master
+  - develop
+
+os:
+  - linux
+
+install: true
+
+script: mvn -q clean install
+  
+before_deploy:
+  - bash ./ci/before_deploy.sh 
+
+deploy:
+  provider: script
+  script: bash ./ci/deploy.sh
+  on: 
+    branch: master
+    tags: true
+
+cache:
+  directories:
+  - $HOME/.m2
+
+notifications:
+  email: laaws-dev@lists.lockss.org

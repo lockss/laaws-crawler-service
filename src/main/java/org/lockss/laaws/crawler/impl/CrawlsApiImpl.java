@@ -26,19 +26,18 @@
 
 package org.lockss.laaws.crawler.impl;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.lockss.app.LockssApp;
 import org.lockss.laaws.crawler.api.CrawlsApi;
 import org.lockss.laaws.crawler.api.CrawlsApiDelegate;
-import org.lockss.laaws.crawler.model.*;
+import org.lockss.laaws.crawler.model.CrawlRequest;
+import org.lockss.laaws.crawler.model.CrawlStatus;
+import org.lockss.laaws.crawler.model.ErrorPager;
+import org.lockss.laaws.crawler.model.UrlPager;
 import org.lockss.laaws.status.model.ApiStatus;
 import org.lockss.log.L4JLogger;
 import org.lockss.spring.status.SpringLockssBaseApiController;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-
-import javax.servlet.http.HttpServletRequest;
-import java.util.Optional;
 
 @Service
 public class CrawlsApiImpl extends SpringLockssBaseApiController
@@ -46,6 +45,10 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
   private static L4JLogger log = L4JLogger.getLogger();
   private static final String API_VERSION = "1.0.0";
 
+  /**
+   * Return the status of the service and its version.
+   * @return ApiStatus the common laaws status info for this service.
+   */
   @Override
   public ApiStatus getApiStatus() {
     return new ApiStatus()
@@ -54,7 +57,8 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
   }
 
   /**
-   * @param body
+   * Request a crawl be added to the crawl queue.
+   * @param body the Crawl Request needed to run the crawl.
    * @see CrawlsApi#addCrawl
    */
   @Override
@@ -63,7 +67,8 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
   }
 
   /**
-   * @param jobId
+   * Delete a crawl previously added to the crawl queue, stop the crawl if already running.
+   * @param jobId the id assigned to the crawl when added.
    * @see CrawlsApi#deleteCrawlById
    */
   @Override
@@ -71,17 +76,10 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
     return null;
   }
 
-  /**
-   * @param id
-   * @see CrawlsApi#deleteCrawls
-   */
-  @Override
-  public ResponseEntity<Void> deleteCrawls(String id) {
-    return null;
-  }
 
   /**
-   * @param jobId
+   * Return the status of a requested crawl.
+   * @param jobId the id assigned to the crawl when added
    * @see CrawlsApi#getCrawlById
    */
   @Override
@@ -90,9 +88,10 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
   }
 
   /**
-   * @param jobId
-   * @param continuationToken
-   * @param limit
+   * Return the list of error urls with error code and message.
+   * @param jobId the id of the crawl
+   * @param continuationToken the continuation token used to fetch the next page
+   * @param limit the number of items per page
    * @see CrawlsApi#getCrawlErrored
    */
   @Override
@@ -101,9 +100,10 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
   }
 
   /**
-   * @param jobId
-   * @param continuationToken
-   * @param limit
+   * Return the list of urls excluded from the crawl.
+   * @param jobId the id of the crawl
+   * @param continuationToken the continuation token used to fetch the next page
+   * @param limit the number of items per page
    * @see CrawlsApi#getCrawlExcluded
    */
   @Override
@@ -112,9 +112,10 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
   }
 
   /**
-   * @param jobId
-   * @param continuationToken
-   * @param limit
+   * Return the list of urls fetched in the crawl.
+   * @param jobId the id of the crawl
+   * @param continuationToken the continuation token used to fetch the next page
+   * @param limit the number of items per page
    * @see CrawlsApi#getCrawlFetched
    */
   @Override
@@ -123,9 +124,10 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
   }
 
   /**
-   * @param jobId
-   * @param continuationToken
-   * @param limit
+   * Return the list of urls found to be notModified during the crawl.
+   * @param jobId the id of the crawl
+   * @param continuationToken the continuation token used to fetch the next page
+   * @param limit the number of items per page
    * @see CrawlsApi#getCrawlNotModified
    */
   @Override
@@ -134,9 +136,10 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
   }
 
   /**
-   * @param jobId
-   * @param continuationToken
-   * @param limit
+   * Return the list of urls parsed during the crawl.
+   * @param jobId the id of the crawl
+   * @param continuationToken the continuation token used to fetch the next page
+   * @param limit the number of items per page
    * @see CrawlsApi#getCrawlParsed
    */
   @Override
@@ -145,9 +148,10 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
   }
 
   /**
-   * @param jobId
-   * @param continuationToken
-   * @param limit
+   * Return the list of urls pending for the crawl.
+   * @param jobId the id of the crawl
+   * @param continuationToken the continuation token used to fetch the next page
+   * @param limit the number of items per page
    * @see CrawlsApi#getCrawlPending
    */
   @Override

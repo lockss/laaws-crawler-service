@@ -38,10 +38,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class CrawlersApiImpl implements CrawlersApiDelegate {
+  /**
+   * The list of known crawlers.
+   */
   private static final List<String> CRAWLERS = ListUtil.list("lockss");
 
   /**
-   * @param crawler
+   * Return the status and configuration information about a crawler
+   * @param crawler The name of the crawler
    * @see CrawlersApi#getCrawlerByName
    */
   @Override
@@ -55,6 +59,7 @@ public class CrawlersApiImpl implements CrawlersApiDelegate {
 
 
   /**
+   * Return the list of configured crawlers.
    * @see CrawlersApi#getCrawlers
    */
   @Override

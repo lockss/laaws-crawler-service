@@ -16,11 +16,13 @@
   <description>LAAWS Crawler Service</description>
 
   <properties>
+    <skipCodegenFix>false</skipCodegenFix>
     <skipSpringBootRepackage>false</skipSpringBootRepackage>
-    <springServicePort>24620</springServicePort>
+    <springServicePort>24660</springServicePort>
     <!-- The main class to start by executing java -jar -->
     <start-class>org.lockss.laaws.crawler.CrawlerApplication</start-class>
     <skipDocker>false</skipDocker>
+    <org.mapstruct.version>1.2.0.Final</org.mapstruct.version>
   </properties>
 
   <dependencies>
@@ -60,8 +62,9 @@
     <dependency>
       <groupId>org.mapstruct</groupId>
       <artifactId>mapstruct-jdk8</artifactId>
-      <version>1.2.0.Final</version>
-    </dependency>    </dependencies>
+      <version>${org.mapstruct.version}</version>
+    </dependency>
+  </dependencies>
 
   <build>
     <sourceDirectory>src/main/java</sourceDirectory>
@@ -79,7 +82,7 @@
             </goals>
             <configuration>
               <sources>
-                <source>src/generated</source>
+                <source>src/generated/java</source>
               </sources>
             </configuration>
           </execution>
@@ -117,7 +120,27 @@
           </execution>
         </executions>
       </plugin>
-
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <annotationProcessorPaths>
+            <path>
+              <groupId>org.mapstruct</groupId>
+              <artifactId>mapstruct-processor</artifactId>
+              <version>${org.mapstruct.version}</version>
+            </path>
+          </annotationProcessorPaths>
+          <compilerArgs>
+            <compilerArg>
+              -Amapstruct.suppressGeneratorTimestamp=true
+            </compilerArg>
+            <compilerArg>
+              -Amapstruct.suppressGeneratorVersionInfoComment=true
+            </compilerArg>
+          </compilerArgs>
+        </configuration>
+      </plugin>
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>exec-maven-plugin</artifactId>

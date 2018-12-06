@@ -144,13 +144,6 @@ paths:
       summary: Delete all of the currently queued and active crawl requests
       description: Halt and delete all of the currently queued and active crawls
       operationId: deleteCrawls
-      parameters:
-        - name: id
-          in: query
-          description: The crawl id
-          required: true
-          schema:
-            type: string
       responses:
         '501':
           description: Not Implemented.
@@ -408,7 +401,7 @@ paths:
         description: The number of jobs per page.
         schema:
           type: integer
-  '/crawls/{jobId}/mimetype/{type}':
+  '/crawls/{jobId}/mimeType/{type}':
     description: A paged in list of urls.
     get:
       tags:

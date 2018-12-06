@@ -27,7 +27,6 @@
 package org.lockss.laaws.crawler.impl;
 
 import org.lockss.app.LockssApp;
-import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
 import org.lockss.crawler.CrawlManager;
 import org.lockss.crawler.CrawlManagerImpl;
@@ -76,10 +75,6 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
    */
   private static final String API_VERSION = "1.0.0";
   /**
-   * The logger for this class
-   */
-  private static L4JLogger log = L4JLogger.getLogger(CrawlsApiImpl.class);
-  /**
    * A template URI for returning a counter for a specific url list eg found or parsed urls.
    */
   private static final String COUNTER_URI = "crawls/{jobId}/{counterName}";
@@ -87,6 +82,10 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
    * A template URI for returnin a counter for a list of urls of a specific mimeType.
    */
   private static final String MIME_URI = "crawls/{jobId}/mimeType/{mimeType}";
+  /**
+   * The logger for this class
+   */
+  private static L4JLogger log = L4JLogger.getLogger(CrawlsApiImpl.class);
   /**
    * The crawlManager
    */
@@ -164,6 +163,8 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
    */
   @Override
   public ResponseEntity<CrawlRequest> deleteCrawlById(String jobId) {
+    CrawlManagerImpl cmi = getCrawlManager();
+
     return null;
   }
 
@@ -177,13 +178,13 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
   @Override
   public ResponseEntity<CrawlStatus> getCrawlById(String jobId) {
     CrawlerStatus crawlerStatus = getCrawlerStatus(jobId);
-    if(crawlerStatus == null) {
+    if (crawlerStatus == null) {
       String message = "No Job found for '" + jobId + "'";
       log.warn(message);
       return new ResponseEntity<>(HttpStatus.NOT_FOUND);
     }
     CrawlStatus status = getCrawlStatus(jobId);
-    if(status != null) {
+    if (status != null) {
       return new ResponseEntity<>(status, HttpStatus.OK);
     }
     return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
@@ -230,7 +231,7 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
   public ResponseEntity<UrlPager> getCrawlExcluded(String jobId, String continuationToken, Integer limit) {
     UrlPager pager;
     try {
-      pager = getUrlPager("exclueded", jobId, continuationToken, limit);
+      pager = getUrlPager("excluded", jobId, continuationToken, limit);
       return new ResponseEntity<UrlPager>(pager, HttpStatus.OK);
     } catch (ConcurrentModificationException cme) {
       String message =
@@ -370,7 +371,41 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
     }
   }
 
+  /**
+   * Return the list of items by mime-type.
+   * @param jobId             the id of the crawl
+   * @param type              the mime-type
+   * @param continuationToken the continuation token used to fetch the next page
+   * @param limit             the number of items per page
+   * @see CrawlsApi#getCrawlByMimeType
+   */
+  @Override
+  public ResponseEntity<UrlPager> getCrawlByMimeType(String jobId, String type, String continuationToken, Integer limit) {
+    UrlPager pager;
+    try {
+      pager = getUrlPager("pending", jobId, continuationToken, limit);
+      return new ResponseEntity<UrlPager>(pager, HttpStatus.OK);
+    } catch (ConcurrentModificationException cme) {
+      String message =
+          "Pagination conflict for auid '" + jobId + "': " + cme.getMessage();
+      log.warn(message, cme);
+      return new ResponseEntity<>(HttpStatus.CONFLICT);
+    } catch (IllegalArgumentException iae) {
+      String message = "No Job found for jobId'" + jobId + "'";
+      log.warn(message, iae);
+      return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+    } catch (Exception e) {
+      String message = "Cannot return mime-type for auid '" + jobId + "'";
+      log.error(message, e);
+      return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
 
+  /**
+   * Return a CrawlStatus for the jobId.
+   * @param key
+   * @return
+   */
   CrawlStatus getCrawlStatus(String key) {
     CrawlerStatus cs = getCrawlerStatus(key);
     CrawlStatus crawlStatus = new CrawlStatus();
@@ -395,7 +430,7 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
       for (String mimeType : cs.getMimeTypes()) {
         urlCount = cs.getMimeTypeCtr(mimeType);
         if (urlCount.getCount() > 0) {
-          crawlStatus.addMimeTypesItem(getMimeCounter( key, mimeType, urlCount));
+          crawlStatus.addMimeTypesItem(getMimeCounter(key, mimeType, urlCount));
         }
       }
     }
@@ -466,6 +501,7 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
     return ctr;
   }
 
+
   RequestCrawlResult doCrawl(String auId, Integer depth, Integer reqPriority, boolean force) {
     if (log.isDebugEnabled()) {
       log.debug(DEBUG_HEADER + "auId = " + auId);
@@ -522,9 +558,6 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
 
     if (reqPriority != null) {
       priority = reqPriority;
-    } else {
-      Configuration config = ConfigManager.getCurrentConfig();
-      priority = config.getInt(PARAM_CRAWL_PRIORITY, DEFAULT_CRAWL_PRIORITY);
     }
 
     // Create the crawl request.
@@ -592,6 +625,27 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
     return result = getRequestCrawlResult(auId, null, true, null, null);
   }
 
+  UrlPager getMimeTypePager(String mimeType, String continuationToken, Integer limit) {
+    UrlPager pager = new UrlPager();
+    return pager;
+  }
+
+  UrlPager getUrlPager(String counterName, String jobId, String continuationToken, Integer limit) {
+    UrlPager pager = new UrlPager();
+    return pager;
+
+  }
+
+  ErrorPager getErrorPager(String jobId, String continuationToken, Integer limit) {
+    ErrorPager pager = new ErrorPager();
+    return pager;
+  }
+
+  JobPager getJobsPager(Integer limit, String continuationToken) {
+    JobPager pager = new JobPager();
+    return pager;
+  }
+
   private CrawlManagerImpl getCrawlManager() {
     if (crawlMgrImpl == null) {
       CrawlManager cmgr = LockssApp.getManagerByTypeStatic(CrawlManager.class);
@@ -617,19 +671,4 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
     return pluginManager;
   }
 
-  private UrlPager getUrlPager(String counterName, String jobId, String continuationToken, Integer limit) {
-    UrlPager pager = new UrlPager();
-    return pager;
-
-  }
-
-  private ErrorPager getErrorPager(String jobId, String continuationToken, Integer limit) {
-    ErrorPager pager = new ErrorPager();
-    return pager;
-  }
-
-  private JobPager getJobsPager(Integer limit, String continuationToken) {
-    JobPager pager = new JobPager();
-    return pager;
-  }
 }

@@ -35,8 +35,7 @@ public class CrawlsApiControllerIntegrationTest {
 
     @Test
     public void deleteCrawlsTest() throws Exception {
-        String id = "id_example";
-        ResponseEntity<Void> responseEntity = api.deleteCrawls(id);
+        ResponseEntity<Void> responseEntity = api.deleteCrawls();
         assertEquals(HttpStatus.NOT_IMPLEMENTED, responseEntity.getStatusCode());
     }
 

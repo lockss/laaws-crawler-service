@@ -32,7 +32,6 @@ import org.lockss.crawler.CrawlManagerImpl;
 import org.lockss.laaws.crawler.api.CrawlersApi;
 import org.lockss.laaws.crawler.api.CrawlersApiDelegate;
 import org.lockss.laaws.crawler.model.CrawlerConfig;
-import org.lockss.laaws.crawler.model.CrawlerInfo;
 import org.lockss.laaws.crawler.model.CrawlerStatus;
 import org.lockss.laaws.crawler.model.InlineResponse200;
 import org.lockss.log.L4JLogger;
@@ -40,19 +39,17 @@ import org.lockss.util.ListUtil;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 public class CrawlersApiImpl implements CrawlersApiDelegate {
 
+  private static final L4JLogger log = L4JLogger.getLogger();
   /**
    * The list of known crawlers.
    */
   public static List<String> CRAWLERS = ListUtil.list("lockss");
-
-  private static final L4JLogger log = L4JLogger.getLogger();
   private CrawlManagerImpl crawlManager;
 
 
@@ -64,7 +61,7 @@ public class CrawlersApiImpl implements CrawlersApiDelegate {
   @Override
   public ResponseEntity<InlineResponse200> getCrawlers() {
     CrawlManagerImpl cmi = getCrawlManager();
-    if(cmi == null) {
+    if (cmi == null) {
       return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
@@ -84,17 +81,17 @@ public class CrawlersApiImpl implements CrawlersApiDelegate {
   @Override
   public ResponseEntity<CrawlerConfig> getCrawlerConfig(String crawler) {
     CrawlManagerImpl cmi = getCrawlManager();
-    if(cmi == null) {
+    if (cmi == null) {
       return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
     }
     // TODO: decide what we want to reveal about the LOCKSS Crawler here.
     CrawlerConfig config = new CrawlerConfig();
-    config.configMap(new HashMap<String,String>());
+    config.configMap(new HashMap<String, String>());
     return new ResponseEntity<>(config, HttpStatus.OK);
   }
 
   private CrawlManagerImpl getCrawlManager() {
-    if(crawlManager == null) {
+    if (crawlManager == null) {
       CrawlManager cmgr = LockssApp.getManagerByTypeStatic(CrawlManager.class);
       if (cmgr instanceof CrawlManagerImpl) {
         crawlManager = (CrawlManagerImpl) cmgr;

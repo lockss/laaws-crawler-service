@@ -48,13 +48,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static org.lockss.app.LockssApp.PLUGIN_MANAGER;
-import static org.lockss.laaws.crawler.impl.CrawlersApiImpl.crawlers;
+import static org.lockss.laaws.crawler.impl.CrawlersApiImpl.CRAWLERS;
 
 @Service
 public class CrawlsApiImpl extends SpringLockssBaseApiController
@@ -85,11 +82,11 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
   /**
    * A template URI for returning a counter for a specific url list eg found or parsed urls.
    */
-  private static String COUNTER_URI = "crawls/{jobId}/{counterName}";
+  private static final String COUNTER_URI = "crawls/{jobId}/{counterName}";
   /**
    * A template URI for returnin a counter for a list of urls of a specific mimeType.
    */
-  private static String MIME_URI = "crawls/{jobId}/{counterName}/{mimeType}";
+  private static final String MIME_URI = "crawls/{jobId}/mimeType/{mimeType}";
   /**
    * The crawlManager
    */
@@ -114,14 +111,14 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
   }
 
   /**
-   * @param body
+   * @param body A CrawlRequest for the requested crawl
    * @see CrawlsApi#doCrawl
    */
   @Override
   public ResponseEntity<RequestCrawlResult> doCrawl(CrawlRequest body) {
     RequestCrawlResult result = null;
 
-    if (!crawlers.contains(body.getCrawler())) {
+    if (!CRAWLERS.contains(body.getCrawler())) {
       return new ResponseEntity<>(null, HttpStatus.BAD_REQUEST);
     }
     switch (body.getCrawlKind()) {
@@ -132,7 +129,7 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
         result = doRepair(body.getAuId(), body.getRepairList());
         break;
     }
-    if (result.isSuccess()) {
+    if (result.isAccepted()) {
       return new ResponseEntity<>(result, HttpStatus.ACCEPTED);
     } else {
       return new ResponseEntity<>(result, HttpStatus.BAD_REQUEST);
@@ -140,13 +137,23 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
   }
 
   /**
-   * @param limit
-   * @param continuationToken
+   * @param limit             the number of items per page
+   * @param continuationToken the continuation token used to fetch the next page
    * @see CrawlsApi#getCrawls
    */
   @Override
   public ResponseEntity<JobPager> getCrawls(Integer limit, String continuationToken) {
-    return null;
+
+    JobPager pager;
+    try {
+      pager = getJobsPager(limit, continuationToken);
+      return new ResponseEntity<JobPager>(pager, HttpStatus.OK);
+    } catch (Exception e) {
+      String message = "Cannot return crawls: " + e.getMessage();
+      log.error(message, e);
+      return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
   }
 
   /**
@@ -170,7 +177,16 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
   @Override
   public ResponseEntity<CrawlStatus> getCrawlById(String jobId) {
     CrawlerStatus crawlerStatus = getCrawlerStatus(jobId);
-    return null;
+    if(crawlerStatus == null) {
+      String message = "No Job found for '" + jobId + "'";
+      log.warn(message);
+      return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+    }
+    CrawlStatus status = getCrawlStatus(jobId);
+    if(status != null) {
+      return new ResponseEntity<>(status, HttpStatus.OK);
+    }
+    return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
   }
 
   /**
@@ -183,7 +199,23 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
    */
   @Override
   public ResponseEntity<ErrorPager> getCrawlErrored(String jobId, String continuationToken, Integer limit) {
-    return null;
+    ErrorPager pager;
+    try {
+      pager = getErrorPager(jobId, continuationToken, limit);
+      return new ResponseEntity<ErrorPager>(pager, HttpStatus.OK);
+    } catch (ConcurrentModificationException cme) {
+      String message =
+          "Pagination conflict for auid '" + jobId + "': " + cme.getMessage();
+      log.warn(message, cme);
+      return new ResponseEntity<>(HttpStatus.CONFLICT);
+    } catch (IllegalArgumentException iae) {
+      String message = "No Job found for jobId'" + jobId + "'";
+      log.warn(message, iae);
+      return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+    } catch (Exception e) {
+      String message = "Cannot return error items for auid '" + jobId + "'";
+      return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   /**
@@ -196,7 +228,24 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
    */
   @Override
   public ResponseEntity<UrlPager> getCrawlExcluded(String jobId, String continuationToken, Integer limit) {
-    return null;
+    UrlPager pager;
+    try {
+      pager = getUrlPager("exclueded", jobId, continuationToken, limit);
+      return new ResponseEntity<UrlPager>(pager, HttpStatus.OK);
+    } catch (ConcurrentModificationException cme) {
+      String message =
+          "Pagination conflict for auid '" + jobId + "': " + cme.getMessage();
+      log.warn(message, cme);
+      return new ResponseEntity<>(HttpStatus.CONFLICT);
+    } catch (IllegalArgumentException iae) {
+      String message = "No Job found for jobId'" + jobId + "'";
+      log.warn(message, iae);
+      return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+    } catch (Exception e) {
+      String message = "Cannot return excluded items for auid '" + jobId + "'";
+      log.error(message, e);
+      return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   /**
@@ -209,7 +258,24 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
    */
   @Override
   public ResponseEntity<UrlPager> getCrawlFetched(String jobId, String continuationToken, Integer limit) {
-    return null;
+    UrlPager pager;
+    try {
+      pager = getUrlPager("fetched", jobId, continuationToken, limit);
+      return new ResponseEntity<UrlPager>(pager, HttpStatus.OK);
+    } catch (ConcurrentModificationException cme) {
+      String message =
+          "Pagination conflict for auid '" + jobId + "': " + cme.getMessage();
+      log.warn(message, cme);
+      return new ResponseEntity<>(HttpStatus.CONFLICT);
+    } catch (IllegalArgumentException iae) {
+      String message = "No Job found for jobId'" + jobId + "'";
+      log.warn(message, iae);
+      return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+    } catch (Exception e) {
+      String message = "Cannot return fetched items for auid '" + jobId + "'";
+      log.error(message, e);
+      return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   /**
@@ -222,7 +288,24 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
    */
   @Override
   public ResponseEntity<UrlPager> getCrawlNotModified(String jobId, String continuationToken, Integer limit) {
-    return null;
+    UrlPager pager;
+    try {
+      pager = getUrlPager("notModified", jobId, continuationToken, limit);
+      return new ResponseEntity<UrlPager>(pager, HttpStatus.OK);
+    } catch (ConcurrentModificationException cme) {
+      String message =
+          "Pagination conflict for jobId '" + jobId + "': " + cme.getMessage();
+      log.warn(message, cme);
+      return new ResponseEntity<>(HttpStatus.CONFLICT);
+    } catch (IllegalArgumentException iae) {
+      String message = "No Archival Unit found for jobId '" + jobId + "'";
+      log.warn(message, iae);
+      return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+    } catch (Exception e) {
+      String message = "Cannot return notModified items for auid '" + jobId + "'";
+      log.error(message, e);
+      return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   /**
@@ -235,7 +318,26 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
    */
   @Override
   public ResponseEntity<UrlPager> getCrawlParsed(String jobId, String continuationToken, Integer limit) {
-    return null;
+    UrlPager pager;
+    try {
+      pager = getUrlPager("parsed", jobId, continuationToken, limit);
+      return new ResponseEntity<UrlPager>(pager, HttpStatus.OK);
+    } catch (ConcurrentModificationException cme) {
+      String message =
+          "Pagination conflict for auid '" + jobId + "': " + cme.getMessage();
+      log.warn(message, cme);
+      return new ResponseEntity<>(HttpStatus.CONFLICT);
+    } catch (IllegalArgumentException iae) {
+      String message = "No Job found for jobId'" + jobId + "'";
+      log.warn(message, iae);
+      return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+    } catch (Exception e) {
+      String message = "Cannot return parsed items for auid '" + jobId + "'";
+      log.error(message, e);
+      return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+
   }
 
   /**
@@ -248,7 +350,24 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
    */
   @Override
   public ResponseEntity<UrlPager> getCrawlPending(String jobId, String continuationToken, Integer limit) {
-    return null;
+    UrlPager pager;
+    try {
+      pager = getUrlPager("pending", jobId, continuationToken, limit);
+      return new ResponseEntity<UrlPager>(pager, HttpStatus.OK);
+    } catch (ConcurrentModificationException cme) {
+      String message =
+          "Pagination conflict for auid '" + jobId + "': " + cme.getMessage();
+      log.warn(message, cme);
+      return new ResponseEntity<>(HttpStatus.CONFLICT);
+    } catch (IllegalArgumentException iae) {
+      String message = "No Job found for jobId'" + jobId + "'";
+      log.warn(message, iae);
+      return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+    } catch (Exception e) {
+      String message = "Cannot return pending items for auid '" + jobId + "'";
+      log.error(message, e);
+      return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
 
@@ -276,7 +395,7 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
       for (String mimeType : cs.getMimeTypes()) {
         urlCount = cs.getMimeTypeCtr(mimeType);
         if (urlCount.getCount() > 0) {
-          crawlStatus.addMimeTypesItem(getMimeCounter("mimetype", key, mimeType, urlCount));
+          crawlStatus.addMimeTypesItem(getMimeCounter( key, mimeType, urlCount));
         }
       }
     }
@@ -329,19 +448,17 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
 
     Counter ctr = new Counter();
     ctr.count(urlCount.getCount());
-    ctr.counterLink(path);
+    ctr.itemsLink(path);
     return ctr;
   }
 
-  MimeCounter getMimeCounter(String counterName, String jobId, String mimeType,
-                             CrawlerStatus.UrlCount urlCount) {
+  MimeCounter getMimeCounter(String jobId, String mimeType, CrawlerStatus.UrlCount urlCount) {
     // create path and map variables
     final Map<String, Object> uriVariables = new HashMap<String, Object>();
+
     uriVariables.put("jobId", jobId);
-    uriVariables.put("counterName", counterName);
     uriVariables.put("mimeType", mimeType);
-    String mime_uri = COUNTER_URI + "/{mimeType}";
-    String path = UriComponentsBuilder.fromPath(mime_uri).buildAndExpand(uriVariables).toUriString();
+    String path = UriComponentsBuilder.fromPath(MIME_URI).buildAndExpand(uriVariables).toUriString();
     MimeCounter ctr = new MimeCounter();
     ctr.mimeType(mimeType);
     ctr.count(urlCount.getCount());
@@ -437,7 +554,7 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
                                                    String delayReason, String errorMessage) {
     RequestCrawlResult result;
     result = new RequestCrawlResult().auId(auId).
-        refetchDepth(depth).success(success).delayReason(delayReason).errorMessage(errorMessage);
+        refetchDepth(depth).accepted(success).delayReason(delayReason).errorMessage(errorMessage);
     if (log.isDebugEnabled()) {
       log.debug(DEBUG_HEADER + "result = " + result);
     }
@@ -500,13 +617,13 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
     return pluginManager;
   }
 
-  private UrlPager getUrlPager(String counterName, String jobId, Integer limit, String continuationToken) {
+  private UrlPager getUrlPager(String counterName, String jobId, String continuationToken, Integer limit) {
     UrlPager pager = new UrlPager();
     return pager;
 
   }
 
-  private ErrorPager getErrorPager(String jobId, Integer limit, String continuationToken) {
+  private ErrorPager getErrorPager(String jobId, String continuationToken, Integer limit) {
     ErrorPager pager = new ErrorPager();
     return pager;
   }

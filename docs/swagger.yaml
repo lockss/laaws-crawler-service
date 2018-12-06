@@ -33,15 +33,44 @@ paths:
                 description: A list of crawlers.
                 type: object
                 properties:
-                  crawls:
-                    description: An array of crawler names
-                    type: array
-                    items:
-                      type: string
+                  crawlers:
+                    description: An map of crawler status objects
+                    type: object
+                    additionalProperties:
+                      $ref: '#/components/schemas/crawlerStatus'
         '404':
           description: No Such Crawler
           content:
             application/json: {}
+  '/crawlers/{crawler}':
+    summary: Return configuration information about a crawler.
+    description: Access to information related to a crawler with crawler.
+    get:
+      tags:
+        - crawlers
+      summary: Return information about a crawler.
+      description: Get information related to a installed crawler.
+      operationId: getCrawlerConfig
+      responses:
+        '200':
+          description: Crawler Configuration Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/crawlerConfig'
+        '401':
+          description: Access Denied.
+        '404':
+          description: Not Found
+        '500':
+          description: Internal Server Error
+    parameters:
+      - name: crawler
+        in: path
+        description: Identifier for the crawler
+        required: true
+        schema:
+          type: string
   /crawls:
     summary: Access point to all crawls
     description: Access to all crawls or for crawl creation.
@@ -143,35 +172,6 @@ paths:
           description: Unauthorized
         '500':
           description: Internal Server Error
-  '/crawlers/{crawler}':
-    summary: Return information about installed crawler.
-    description: Access to information related to a crawler with crawler.
-    get:
-      tags:
-        - crawlers
-      summary: Return information about a crawler.
-      description: Get information related to a installed crawler.
-      operationId: getCrawlerByName
-      responses:
-        '200':
-          description: Crawler Info Found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/crawlerInfo'
-        '401':
-          description: Access Denied.
-        '404':
-          description: Not Found
-        '500':
-          description: Internal Server Error
-    parameters:
-      - name: crawler
-        in: path
-        description: Identifier for the crawler
-        required: true
-        schema:
-          type: string
   '/crawls/{jobId}/fetched':
     summary: The list of urls fetched during the crawl.
     description: A paged in list of urls.
@@ -607,16 +607,16 @@ components:
       description: A counter for urls.
       required:
         - count
-        - counterLink
+        - itemsLink
       properties:
         count:
           format: int32
           description: The number of elements
           type: integer
-        counterLink:
+        itemsLink:
           description: >-
-            A link to the list of count elements or to a pager with count
-            elements.
+            A link to the list of count items or to a pager with count
+            items.
           type: string
     crawlRequest:
       description: A descriptor for a LOCKSS crawl.
@@ -650,7 +650,7 @@ components:
           type: boolean
           default: false
         refetchDepth:
-          description: The depth to use for a deep crawl.
+          description: The refetch depth to use for a deep crawl.
           type: integer
           format: int32
           default: -1
@@ -658,8 +658,32 @@ components:
           description: The priority for the crawl.
           type: integer
           format: int32
-    crawlerInfo:
-      description: Information about a specific crawler.
+    requestCrawlResult:
+      description: The result from a request to perform a crawl.
+      required:
+      - auId
+      - accepted
+      type: object
+      properties:
+        auId:
+          description: A String with the Archival Unit identifier.
+          type: string
+        accepted:
+          description: True if this crawl was successfully enqueued.
+          type: boolean
+        delayReason:
+          description: The reason for any delay in performing the operation.
+          type: string
+        errorMessage:
+         description: Any error message as a result of the operation.
+         type: string
+        refetchDepth:
+          description: The refetch depth of the crawl if one was requested.
+          type: integer
+          format: int32
+          default: -1
+    crawlerStatus:
+      description: Status about a specific crawler.
       required:
         - isEnabled
         - isRunning
@@ -671,10 +695,18 @@ components:
         isRunning:
           description: Is the crawl starter running
           type: boolean
-        infoMap:
+        errStatus:
+          $ref: '#/components/schemas/status'
+    crawlerConfig:
+      description: Configuration information about a specific crawler.
+      required:
+        - configMap
+      type: object
+      properties:
+        configMap:
           description: key value pairs specific providing configuration information.
-          type: array
-          items:
+          type: object
+          additionalProperties:
             type: string
     crawlStatus:
       description: The status of a single crawl.
@@ -768,7 +800,7 @@ components:
           description: The proxy used for crawling.
           type: string
     urlPager:
-      description: A Pager for urls.
+      description: A Pager for urls with maps.
       required:
         - pageInfo
         - urls
@@ -777,10 +809,12 @@ components:
         pageInfo:
           $ref: '#/components/schemas/pageInfo'
         urls:
-          description: An list of urls
+          description: An list of urls with addition key:value mappings
           type: array
           items:
-            type: string
+            type: object
+            additionalProperties:
+              type: string
     jobPager:
       description: A display page of jobs
       required:
@@ -795,25 +829,8 @@ components:
             $ref: '#/components/schemas/crawlStatus'
         pageInfo:
           $ref: '#/components/schemas/pageInfo'
-    urlError:
-      description: The detail for an error
-      required:
-        - url
-        - errCode
-        - detail
-      properties:
-        url:
-          description: The url which caused the error.
-          type: string
-        errCode:
-          format: int32
-          description: The code for the error.
-          type: integer
-        detail:
-          description: A detailed message related to the error.
-          type: string
     errorPager:
-      description: A Pager for urls.
+      description: A Pager for error urls.
       required:
         - pageInfo
         - errors
@@ -822,32 +839,17 @@ components:
         pageInfo:
           $ref: '#/components/schemas/pageInfo'
         errors:
-          description: An list of urls
+          description: An list of urls with a map of error details
           type: array
           items:
-            $ref: '#/components/schemas/urlError'
-    requestCrawlResult:
-      description: The result from a request to perform a crawl.
-      required:
-        - auId
-        - success
-      type: object
-      properties:
-        auId:
-          description: A String with the Archival Unit identifier.
-          type: string
-        success:
-          description: True if this crawl was successfully enqueued.
-          type: boolean
-        delayReason:
-          description: The reason for any delay in performing the operation.
-          type: string
-        errorMessage:
-          description: Any error message as a result of the operation.
-        refetchDepth:
-          description: The refetch depth of the crawl if one was requested.
-          type: integer
-          format: int32
+            type: object
+            properties:
+              errStatus:
+                $ref: '#/components/schemas/status'
+            required:
+              - errStatus
+            additionalProperties:
+              type: string
   securitySchemes:
     basicAuth:
       type: http

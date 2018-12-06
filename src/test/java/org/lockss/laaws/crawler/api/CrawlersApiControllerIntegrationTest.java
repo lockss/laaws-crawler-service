@@ -1,6 +1,6 @@
 package org.lockss.laaws.crawler.api;
 
-import org.lockss.laaws.crawler.model.CrawlerInfo;
+import org.lockss.laaws.crawler.model.CrawlerConfig;
 import org.lockss.laaws.crawler.model.InlineResponse200;
 
 import java.util.*;
@@ -23,9 +23,9 @@ public class CrawlersApiControllerIntegrationTest {
     private CrawlersApi api;
 
     @Test
-    public void getCrawlerByNameTest() throws Exception {
+    public void getCrawlerConfigTest() throws Exception {
         String crawler = "crawler_example";
-        ResponseEntity<CrawlerInfo> responseEntity = api.getCrawlerByName(crawler);
+        ResponseEntity<CrawlerConfig> responseEntity = api.getCrawlerConfig(crawler);
         assertEquals(HttpStatus.NOT_IMPLEMENTED, responseEntity.getStatusCode());
     }
 

@@ -31,42 +31,29 @@ import org.lockss.crawler.CrawlManager;
 import org.lockss.crawler.CrawlManagerImpl;
 import org.lockss.laaws.crawler.api.CrawlersApi;
 import org.lockss.laaws.crawler.api.CrawlersApiDelegate;
+import org.lockss.laaws.crawler.model.CrawlerConfig;
 import org.lockss.laaws.crawler.model.CrawlerInfo;
+import org.lockss.laaws.crawler.model.CrawlerStatus;
 import org.lockss.laaws.crawler.model.InlineResponse200;
 import org.lockss.log.L4JLogger;
 import org.lockss.util.ListUtil;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class CrawlersApiImpl implements CrawlersApiDelegate {
+
   /**
    * The list of known crawlers.
    */
-  public static List<String> crawlers = ListUtil.list("lockss");
+  public static List<String> CRAWLERS = ListUtil.list("lockss");
+
   private static final L4JLogger log = L4JLogger.getLogger();
   private CrawlManagerImpl crawlManager;
-  /**
-   * Return the status and configuration information about a crawler
-   *
-   * @param crawler The name of the crawler
-   * @see CrawlersApi#getCrawlerByName
-   */
-  @Override
-  public ResponseEntity<CrawlerInfo> getCrawlerByName(String crawler) {
-    CrawlManagerImpl cmi = getCrawlManager();
-    CrawlerInfo status = new CrawlerInfo();
-    if (!crawlers.contains(crawler)) {
-      return new ResponseEntity<>(status, HttpStatus.NOT_FOUND);
-    }
-    if(cmi == null) {
-      return new ResponseEntity<>(status, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
-    status.setIsEnabled(cmi.isCrawlerEnabled());
-    status.setIsRunning(cmi.isCrawlStarterRunning());
-    return new ResponseEntity<>(status, HttpStatus.OK);
-  }
 
 
   /**
@@ -76,9 +63,34 @@ public class CrawlersApiImpl implements CrawlersApiDelegate {
    */
   @Override
   public ResponseEntity<InlineResponse200> getCrawlers() {
+    CrawlManagerImpl cmi = getCrawlManager();
+    if(cmi == null) {
+      return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
     InlineResponse200 response = new InlineResponse200();
-    response.setCrawls(crawlers);
+    Map<String, CrawlerStatus> crawlers = new HashMap<>();
+    // we only have one for now so no need to iterate.
+    CrawlerStatus status = new CrawlerStatus().isEnabled(cmi.isCrawlerEnabled()).isRunning(cmi.isCrawlStarterRunning());
+    crawlers.put("lockss", status);
+    response.setCrawlers(crawlers);
     return new ResponseEntity<>(response, HttpStatus.OK);
+  }
+
+  /**
+   * @param crawler
+   * @see CrawlersApi#getCrawlerConfig
+   */
+  @Override
+  public ResponseEntity<CrawlerConfig> getCrawlerConfig(String crawler) {
+    CrawlManagerImpl cmi = getCrawlManager();
+    if(cmi == null) {
+      return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+    // TODO: decide what we want to reveal about the LOCKSS Crawler here.
+    CrawlerConfig config = new CrawlerConfig();
+    config.configMap(new HashMap<String,String>());
+    return new ResponseEntity<>(config, HttpStatus.OK);
   }
 
   private CrawlManagerImpl getCrawlManager() {

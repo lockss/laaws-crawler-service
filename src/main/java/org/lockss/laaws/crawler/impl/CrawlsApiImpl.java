@@ -136,26 +136,32 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
   @Override
   public ResponseEntity<RequestCrawlResult> doCrawl(CrawlRequest body) {
     RequestCrawlResult result = null;
-
-    if (!CRAWLERS.contains(body.getCrawler())) {
-      return new ResponseEntity<>(null, HttpStatus.BAD_REQUEST);
+    try {
+      if (!CRAWLERS.contains(body.getCrawler())) {
+        return new ResponseEntity<>(null, HttpStatus.BAD_REQUEST);
+      }
+      switch (body.getCrawlKind()) {
+        case NEWCONTENT:
+          result = doCrawl(body.getAuId(), body.getRefetchDepth(), body.getPriority(),
+              body.isForceCrawl());
+          break;
+        case REPAIR:
+          result = doRepair(body.getAuId(), body.getRepairList());
+          break;
+      }
+      if (result.isAccepted()) {
+        return new ResponseEntity<>(result, HttpStatus.ACCEPTED);
+      }
+      else {
+        return new ResponseEntity<>(result, HttpStatus.BAD_REQUEST);
+      }
     }
-    switch (body.getCrawlKind()) {
-      case NEWCONTENT:
-        result = doCrawl(body.getAuId(), body.getRefetchDepth(), body.getPriority(),
-            body.isForceCrawl());
-        break;
-      case REPAIR:
-        result = doRepair(body.getAuId(), body.getRepairList());
-        break;
-    }
-    if (result.isAccepted()) {
-      return new ResponseEntity<>(result, HttpStatus.ACCEPTED);
-    }
-    else {
-      return new ResponseEntity<>(result, HttpStatus.BAD_REQUEST);
+    catch (Exception ex) {
+      log.error("do crawl failed", ex);
+      return new ResponseEntity<>(result, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
+
 
   /**
    * @param limit the number of items per page
@@ -185,8 +191,8 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
    */
   @Override
   public ResponseEntity<CrawlStatus> deleteCrawlById(String jobId) {
+    try {
     CrawlManagerImpl cmi = getCrawlManager();
-
     CrawlerStatus crawlerStatus = getCrawlerStatus(jobId);
     if (crawlerStatus != null) {
       if (crawlerStatus.isCrawlWaiting() || crawlerStatus.isCrawlActive()) {
@@ -195,7 +201,11 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
       }
       return new ResponseEntity<>(CrawlStatusfromCrawlerStatus(crawlerStatus), HttpStatus.OK);
     }
-    return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+      return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+    } catch(Exception ex) {
+      log.error("deletion error on server.", ex);
+      return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   /**
@@ -206,17 +216,20 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
    */
   @Override
   public ResponseEntity<CrawlStatus> getCrawlById(String jobId) {
-    CrawlerStatus crawlerStatus = getCrawlerStatus(jobId);
-    if (crawlerStatus == null) {
-      String message = "No Job found for '" + jobId + "'";
-      log.warn(message);
-      return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-    }
-    CrawlStatus status = getCrawlStatus(jobId);
-    if (status != null) {
+    try {
+      CrawlerStatus crawlerStatus = getCrawlerStatus(jobId);
+      if (crawlerStatus == null) {
+        String message = "No Job found for '" + jobId + "'";
+        log.warn(message);
+        return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+      }
+      CrawlStatus status = getCrawlStatus(jobId);
       return new ResponseEntity<>(status, HttpStatus.OK);
     }
-    return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+    catch (Exception ex) {
+      log.error("unable to return crawl status: server error", ex);
+      return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   /**
@@ -761,17 +774,22 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
     return pi;
   }
 
-  private CrawlManagerImpl getCrawlManager() {
-    if (crawlMgrImpl == null) {
-      CrawlManager cmgr = LockssApp.getManagerByTypeStatic(CrawlManager.class);
-      crawlMgrImpl = (CrawlManagerImpl) cmgr;
+  private CrawlManagerImpl getCrawlManager() throws IllegalStateException{
+    try {
+      if (crawlMgrImpl == null) {
+        CrawlManager cmgr = LockssApp.getManagerByTypeStatic(CrawlManager.class);
+        crawlMgrImpl = (CrawlManagerImpl) cmgr;
+      }
+      return crawlMgrImpl;
     }
-    return crawlMgrImpl;
+    catch (Exception ex) {
+      throw new IllegalStateException(ex);
+    }
   }
 
-  private CrawlerStatus getCrawlerStatus(String key) {
-    CrawlManagerImpl cmi = getCrawlManager();
-    return cmi.getStatus().getCrawlerStatus(key);
+  private CrawlerStatus getCrawlerStatus(String key) throws IllegalStateException {
+      CrawlManagerImpl cmi = getCrawlManager();
+      return cmi.getStatus().getCrawlerStatus(key);
   }
 
   private CrawlStatus CrawlStatusfromCrawlerStatus(CrawlerStatus cs) {

@@ -61,9 +61,9 @@ paths:
         '401':
           description: Access Denied.
         '404':
-          description: Not Found
+          $ref: '#/components/responses/NotFound'
         '500':
-          description: Internal Server Error
+          $ref: '#/components/responses/ServerError'
     parameters:
       - name: crawler
         in: path
@@ -104,11 +104,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/jobPager'
         '400':
-          description: Bad Request
+          $ref: '#/components/responses/BadRequest'
         '401':
-          description: Unauthorized
+          $ref: '#/components/responses/Unauthorized'
         '500':
-          description: Internal Server Error
+          $ref: '#/components/responses/ServerError'
     post:
       tags:
         - crawls
@@ -129,15 +129,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/requestCrawlResult'
         '400':
-          description: Bad Request
+          $ref: '#/components/responses/BadRequest'
         '401':
-          description: Unauthorized
+          $ref: '#/components/responses/Unauthorized'
         '403':
           description: Forbidden
         '404':
-          description: Not Found
+          $ref: '#/components/responses/NotFound'
         '500':
-          description: Internal Server Error
+          $ref: '#/components/responses/ServerError'
     delete:
       tags:
         - crawls
@@ -146,7 +146,11 @@ paths:
       operationId: deleteCrawls
       responses:
         '501':
-          description: Not Implemented.
+          description: This feature is not implemented.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/status'
   /status:
     get:
       tags:
@@ -162,9 +166,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/apiStatus'
         '401':
-          description: Unauthorized
+          $ref: '#/components/responses/Unauthorized'
         '500':
-          description: Internal Server Error
+          $ref: '#/components/responses/ServerError'
   '/crawls/{jobId}/fetched':
     summary: The list of urls fetched during the crawl.
     description: A paged in list of urls.
@@ -182,13 +186,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/urlPager'
         '400':
-          description: Bad Request
+          $ref: '#/components/responses/BadRequest'
         '401':
-          description: Unauthorized
-        '409':
-          description: Not Found
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '500':
-          description: Internal Server Error
+          $ref: '#/components/responses/ServerError'
     parameters:
       - name: jobId
         in: path
@@ -221,13 +225,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/urlPager'
         '400':
-          description: Bad Request
+          $ref: '#/components/responses/BadRequest'
         '401':
-          description: Unauthorized
-        '409':
-          description: Not Found
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '500':
-          description: Internal Server Error
+          $ref: '#/components/responses/ServerError'
     parameters:
       - name: jobId
         in: path
@@ -261,13 +265,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/urlPager'
         '400':
-          description: Bad Request
+          $ref: '#/components/responses/BadRequest'
         '401':
-          description: Unauthorized
-        '409':
-          description: Not Found
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '500':
-          description: Internal Server Error
+          $ref: '#/components/responses/ServerError'
     parameters:
       - name: jobId
         in: path
@@ -300,13 +304,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/urlPager'
         '400':
-          description: Bad Request
+          $ref: '#/components/responses/BadRequest'
         '401':
-          description: Unauthorized
-        '409':
-          description: Not Found
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '500':
-          description: Internal Server Error
+          $ref: '#/components/responses/ServerError'
     parameters:
       - name: jobId
         in: path
@@ -339,13 +343,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/urlPager'
         '400':
-          description: Bad Request
+          $ref: '#/components/responses/BadRequest'
         '401':
-          description: Unauthorized
-        '409':
-          description: Not Found
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '500':
-          description: Internal Server Error
+          $ref: '#/components/responses/ServerError'
     parameters:
       - name: jobId
         in: path
@@ -362,29 +366,29 @@ paths:
         description: The number of jobs per page.
         schema:
           type: integer
-  '/crawls/{jobId}/errored':
+  '/crawls/{jobId}/errors':
     description: A paged in list of urls.
     get:
       tags:
       - crawls
-      summary: A pagable list of errored urls.
-      description: Get a list of errored urls.
-      operationId: getCrawlErrored
+      summary: A pagable list of urls with errors.
+      description: Get a list of urls with errors.
+      operationId: getCrawlErrors
       responses:
         '200':
-          description: The requested errored urls.
+          description: The requested urls with errors.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/errorPager'
+                $ref: '#/components/schemas/urlPager'
         '400':
-          description: Bad Request
+          $ref: '#/components/responses/BadRequest'
         '401':
-          description: Unauthorized
-        '409':
-          description: Not Found
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '500':
-          description: Internal Server Error
+          $ref: '#/components/responses/ServerError'
     parameters:
       - name: jobId
         in: path
@@ -417,13 +421,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/urlPager'
         '400':
-          description: Bad Request
+          $ref: '#/components/responses/BadRequest'
         '401':
-          description: Unauthorized
-        '409':
-          description: Not Found
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '500':
-          description: Internal Server Error
+          $ref: '#/components/responses/ServerError'
     parameters:
       - name: jobId
         in: path
@@ -482,16 +486,16 @@ paths:
               operationId: getCrawlPending
               parameters:
                 jobId: $request.path.jobId
-            errored:
-              operationId: getCrawlErrored
+            errors:
+              operationId: getCrawlErrors
               parameters:
                 jobId: $request.path.jobId
         '401':
-          description: Unauthorized
+          $ref: '#/components/responses/Unauthorized'
         '404':
-          description: Not Found
+          $ref: '#/components/responses/NotFound'
         '500':
-          description: Internal Server Error
+          $ref: '#/components/responses/ServerError'
     delete:
       summary: Remove or stop a crawl
       tags:
@@ -506,15 +510,15 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/crawlRequest'
+                $ref: '#/components/schemas/crawlStatus'
         '401':
-          description: Unauthorized
+          $ref: '#/components/responses/Unauthorized'
         '403':
           description: Forbidden
         '404':
-          description: Not Found
+          $ref: '#/components/responses/NotFound'
         '500':
-          description: Internal Server Error
+          $ref: '#/components/responses/ServerError'
     parameters:
       - name: jobId
         in: path
@@ -523,6 +527,37 @@ paths:
         schema:
           type: string
 components:
+  responses:
+    BadRequest:
+      description: The request is malformed.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/status'
+    Unauthorized:
+      description: Authorization is Required.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/status'
+    Forbidden:
+      description: The specified request is forbidden.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/status'
+    NotFound:
+      description: The specified resource was not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/status'
+    ServerError:
+      description: An internal server error has occured.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/status'
   schemas:
     mimeCounter:
       description: A counter for mimeTypes seen during a crawl.
@@ -570,7 +605,7 @@ components:
           description: The link to the next page.
           type: string
     status:
-      description: The existing state of a job.
+      description: A status which include a code and message.
       required:
         - code
         - msg
@@ -802,12 +837,10 @@ components:
         pageInfo:
           $ref: '#/components/schemas/pageInfo'
         urls:
-          description: An list of urls with addition key:value mappings
+          description: An list of url with related info.
           type: array
           items:
-            type: object
-            additionalProperties:
-              type: string
+            $ref: '#/components/schemas/urlInfo'
     jobPager:
       description: A display page of jobs
       required:
@@ -822,27 +855,38 @@ components:
             $ref: '#/components/schemas/crawlStatus'
         pageInfo:
           $ref: '#/components/schemas/pageInfo'
-    errorPager:
-      description: A Pager for error urls.
+    urlInfo:
+      description: information related to an url.
       required:
-        - pageInfo
-        - errors
+        - url
       type: object
       properties:
-        pageInfo:
-          $ref: '#/components/schemas/pageInfo'
-        errors:
-          description: An list of urls with a map of error details
+        url:
+          description: The url string
+          type: string
+        error:
+          $ref: '#/components/schemas/urlError'
+        referrers:
+          description: An optional list of referrers.
           type: array
           items:
-            type: object
-            properties:
-              errStatus:
-                $ref: '#/components/schemas/status'
-            required:
-              - errStatus
-            additionalProperties:
-              type: string
+            type: string
+    urlError:
+      description: information related to an error for a url.
+      required:
+      - message
+      - severity
+      properties:
+        message:
+          description: The error message
+          type: string
+        severity:
+          description: the severity of the error.
+          type: string
+          enum:
+            - Warning
+            - Error
+            - Fatal
   securitySchemes:
     basicAuth:
       type: http

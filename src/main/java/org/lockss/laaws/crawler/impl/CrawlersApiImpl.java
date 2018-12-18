@@ -26,6 +26,9 @@
 
 package org.lockss.laaws.crawler.impl;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import org.lockss.app.LockssApp;
 import org.lockss.crawler.CrawlManager;
 import org.lockss.crawler.CrawlManagerImpl;
@@ -38,11 +41,9 @@ import org.lockss.log.L4JLogger;
 import org.lockss.util.ListUtil;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Controller;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
+@Controller
 public class CrawlersApiImpl implements CrawlersApiDelegate {
 
   private static final L4JLogger log = L4JLogger.getLogger();
@@ -52,6 +53,7 @@ public class CrawlersApiImpl implements CrawlersApiDelegate {
   public static List<String> CRAWLERS = ListUtil.list("lockss");
   private CrawlManagerImpl crawlManager;
 
+  private static Map<String, CrawlerConfig> configMap;
 
   /**
    * Return the list of configured crawlers.
@@ -68,14 +70,14 @@ public class CrawlersApiImpl implements CrawlersApiDelegate {
     InlineResponse200 response = new InlineResponse200();
     Map<String, CrawlerStatus> crawlers = new HashMap<>();
     // we only have one for now so no need to iterate.
-    CrawlerStatus status = new CrawlerStatus().isEnabled(cmi.isCrawlerEnabled()).isRunning(cmi.isCrawlStarterRunning());
+    CrawlerStatus status = new CrawlerStatus().isEnabled(cmi.isCrawlerEnabled())
+        .isRunning(cmi.isCrawlStarterRunning());
     crawlers.put("lockss", status);
     response.setCrawlers(crawlers);
     return new ResponseEntity<>(response, HttpStatus.OK);
   }
 
   /**
-   * @param crawler
    * @see CrawlersApi#getCrawlerConfig
    */
   @Override
@@ -84,9 +86,10 @@ public class CrawlersApiImpl implements CrawlersApiDelegate {
     if (cmi == null) {
       return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
     }
-    // TODO: decide what we want to reveal about the LOCKSS Crawler here.
-    CrawlerConfig config = new CrawlerConfig();
-    config.configMap(new HashMap<String, String>());
+    CrawlerConfig config = getConfigMap().get(crawler);
+    if (config == null) {
+      return new ResponseEntity<>(null, HttpStatus.NOT_FOUND);
+    }
     return new ResponseEntity<>(config, HttpStatus.OK);
   }
 
@@ -100,5 +103,16 @@ public class CrawlersApiImpl implements CrawlersApiDelegate {
     return crawlManager;
   }
 
-
+  private Map<String, CrawlerConfig> getConfigMap() {
+    if (configMap == null) {
+      configMap = new HashMap<String, CrawlerConfig>();
+      for (String crawler : CRAWLERS) {
+        // TODO: add all of the config params here.
+        CrawlerConfig config = new CrawlerConfig();
+        config.configMap(new HashMap<>());
+        configMap.put(crawler, config);
+      }
+    }
+    return configMap;
+  }
 }

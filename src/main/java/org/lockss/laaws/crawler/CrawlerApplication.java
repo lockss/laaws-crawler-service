@@ -27,30 +27,43 @@
 package org.lockss.laaws.crawler;
 
 import static org.lockss.app.LockssApp.PARAM_START_PLUGINS;
-import static org.lockss.app.ManagerDescs.*;
+import static org.lockss.app.ManagerDescs.ACCOUNT_MANAGER_DESC;
+import static org.lockss.app.ManagerDescs.ARCHIVAL_UNIT_STATUS_DESC;
+import static org.lockss.app.ManagerDescs.CONFIG_DB_MANAGER_DESC;
+import static org.lockss.app.ManagerDescs.CONFIG_STATUS_DESC;
+import static org.lockss.app.ManagerDescs.CRAWL_MANAGER_DESC;
+import static org.lockss.app.ManagerDescs.IDENTITY_MANAGER_DESC;
+import static org.lockss.app.ManagerDescs.OVERVIEW_STATUS_DESC;
+import static org.lockss.app.ManagerDescs.PLATFORM_CONFIG_STATUS_DESC;
+import static org.lockss.app.ManagerDescs.PLUGIN_MANAGER_DESC;
+import static org.lockss.app.ManagerDescs.PROXY_MANAGER_DESC;
+import static org.lockss.app.ManagerDescs.REPOSITORY_MANAGER_DESC;
+import static org.lockss.app.ManagerDescs.SERVLET_MANAGER_DESC;
+
 import org.lockss.app.LockssApp;
 import org.lockss.app.LockssApp.AppSpec;
 import org.lockss.app.LockssApp.ManagerDesc;
 import org.lockss.app.LockssDaemon;
 import org.lockss.plugin.PluginManager;
 import org.lockss.spring.base.BaseSpringBootApplication;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import springfox.documentation.swagger2.annotations.EnableSwagger2;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 @SpringBootApplication
 @EnableSwagger2
 public class CrawlerApplication extends BaseSpringBootApplication
     implements CommandLineRunner {
+
   private static final Logger logger = LoggerFactory.getLogger(CrawlerApplication.class);
 
-  LockssApp lockssApp;
-
-  // Manager descriptors.  The order of this table determines the order in
-  // which managers are initialized and started.
+  /**
+   * Manager descriptors used by this service. The order of this table determines the order in which
+   * managers are initialized and started.
+   */
   private static final ManagerDesc[] myManagerDescs = {
       ACCOUNT_MANAGER_DESC,
       CONFIG_DB_MANAGER_DESC,
@@ -89,7 +102,7 @@ public class CrawlerApplication extends BaseSpringBootApplication
     // Check whether there are command line arguments available.
     if (args != null && args.length > 0) {
       // Yes: Start the LOCKSS daemon.
-      logger.info("Starting the LOCKSS Metadata Query Service");
+      logger.info("Starting the LOCKSS Crawler Service");
       AppSpec spec = new AppSpec()
           .setName("Crawler Service")
           .setArgs(args)
@@ -97,8 +110,9 @@ public class CrawlerApplication extends BaseSpringBootApplication
           .addAppConfig(PARAM_START_PLUGINS, "true")
           .addAppConfig(PluginManager.PARAM_START_ALL_AUS, "true");
       logger.info("Calling LockssApp.startStatic...");
-      lockssApp = LockssApp.startStatic(LockssDaemon.class, spec);
-    } else {
+      LockssApp.startStatic(LockssDaemon.class, spec);
+    }
+    else {
       // No: Do nothing. This happens when a test is started and before the
       // test setup has got a chance to inject the appropriate command line
       // parameters.

@@ -32,3 +32,5 @@ src/generated/java/org/lockss/laaws/*/api/StatusApiController.java
 src/generated/java/org/lockss/laaws/*/api/StatusApiDelegate.java
 src/generated/java/org/lockss/laaws/*/model/ApiStatus.java
 src/test/java/org/lockss/laaws/crawler/api/StatusApiControllerIntegrationTest.java
+src/test/java/org/lockss/laaws/crawler/api/CrawlersApiControllerIntegrationTest.java
+src/test/java/org/lockss/laaws/crawler/api/CrawlsApiControllerIntegrationTest.java

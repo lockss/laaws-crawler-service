@@ -32,6 +32,7 @@ import java.util.Map;
 import org.lockss.app.LockssApp;
 import org.lockss.crawler.CrawlManager;
 import org.lockss.crawler.CrawlManagerImpl;
+import org.lockss.crawler.CrawlManagerStatus;
 import org.lockss.laaws.crawler.api.CrawlersApi;
 import org.lockss.laaws.crawler.api.CrawlersApiDelegate;
 import org.lockss.laaws.crawler.model.CrawlerConfig;
@@ -107,9 +108,14 @@ public class CrawlersApiImpl implements CrawlersApiDelegate {
     if (configMap == null) {
       configMap = new HashMap<String, CrawlerConfig>();
       for (String crawler : CRAWLERS) {
-        // TODO: add all of the config params here.
+        // TODO: add useful subset of the config params here.
+
         CrawlerConfig config = new CrawlerConfig();
-        config.configMap(new HashMap<>());
+        HashMap<String,String> crawlerMap = new HashMap<>();
+        config.setConfigMap(crawlerMap);
+        crawlerMap.put("crawlerEnabled",String.valueOf(crawlManager.isCrawlerEnabled()));
+        crawlerMap.put("starterEnabled",String.valueOf(crawlManager.isCrawlStarterEnabled()));
+        //todo: add more later.
         configMap.put(crawler, config);
       }
     }

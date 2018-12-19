@@ -767,6 +767,26 @@ components:
           type: array
           items:
             type: string
+        priority:
+          format: int32
+          description: The priority for this crawl.
+          type: integer
+        sources:
+          description: The sources to use for the crawl.
+          type: array
+          items:
+            type: string
+        depth:
+          format: int32
+          description: The depth of the crawl.
+          type: integer
+        refetchDepth:
+          format: int32
+          description: The refetch depth of the crawl.
+          type: integer
+        proxy:
+          description: The proxy used for crawling.
+          type: string
         startTime:
           format: int64
           description: The timestamp for the start of crawl.
@@ -786,9 +806,9 @@ components:
         isError:
           description: True if the crawl has errored.
           type: boolean
-        priority:
-          format: int32
-          description: The priority for this crawl.
+        bytesFetched:
+          format: int64
+          description: The number of bytes fetched.
           type: integer
         fetchedItems:
           $ref: '#/components/schemas/counter'
@@ -798,11 +818,6 @@ components:
           $ref: '#/components/schemas/counter'
         parsedItems:
           $ref: '#/components/schemas/counter'
-        sources:
-          description: The sources to use for the crawl.
-          type: array
-          items:
-            type: string
         pendingItems:
           $ref: '#/components/schemas/counter'
         errors:
@@ -812,21 +827,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/mimeCounter'
-        bytesFetched:
-          format: int64
-          description: The number of bytes fetched.
-          type: integer
-        depth:
-          format: int32
-          description: The depth of the crawl.
-          type: integer
-        refetchDepth:
-          format: int32
-          description: The refetch depth of the crawl.
-          type: integer
-        proxy:
-          description: The proxy used for crawling.
-          type: string
     urlPager:
       description: A Pager for urls with maps.
       required:

@@ -40,6 +40,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import javax.ws.rs.NotFoundException;
 import org.lockss.app.LockssApp;
 import org.lockss.config.Configuration;
 import org.lockss.crawler.CrawlManager;
@@ -80,12 +81,6 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
     implements CrawlsApiDelegate {
 
   public static final String PREFIX = Configuration.PREFIX + "crawlerService.";
-  /**
-   * Priority for crawls started from the this service.
-   */
-  public static final String PARAM_CRAWL_PRIORITY =
-      PREFIX + "crawlPriority";
-  public static final int DEFAULT_CRAWL_PRIORITY = 10;
   static final String NO_REPAIR_URLS =
       "No urls for repair.";
   static final String NO_SUCH_AU_ERROR_MESSAGE = "No such Archival Unit";
@@ -173,7 +168,7 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
 
     try {
       JobPager pager = getJobsPager(limit, continuationToken);
-      return new ResponseEntity<JobPager>(pager, HttpStatus.OK);
+      return new ResponseEntity<>(pager, HttpStatus.OK);
     }
     catch (Exception e) {
       String message = "Cannot return crawls: " + e.getMessage();
@@ -192,15 +187,15 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
   @Override
   public ResponseEntity<CrawlStatus> deleteCrawlById(String jobId) {
     try {
-    CrawlManagerImpl cmi = getCrawlManager();
-    CrawlerStatus crawlerStatus = getCrawlerStatus(jobId);
-    if (crawlerStatus != null) {
-      if (crawlerStatus.isCrawlWaiting() || crawlerStatus.isCrawlActive()) {
-        // todo: this needs to mimic remove au event deleted without the remove.
-        // cmi.auEventDeleted (?)
+      CrawlManagerImpl cmi = getCrawlManager();
+      CrawlerStatus crawlerStatus = getCrawlerStatus(jobId);
+      if (crawlerStatus != null) {
+        if (crawlerStatus.isCrawlWaiting() || crawlerStatus.isCrawlActive()) {
+          //todo: unhighlight when we push the corresponding change in lockss-core
+          //cmi.deleteCrawl(crawlerStatus.getAu());
+        }
+        return new ResponseEntity<>(CrawlStatusfromCrawlerStatus(crawlerStatus), HttpStatus.OK);
       }
-      return new ResponseEntity<>(CrawlStatusfromCrawlerStatus(crawlerStatus), HttpStatus.OK);
-    }
       return new ResponseEntity<>(HttpStatus.NOT_FOUND);
     } catch(Exception ex) {
       log.error("deletion error on server.", ex);
@@ -218,13 +213,13 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
   public ResponseEntity<CrawlStatus> getCrawlById(String jobId) {
     try {
       CrawlerStatus crawlerStatus = getCrawlerStatus(jobId);
-      if (crawlerStatus == null) {
-        String message = "No Job found for '" + jobId + "'";
-        log.warn(message);
-        return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-      }
       CrawlStatus status = getCrawlStatus(jobId);
       return new ResponseEntity<>(status, HttpStatus.OK);
+    }
+    catch (NotFoundException nfe) {
+      String msg = "No info found for '" + jobId + "'.";
+      log.warn(msg);
+      return new ResponseEntity<>(HttpStatus.NOT_FOUND);
     }
     catch (Exception ex) {
       log.error("unable to return crawl status: server error", ex);
@@ -250,13 +245,19 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
       pager = getUrlPager(status, urls, continuationToken, limit);
       return new ResponseEntity<>(pager, HttpStatus.OK);
     }
-    catch (IllegalArgumentException iae) {
-      String message = "No Job found for jobId'" + jobId + "'";
-      log.warn(message, iae);
+    catch (NotFoundException nfe) {
+      String msg = "No info found for '" + jobId + "'.";
+      log.warn(msg);
       return new ResponseEntity<>(HttpStatus.NOT_FOUND);
     }
+    catch (IllegalArgumentException iae) {
+      String msg = "Invalid continuation token'" + continuationToken + "'";
+      log.warn(msg, iae);
+      return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+    }
     catch (Exception e) {
-      String message = "Cannot return error items for job '" + jobId + "'";
+      String msg = "Cannot return mime-type for auid '" + jobId + "'";
+      log.error(msg, e);
       return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
@@ -279,14 +280,19 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
       pager = getUrlPager(status, urls, continuationToken, limit);
       return new ResponseEntity<>(pager, HttpStatus.OK);
     }
-    catch (IllegalArgumentException iae) {
-      String message = "No Job found for jobId'" + jobId + "'";
-      log.warn(message, iae);
+    catch (NotFoundException nfe) {
+      String msg = "No urls found for '" + jobId + "'.";
+      log.warn(msg);
       return new ResponseEntity<>(HttpStatus.NOT_FOUND);
     }
+    catch (IllegalArgumentException iae) {
+      String msg = "Invalid continuation token'" + continuationToken + "'";
+      log.warn(msg, iae);
+      return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+    }
     catch (Exception e) {
-      String message = "Cannot return excluded items for auid '" + jobId + "'";
-      log.error(message, e);
+      String msg = "Cannot return mime-type for auid '" + jobId + "'";
+      log.error(msg, e);
       return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
@@ -309,14 +315,19 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
       pager = getUrlPager(status, urls, continuationToken, limit);
       return new ResponseEntity<UrlPager>(pager, HttpStatus.OK);
     }
-    catch (IllegalArgumentException iae) {
-      String message = "No Job found for jobId'" + jobId + "'";
-      log.warn(message, iae);
+    catch (NotFoundException nfe) {
+      String msg = "No urls found for '" + jobId + "'.";
+      log.warn(msg);
       return new ResponseEntity<>(HttpStatus.NOT_FOUND);
     }
+    catch (IllegalArgumentException iae) {
+      String msg = "Invalid continuation token'" + continuationToken + "'";
+      log.warn(msg, iae);
+      return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+    }
     catch (Exception e) {
-      String message = "Cannot return fetched items for auid '" + jobId + "'";
-      log.error(message, e);
+      String msg = "Cannot return mime-type for auid '" + jobId + "'";
+      log.error(msg, e);
       return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
@@ -339,14 +350,19 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
       pager = getUrlPager(status, urls, continuationToken, limit);
       return new ResponseEntity<UrlPager>(pager, HttpStatus.OK);
     }
-    catch (IllegalArgumentException iae) {
-      String message = "No Archival Unit found for jobId '" + jobId + "'";
-      log.warn(message, iae);
+    catch (NotFoundException nfe) {
+      String msg = "No urls found for '" + jobId + "'.";
+      log.warn(msg);
       return new ResponseEntity<>(HttpStatus.NOT_FOUND);
     }
+    catch (IllegalArgumentException iae) {
+      String msg = "Invalid continuation token'" + continuationToken + "'";
+      log.warn(msg, iae);
+      return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+    }
     catch (Exception e) {
-      String message = "Cannot return notModified items for auid '" + jobId + "'";
-      log.error(message, e);
+      String msg = "Cannot return mime-type for auid '" + jobId + "'";
+      log.error(msg, e);
       return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
@@ -369,14 +385,19 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
       pager = getUrlPager(status, urls, continuationToken, limit);
       return new ResponseEntity<UrlPager>(pager, HttpStatus.OK);
     }
-    catch (IllegalArgumentException iae) {
-      String message = "No Job found for jobId'" + jobId + "'";
-      log.warn(message, iae);
+    catch (NotFoundException nfe) {
+      String msg = "No urls found for '" + jobId + "'.";
+      log.warn(msg);
       return new ResponseEntity<>(HttpStatus.NOT_FOUND);
     }
+    catch (IllegalArgumentException iae) {
+      String msg = "Invalid continuation token'" + continuationToken + "'";
+      log.warn(msg, iae);
+      return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+    }
     catch (Exception e) {
-      String message = "Cannot return parsed items for auid '" + jobId + "'";
-      log.error(message, e);
+      String msg = "Cannot return mime-type for auid '" + jobId + "'";
+      log.error(msg, e);
       return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
@@ -399,16 +420,22 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
       pager = getUrlPager(status, urls, continuationToken, limit);
       return new ResponseEntity<>(pager, HttpStatus.OK);
     }
-    catch (IllegalArgumentException iae) {
-      String message = "No Job found for jobId'" + jobId + "'";
-      log.warn(message, iae);
+    catch (NotFoundException nfe) {
+      String msg = "No urls found for '" + jobId + "'.";
+      log.warn(msg);
       return new ResponseEntity<>(HttpStatus.NOT_FOUND);
     }
+    catch (IllegalArgumentException iae) {
+      String msg = "Invalid continuation token'" + continuationToken + "'";
+      log.warn(msg, iae);
+      return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+    }
     catch (Exception e) {
-      String message = "Cannot return pending items for auid '" + jobId + "'";
-      log.error(message, e);
+      String msg = "Cannot return mime-type for auid '" + jobId + "'";
+      log.error(msg, e);
       return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
     }
+
   }
 
   /**
@@ -430,14 +457,19 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
       pager = getUrlPager(status, urls, continuationToken, limit);
       return new ResponseEntity<UrlPager>(pager, HttpStatus.OK);
     }
-    catch (IllegalArgumentException iae) {
-      String message = "No Job found for jobId'" + jobId + "'";
-      log.warn(message, iae);
+    catch (NotFoundException nfe) {
+      String msg = "Unable to find mime type '" + type + "' for job " + jobId + "'.";
+      log.warn(msg);
       return new ResponseEntity<>(HttpStatus.NOT_FOUND);
     }
+    catch (IllegalArgumentException iae) {
+      String msg = "Invalid continuation token'" + continuationToken + "'";
+      log.warn(msg, iae);
+      return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+    }
     catch (Exception e) {
-      String message = "Cannot return mime-type for auid '" + jobId + "'";
-      log.error(message, e);
+      String msg = "Cannot return mime-type for auid '" + jobId + "'";
+      log.error(msg, e);
       return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
@@ -775,21 +807,23 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
   }
 
   private CrawlManagerImpl getCrawlManager() throws IllegalStateException{
-    try {
-      if (crawlMgrImpl == null) {
-        CrawlManager cmgr = LockssApp.getManagerByTypeStatic(CrawlManager.class);
-        crawlMgrImpl = (CrawlManagerImpl) cmgr;
-      }
-      return crawlMgrImpl;
+    if (crawlMgrImpl == null) {
+      CrawlManager cmgr = LockssApp.getManagerByTypeStatic(CrawlManager.class);
+      crawlMgrImpl = (CrawlManagerImpl) cmgr;
     }
-    catch (Exception ex) {
-      throw new IllegalStateException(ex);
-    }
+    return crawlMgrImpl;
+
   }
 
-  private CrawlerStatus getCrawlerStatus(String key) throws IllegalStateException {
-      CrawlManagerImpl cmi = getCrawlManager();
-      return cmi.getStatus().getCrawlerStatus(key);
+  private CrawlerStatus getCrawlerStatus(String key) throws NotFoundException {
+    CrawlManagerImpl cmi = getCrawlManager();
+    CrawlerStatus cs = cmi.getStatus().getCrawlerStatus(key);
+    if (cs == null) {
+      String msg = "No Job found for '" + key + "'";
+      log.warn(msg);
+      throw new NotFoundException();
+    }
+    return cs;
   }
 
   private CrawlStatus CrawlStatusfromCrawlerStatus(CrawlerStatus cs) {

@@ -180,3 +180,4 @@ local.properties
 .nfs*
 
 .swagger-codegen/
+/TAGS

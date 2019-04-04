@@ -652,7 +652,7 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
     }
 
     // Perform the crawl request.
-    cmi.startNewContentCrawl(req, null);
+    cmi.startNewContentCrawl(req);
     result = getRequestCrawlResult(auId, depth, true, delayReason, null);
     return result;
   }
@@ -684,7 +684,7 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
       return result;
     }
 
-    cmi.startRepair(au, urls, null, null, null);
+    cmi.startRepair(au, urls, null, null);
     return result = getRequestCrawlResult(auId, null, true, null, null);
   }
 

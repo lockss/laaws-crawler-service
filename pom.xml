@@ -49,7 +49,7 @@ POSSIBILITY OF SUCH DAMAGE.
   <packaging>jar</packaging>
 
   <name>laaws-crawler-service</name>
-  <description>LAAWS Crawler Service</description>
+  <description>LOCKSS Crawler Service</description>
 
   <properties>
     <!-- Is a Spring project -->

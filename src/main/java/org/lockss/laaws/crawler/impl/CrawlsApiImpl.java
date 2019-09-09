@@ -119,9 +119,7 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
    */
   @Override
   public ApiStatus getApiStatus() {
-    return new ApiStatus()
-        .setVersion(API_VERSION)
-        .setReady(LockssApp.getLockssApp().isAppRunning());
+    return getDefaultApiStatus();
   }
 
   /**

@@ -63,7 +63,7 @@ import org.lockss.laaws.crawler.model.UrlError.SeverityEnum;
 import org.lockss.laaws.crawler.model.UrlInfo;
 import org.lockss.laaws.crawler.model.UrlPager;
 import org.lockss.laaws.crawler.utils.ContinuationToken;
-import org.lockss.laaws.status.model.ApiStatus;
+import org.lockss.util.rest.status.ApiStatus;
 import org.lockss.log.L4JLogger;
 import org.lockss.plugin.ArchivalUnit;
 import org.lockss.plugin.PluginManager;

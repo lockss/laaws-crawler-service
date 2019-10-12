@@ -34,12 +34,12 @@ sed -e "s/^}$//" $API_DELEGATE > "$TEMPFILE" && cat <<EOF_API_DELEGATE_EDIT >> "
     /**
      * @see CrawlsApi#getStatus
      */
-    default ResponseEntity<org.lockss.laaws.status.model.ApiStatus> getStatus() {
+    default ResponseEntity<org.lockss.util.rest.status.ApiStatus> getStatus() {
       if (getObjectMapper().isPresent() && getAcceptHeader().isPresent()) {
         if (getAcceptHeader().get().contains("application/json")) {
           try {
             return new ResponseEntity<>(getObjectMapper().get()
-                .readValue("{  \"ready\" : true,  \"version\" : \"version\"}", org.lockss.laaws.status.model.ApiStatus.class),
+                .readValue("{  \"ready\" : true,  \"version\" : \"version\"}", org.lockss.util.rest.status.ApiStatus.class),
                 HttpStatus.NOT_IMPLEMENTED);
           } catch (IOException e) {
             log.error("Couldn't serialize response for content type application/json", e);
@@ -62,7 +62,7 @@ sed -i".bak" -e "s/public interface CrawlsApi/public interface CrawlsApi extends
 TEMPFILE="$(mktemp)"
 sed -e "s/^}$//" $API > "$TEMPFILE" && cat <<EOF_API_EDIT >> "$TEMPFILE" && mv "$TEMPFILE" $API
     @Override
-    default ResponseEntity<org.lockss.laaws.status.model.ApiStatus> getStatus() {
+    default ResponseEntity<org.lockss.util.rest.status.ApiStatus> getStatus() {
       return getDelegate().getStatus();
     }
 }

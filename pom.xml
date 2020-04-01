@@ -57,10 +57,6 @@ POSSIBILITY OF SUCH DAMAGE.
     <build.java.package>org.lockss.laaws.crawler</build.java.package>
     <build.java.mainClass>${build.java.package}.CrawlerApplication</build.java.mainClass>
 
-    <!-- Is OpenAPI 3 -->
-    <build.java.spring.generateSwagger.groupId>io.swagger.codegen.v3</build.java.spring.generateSwagger.groupId>
-    <version.plugin.swagger-codegen-maven-plugin>3.0.3</version.plugin.swagger-codegen-maven-plugin>
-
     <!-- Is a Docker project -->
     <build.docker.skip>false</build.docker.skip>
     <build.docker.dockerBuild.restPort>24660</build.docker.dockerBuild.restPort>
@@ -68,9 +64,6 @@ POSSIBILITY OF SUCH DAMAGE.
     
     <!-- Needs lockss-legacy repository for lockss-plugins -->
     <repository.enabled.lockss-legacy>true</repository.enabled.lockss-legacy>
-    
-    <!-- now called build.java.spring.postprocessSwagger.skip or skipSwaggerPostProcess -->
-<!--     <skipCodegenFix>false</skipCodegenFix> -->
   </properties>
 
   <dependencies>
@@ -91,13 +84,6 @@ POSSIBILITY OF SUCH DAMAGE.
 
     <dependency>
       <groupId>org.lockss</groupId>
-      <artifactId>lockss-core-bundle</artifactId>
-      <version>${version.lockss.lockss-core-bundle}</version>
-      <type>pom</type>
-    </dependency>
-
-    <dependency>
-      <groupId>org.lockss</groupId>
       <artifactId>lockss-core-tests-bundle</artifactId>
       <version>${version.lockss.lockss-core-bundle}</version>
       <type>pom</type>
@@ -106,47 +92,23 @@ POSSIBILITY OF SUCH DAMAGE.
 
     <dependency>
       <groupId>org.lockss</groupId>
-      <artifactId>lockss-plugins</artifactId>
-      <version>${version.lockss.lockss-plugins}</version>
+      <artifactId>lockss-core-bundle</artifactId>
+      <version>${version.lockss.lockss-core-bundle}</version>
+      <type>pom</type>
     </dependency>
 
     <dependency>
-      <groupId>org.mapstruct</groupId>
-      <artifactId>mapstruct-jdk8</artifactId>
-      <version>${version.group.mapstruct-jdk8}</version>
+      <groupId>com.fasterxml.jackson.datatype</groupId>
+      <artifactId>jackson-datatype-jsr310</artifactId>
+      <version>${version.group.jackson}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.lockss</groupId>
+      <artifactId>lockss-plugins</artifactId>
+      <version>${version.lockss.lockss-plugins}</version>
+      <scope>test</scope>
     </dependency>
 
   </dependencies>
-
-  <build>
-  
-    <plugins>
-
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <version>${version.plugin.maven-compiler-plugin}</version>
-        <configuration>
-          <annotationProcessorPaths>
-            <path>
-              <groupId>org.mapstruct</groupId>
-              <artifactId>mapstruct-processor</artifactId>
-              <version>${version.group.mapstruct-jdk8}</version>
-            </path>
-          </annotationProcessorPaths>
-          <compilerArgs>
-            <compilerArg>
-              -Amapstruct.suppressGeneratorTimestamp=true
-            </compilerArg>
-            <compilerArg>
-              -Amapstruct.suppressGeneratorVersionInfoComment=true
-            </compilerArg>
-          </compilerArgs>
-        </configuration>
-      </plugin>
-
-    </plugins>
-    
-  </build>
-
 </project>

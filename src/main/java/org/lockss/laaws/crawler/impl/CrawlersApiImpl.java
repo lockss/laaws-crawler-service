@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Board of Trustees of Leland Stanford Jr. University,
+ * Copyright (c) 2018-2020 Board of Trustees of Leland Stanford Jr. University,
  * all rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -32,28 +32,32 @@ import java.util.Map;
 import org.lockss.app.LockssApp;
 import org.lockss.crawler.CrawlManager;
 import org.lockss.crawler.CrawlManagerImpl;
-import org.lockss.crawler.CrawlManagerStatus;
 import org.lockss.laaws.crawler.api.CrawlersApi;
 import org.lockss.laaws.crawler.api.CrawlersApiDelegate;
 import org.lockss.laaws.crawler.model.CrawlerConfig;
 import org.lockss.laaws.crawler.model.CrawlerStatus;
-import org.lockss.laaws.crawler.model.InlineResponse200;
+import org.lockss.laaws.crawler.model.CrawlerStatuses;
 import org.lockss.log.L4JLogger;
+import org.lockss.spring.base.BaseSpringApiServiceImpl;
 import org.lockss.util.ListUtil;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Controller;
+import org.springframework.stereotype.Service;
 
-@Controller
-public class CrawlersApiImpl implements CrawlersApiDelegate {
-
+/**
+ * Service for accessing crawlers.
+ */
+@Service
+public class CrawlersApiImpl extends BaseSpringApiServiceImpl
+    implements CrawlersApiDelegate {
   private static final L4JLogger log = L4JLogger.getLogger();
+
   /**
    * The list of known crawlers.
    */
   public static List<String> CRAWLERS = ListUtil.list("lockss");
-  private CrawlManagerImpl crawlManager;
 
+  private CrawlManagerImpl crawlManager;
   private static Map<String, CrawlerConfig> configMap;
 
   /**
@@ -62,19 +66,28 @@ public class CrawlersApiImpl implements CrawlersApiDelegate {
    * @see CrawlersApi#getCrawlers
    */
   @Override
-  public ResponseEntity<InlineResponse200> getCrawlers() {
+  public ResponseEntity<CrawlerStatuses> getCrawlers() {
+    log.debug2("Invoked");
+
+//    // Check whether the service has not been fully initialized.
+//    if (!waitReady()) {
+//      // Yes: Notify the client.
+//      return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
+//    }
+
     CrawlManagerImpl cmi = getCrawlManager();
+    log.trace("cmi = {}", cmi);
+
     if (cmi == null) {
       return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
-    InlineResponse200 response = new InlineResponse200();
-    Map<String, CrawlerStatus> crawlers = new HashMap<>();
+    CrawlerStatuses response = new CrawlerStatuses();
     // we only have one for now so no need to iterate.
     CrawlerStatus status = new CrawlerStatus().isEnabled(cmi.isCrawlerEnabled())
         .isRunning(cmi.isCrawlStarterRunning());
-    crawlers.put("lockss", status);
-    response.setCrawlers(crawlers);
+    response.putCrawlerMapItem("lockss", status);
+    log.debug2("response = {}", response);
     return new ResponseEntity<>(response, HttpStatus.OK);
   }
 
@@ -83,14 +96,29 @@ public class CrawlersApiImpl implements CrawlersApiDelegate {
    */
   @Override
   public ResponseEntity<CrawlerConfig> getCrawlerConfig(String crawler) {
+    log.debug2("crawler = {}", crawler);
+
+//    // Check whether the service has not been fully initialized.
+//    if (!waitReady()) {
+//      // Yes: Notify the client.
+//      return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
+//    }
+
     CrawlManagerImpl cmi = getCrawlManager();
+    log.trace("cmi = {}", cmi);
+
     if (cmi == null) {
       return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
     }
     CrawlerConfig config = getConfigMap().get(crawler);
+    log.trace("config = {}", config);
+
     if (config == null) {
+      log.debug2("NOT_FOUND");
       return new ResponseEntity<>(null, HttpStatus.NOT_FOUND);
     }
+
+    log.debug2("OK");
     return new ResponseEntity<>(config, HttpStatus.OK);
   }
 

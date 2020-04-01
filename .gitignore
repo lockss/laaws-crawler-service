@@ -181,3 +181,6 @@ local.properties
 
 .swagger-codegen/
 /TAGS
+/logs
+/cache/
+/cache

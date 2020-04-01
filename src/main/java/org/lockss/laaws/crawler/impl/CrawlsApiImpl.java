@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Board of Trustees of Leland Stanford Jr. University,
+ * Copyright (c) 2018-2020 Board of Trustees of Leland Stanford Jr. University,
  * all rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -26,15 +26,7 @@
 
 package org.lockss.laaws.crawler.impl;
 
-import static org.lockss.app.LockssApp.PLUGIN_MANAGER;
-import static org.lockss.laaws.crawler.impl.CrawlersApiImpl.CRAWLERS;
-import static org.lockss.laaws.crawler.impl.CrawlsApiImpl.COUNTER_KIND.errors;
-import static org.lockss.laaws.crawler.impl.CrawlsApiImpl.COUNTER_KIND.excluded;
-import static org.lockss.laaws.crawler.impl.CrawlsApiImpl.COUNTER_KIND.fetched;
-import static org.lockss.laaws.crawler.impl.CrawlsApiImpl.COUNTER_KIND.notmodified;
-import static org.lockss.laaws.crawler.impl.CrawlsApiImpl.COUNTER_KIND.parsed;
-import static org.lockss.laaws.crawler.impl.CrawlsApiImpl.COUNTER_KIND.pending;
-
+import static org.lockss.laaws.crawler.impl.CrawlsApiImpl.COUNTER_KIND.*;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -42,7 +34,6 @@ import java.util.List;
 import java.util.Map;
 import javax.ws.rs.NotFoundException;
 import org.lockss.app.LockssApp;
-import org.lockss.config.Configuration;
 import org.lockss.crawler.CrawlManager;
 import org.lockss.crawler.CrawlManagerImpl;
 import org.lockss.crawler.CrawlReq;
@@ -63,11 +54,10 @@ import org.lockss.laaws.crawler.model.UrlError.SeverityEnum;
 import org.lockss.laaws.crawler.model.UrlInfo;
 import org.lockss.laaws.crawler.model.UrlPager;
 import org.lockss.laaws.crawler.utils.ContinuationToken;
-import org.lockss.util.rest.status.ApiStatus;
 import org.lockss.log.L4JLogger;
 import org.lockss.plugin.ArchivalUnit;
 import org.lockss.plugin.PluginManager;
-import org.lockss.spring.status.SpringLockssBaseApiController;
+import org.lockss.spring.base.BaseSpringApiServiceImpl;
 import org.lockss.util.ListUtil;
 import org.lockss.util.RateLimiter;
 import org.springframework.http.HttpStatus;
@@ -76,11 +66,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.springframework.web.util.UriComponentsBuilder;
 
+/**
+ * Service for accessing crawls.
+ */
 @Service
-public class CrawlsApiImpl extends SpringLockssBaseApiController
+public class CrawlsApiImpl extends BaseSpringApiServiceImpl
     implements CrawlsApiDelegate {
 
-  public static final String PREFIX = Configuration.PREFIX + "crawlerService.";
   static final String NO_REPAIR_URLS =
       "No urls for repair.";
   static final String NO_SUCH_AU_ERROR_MESSAGE = "No such Archival Unit";
@@ -88,15 +80,13 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
       "Use the 'force' parameter to override.";
   private static final String DEBUG_HEADER = "doRequest: ";
   /**
-   * The current version of the API
-   */
-  private static final String API_VERSION = "1.0.0";
-  /**
-   * A template URI for returning a counter for a specific url list eg found or parsed urls.
+   * A template URI for returning a counter for a specific URL list (eg. found
+   * or parsed URLs).
    */
   private static final String COUNTER_URI = "crawls/{jobId}/{counterName}";
   /**
-   * A template URI for returnin a counter for a list of urls of a specific mimeType.
+   * A template URI for returning a counter for a list of URLs of a specific
+   * mimeType.
    */
   private static final String MIME_URI = "crawls/{jobId}/mimeType/{mimeType}";
   /**
@@ -113,16 +103,6 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
   private PluginManager pluginManager;
 
   /**
-   * Return the status of the service and its version.
-   *
-   * @return ApiStatus the common laaws status info for this service.
-   */
-  @Override
-  public ApiStatus getApiStatus() {
-    return getDefaultApiStatus();
-  }
-
-  /**
    * @param body A CrawlRequest for the requested crawl
    * @see CrawlsApi#doCrawl
    */
@@ -130,13 +110,13 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
   public ResponseEntity<RequestCrawlResult> doCrawl(CrawlRequest body) {
     RequestCrawlResult result = null;
     try {
-      if (!CRAWLERS.contains(body.getCrawler())) {
+      if (!CrawlersApiImpl.CRAWLERS.contains(body.getCrawler())) {
         return new ResponseEntity<>(null, HttpStatus.BAD_REQUEST);
       }
       switch (body.getCrawlKind()) {
         case NEWCONTENT:
-          result = doCrawl(body.getAuId(), body.getRefetchDepth(), body.getPriority(),
-              body.isForceCrawl());
+          result = doCrawl(body.getAuId(), body.getRefetchDepth(),
+              body.getPriority(), body.isForceCrawl());
           break;
         case REPAIR:
           result = doRepair(body.getAuId(), body.getRepairList());
@@ -162,7 +142,16 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
    * @see CrawlsApi#getCrawls
    */
   @Override
-  public ResponseEntity<JobPager> getCrawls(Integer limit, String continuationToken) {
+  public ResponseEntity<JobPager> getCrawls(Integer limit,
+      String continuationToken) {
+    log.debug2("limit = {}", limit);
+    log.debug2("continuationToken = {}", continuationToken);
+
+//    // Check whether the service has not been fully initialized.
+//    if (!waitReady()) {
+//      // Yes: Notify the client.
+//      return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
+//    }
 
     try {
       JobPager pager = getJobsPager(limit, continuationToken);
@@ -177,13 +166,22 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
   }
 
   /**
-   * Delete a crawl previously added to the crawl queue, stop the crawl if already running.
+   * Delete a crawl previously added to the crawl queue, stop the crawl if
+   * already running.
    *
    * @param jobId the id assigned to the crawl when added.
    * @see CrawlsApi#deleteCrawlById
    */
   @Override
   public ResponseEntity<CrawlStatus> deleteCrawlById(String jobId) {
+    log.debug2("jobId = {}", jobId);
+
+//    // Check whether the service has not been fully initialized.
+//    if (!waitReady()) {
+//      // Yes: Notify the client.
+//      return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
+//    }
+
     try {
       CrawlManagerImpl cmi = getCrawlManager();
       CrawlerStatus crawlerStatus = getCrawlerStatus(jobId);
@@ -192,7 +190,8 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
           //todo: unhighlight when we push the corresponding change in lockss-core
           //cmi.deleteCrawl(crawlerStatus.getAu());
         }
-        return new ResponseEntity<>(CrawlStatusfromCrawlerStatus(crawlerStatus), HttpStatus.OK);
+        return new ResponseEntity<>(CrawlStatusfromCrawlerStatus(crawlerStatus),
+            HttpStatus.OK);
       }
       return new ResponseEntity<>(HttpStatus.NOT_FOUND);
     } catch(Exception ex) {
@@ -209,6 +208,14 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
    */
   @Override
   public ResponseEntity<CrawlStatus> getCrawlById(String jobId) {
+    log.debug2("jobId = {}", jobId);
+
+//    // Check whether the service has not been fully initialized.
+//    if (!waitReady()) {
+//      // Yes: Notify the client.
+//      return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
+//    }
+
     try {
       CrawlerStatus crawlerStatus = getCrawlerStatus(jobId);
       CrawlStatus status = getCrawlStatus(jobId);
@@ -234,8 +241,18 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
    * @see CrawlsApi#getCrawlErrors
    */
   @Override
-  public ResponseEntity<UrlPager> getCrawlErrors(String jobId, String continuationToken,
-      Integer limit) {
+  public ResponseEntity<UrlPager> getCrawlErrors(String jobId,
+      String continuationToken, Integer limit) {
+    log.debug2("jobId = {}", jobId);
+    log.debug2("continuationToken = {}", continuationToken);
+    log.debug2("limit = {}", limit);
+
+//    // Check whether the service has not been fully initialized.
+//    if (!waitReady()) {
+//      // Yes: Notify the client.
+//      return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
+//    }
+
     UrlPager pager;
     try {
       CrawlerStatus status = getCrawlerStatus(jobId);
@@ -269,8 +286,18 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
    * @see CrawlsApi#getCrawlExcluded
    */
   @Override
-  public ResponseEntity<UrlPager> getCrawlExcluded(String jobId, String continuationToken,
-      Integer limit) {
+  public ResponseEntity<UrlPager> getCrawlExcluded(String jobId,
+      String continuationToken, Integer limit) {
+    log.debug2("jobId = {}", jobId);
+    log.debug2("continuationToken = {}", continuationToken);
+    log.debug2("limit = {}", limit);
+
+//    // Check whether the service has not been fully initialized.
+//    if (!waitReady()) {
+//      // Yes: Notify the client.
+//      return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
+//    }
+
     UrlPager pager;
     try {
       CrawlerStatus status = getCrawlerStatus(jobId);
@@ -304,8 +331,18 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
    * @see CrawlsApi#getCrawlFetched
    */
   @Override
-  public ResponseEntity<UrlPager> getCrawlFetched(String jobId, String continuationToken,
-      Integer limit) {
+  public ResponseEntity<UrlPager> getCrawlFetched(String jobId,
+      String continuationToken, Integer limit) {
+    log.debug2("jobId = {}", jobId);
+    log.debug2("continuationToken = {}", continuationToken);
+    log.debug2("limit = {}", limit);
+
+//    // Check whether the service has not been fully initialized.
+//    if (!waitReady()) {
+//      // Yes: Notify the client.
+//      return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
+//    }
+
     UrlPager pager;
     try {
       CrawlerStatus status = getCrawlerStatus(jobId);
@@ -339,8 +376,18 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
    * @see CrawlsApi#getCrawlNotModified
    */
   @Override
-  public ResponseEntity<UrlPager> getCrawlNotModified(String jobId, String continuationToken,
-      Integer limit) {
+  public ResponseEntity<UrlPager> getCrawlNotModified(String jobId,
+      String continuationToken, Integer limit) {
+    log.debug2("jobId = {}", jobId);
+    log.debug2("continuationToken = {}", continuationToken);
+    log.debug2("limit = {}", limit);
+
+//    // Check whether the service has not been fully initialized.
+//    if (!waitReady()) {
+//      // Yes: Notify the client.
+//      return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
+//    }
+
     UrlPager pager;
     try {
       CrawlerStatus status = getCrawlerStatus(jobId);
@@ -374,8 +421,18 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
    * @see CrawlsApi#getCrawlParsed
    */
   @Override
-  public ResponseEntity<UrlPager> getCrawlParsed(String jobId, String continuationToken,
-      Integer limit) {
+  public ResponseEntity<UrlPager> getCrawlParsed(String jobId,
+      String continuationToken, Integer limit) {
+    log.debug2("jobId = {}", jobId);
+    log.debug2("continuationToken = {}", continuationToken);
+    log.debug2("limit = {}", limit);
+
+//    // Check whether the service has not been fully initialized.
+//    if (!waitReady()) {
+//      // Yes: Notify the client.
+//      return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
+//    }
+
     UrlPager pager;
     try {
       CrawlerStatus status = getCrawlerStatus(jobId);
@@ -409,8 +466,18 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
    * @see CrawlsApi#getCrawlPending
    */
   @Override
-  public ResponseEntity<UrlPager> getCrawlPending(String jobId, String continuationToken,
-      Integer limit) {
+  public ResponseEntity<UrlPager> getCrawlPending(String jobId,
+      String continuationToken, Integer limit) {
+    log.debug2("jobId = {}", jobId);
+    log.debug2("continuationToken = {}", continuationToken);
+    log.debug2("limit = {}", limit);
+
+//    // Check whether the service has not been fully initialized.
+//    if (!waitReady()) {
+//      // Yes: Notify the client.
+//      return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
+//    }
+
     UrlPager pager;
     try {
       CrawlerStatus status = getCrawlerStatus(jobId);
@@ -448,6 +515,16 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
   @Override
   public ResponseEntity<UrlPager> getCrawlByMimeType(String jobId, String type,
       String continuationToken, Integer limit) {
+    log.debug2("jobId = {}", jobId);
+    log.debug2("continuationToken = {}", continuationToken);
+    log.debug2("limit = {}", limit);
+
+//    // Check whether the service has not been fully initialized.
+//    if (!waitReady()) {
+//      // Yes: Notify the client.
+//      return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
+//    }
+
     UrlPager pager;
     try {
       CrawlerStatus status = getCrawlerStatus(jobId);
@@ -456,7 +533,8 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
       return new ResponseEntity<UrlPager>(pager, HttpStatus.OK);
     }
     catch (NotFoundException nfe) {
-      String msg = "Unable to find mime type '" + type + "' for job " + jobId + "'.";
+      String msg =
+	  "Unable to find mime type '" + type + "' for job " + jobId + "'.";
       log.warn(msg);
       return new ResponseEntity<>(HttpStatus.NOT_FOUND);
     }
@@ -487,7 +565,8 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
     crawlStatus.endTime(cs.getEndTime());
     crawlStatus.status(getStatus(cs));
     crawlStatus.priority(cs.getPriority());
-    crawlStatus.sources(ListUtil.immutableListOfType(cs.getSources(), String.class));
+    crawlStatus.sources(ListUtil.immutableListOfType(cs.getSources(),
+	String.class));
     crawlStatus.bytesFetched(cs.getContentBytesFetched());
     crawlStatus.depth(cs.getDepth());
     crawlStatus.refetchDepth(cs.getRefetchDepth());
@@ -542,27 +621,29 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
     return status;
   }
 
-  Counter getCounter(COUNTER_KIND kind, String jobId, CrawlerStatus.UrlCount urlCount) {
+  Counter getCounter(COUNTER_KIND kind, String jobId,
+      CrawlerStatus.UrlCount urlCount) {
     // create path and map variables
     final Map<String, Object> uriVariables = new HashMap<String, Object>();
     uriVariables.put("jobId", jobId);
     uriVariables.put("counterName", kind.name());
-    String path = UriComponentsBuilder.fromPath(COUNTER_URI).buildAndExpand(uriVariables)
-        .toUriString();
+    String path = UriComponentsBuilder.fromPath(COUNTER_URI)
+	.buildAndExpand(uriVariables).toUriString();
     Counter ctr = new Counter();
     ctr.count(urlCount.getCount());
     ctr.itemsLink(path);
     return ctr;
   }
 
-  MimeCounter getMimeCounter(String jobId, String mimeType, CrawlerStatus.UrlCount urlCount) {
+  MimeCounter getMimeCounter(String jobId, String mimeType,
+      CrawlerStatus.UrlCount urlCount) {
     // create path and map variables
     final Map<String, Object> uriVariables = new HashMap<String, Object>();
 
     uriVariables.put("jobId", jobId);
     uriVariables.put("mimeType", mimeType);
-    String path = UriComponentsBuilder.fromPath(MIME_URI).buildAndExpand(uriVariables)
-        .toUriString();
+    String path = UriComponentsBuilder.fromPath(MIME_URI)
+	.buildAndExpand(uriVariables).toUriString();
     MimeCounter ctr = new MimeCounter();
     ctr.mimeType(mimeType);
     ctr.count(urlCount.getCount());
@@ -570,7 +651,8 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
     return ctr;
   }
 
-  RequestCrawlResult doCrawl(String auId, Integer depth, Integer reqPriority, boolean force) {
+  RequestCrawlResult doCrawl(String auId, Integer depth, Integer reqPriority,
+      boolean force) {
     if (log.isDebugEnabled()) {
       log.debug(DEBUG_HEADER + "auId = " + auId);
       log.debug(DEBUG_HEADER + "depth = " + depth);
@@ -584,7 +666,8 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
 
     // Handle a missing Archival Unit.
     if (au == null) {
-      result = getRequestCrawlResult(auId, depth, false, null, NO_SUCH_AU_ERROR_MESSAGE);
+      result = getRequestCrawlResult(auId, depth, false, null,
+	  NO_SUCH_AU_ERROR_MESSAGE);
       return result;
     }
 
@@ -645,7 +728,8 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
     catch (RuntimeException e) {
       String errorMessage = "Can't enqueue crawl: ";
       log.error(errorMessage + au, e);
-      result = getRequestCrawlResult(auId, depth, false, null, errorMessage + e.toString());
+      result = getRequestCrawlResult(auId, depth, false, null,
+	  errorMessage + e.toString());
       return result;
     }
 
@@ -655,25 +739,26 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
     return result;
   }
 
-  private RequestCrawlResult getRequestCrawlResult(String auId, Integer depth, boolean success,
-      String delayReason, String errorMessage) {
+  private RequestCrawlResult getRequestCrawlResult(String auId, Integer depth,
+      boolean success, String delayReason, String errorMessage) {
     RequestCrawlResult result;
-    result = new RequestCrawlResult().auId(auId).
-        refetchDepth(depth).accepted(success).delayReason(delayReason).errorMessage(errorMessage);
+    result = new RequestCrawlResult().auId(auId).refetchDepth(depth)
+	.accepted(success).delayReason(delayReason).errorMessage(errorMessage);
     if (log.isDebugEnabled()) {
       log.debug(DEBUG_HEADER + "result = " + result);
     }
     return result;
   }
 
-  RequestCrawlResult doRepair(String auId, List urls) {
+  RequestCrawlResult doRepair(String auId, List<String> urls) {
     RequestCrawlResult result;
     CrawlManagerImpl cmi = getCrawlManager();
     ArchivalUnit au = getPluginManager().getAuFromId(auId);
 
     // Handle a missing Archival Unit.
     if (au == null) {
-      result = getRequestCrawlResult(auId, null, false, null, NO_SUCH_AU_ERROR_MESSAGE);
+      result = getRequestCrawlResult(auId, null, false, null,
+	  NO_SUCH_AU_ERROR_MESSAGE);
       return result;
     }
     // Handle missing Repair Urls.
@@ -686,8 +771,8 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
     return result = getRequestCrawlResult(auId, null, true, null, null);
   }
 
-  UrlPager getUrlPager(CrawlerStatus status, List<String> urls, String continuationToken,
-      Integer limit) {
+  UrlPager getUrlPager(CrawlerStatus status, List<String> urls,
+      String continuationToken, Integer limit) {
     UrlPager pager = new UrlPager();
     Integer curLimit = getLimit(limit);
     ContinuationToken inToken = null;
@@ -787,13 +872,15 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
       int listSize) {
     PageInfo pi = new PageInfo();
 
-    ServletUriComponentsBuilder builder = ServletUriComponentsBuilder.fromCurrentRequest();
+    ServletUriComponentsBuilder builder =
+	ServletUriComponentsBuilder.fromCurrentRequest();
     // set current link
     pi.setCurLink(builder.cloneBuilder().toUriString());
     pi.setTotalCount(count);
     pi.setResultsPerPage(curLimit);
     if (lastElement < listSize) {
-      String nextToken = new ContinuationToken(System.currentTimeMillis(), lastElement).toToken();
+      String nextToken = new ContinuationToken(System.currentTimeMillis(),
+	  lastElement).toToken();
       pi.setContinuationToken(nextToken);
       builder.replaceQueryParam("continuationToken", nextToken);
     }
@@ -833,7 +920,8 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
         .type(cs.getType())
         .startTime(cs.getStartTime())
         .endTime(cs.getEndTime())
-        .status(new Status().code(cs.getCrawlStatus()).msg(cs.getCrawlStatusMsg()))
+        .status(new Status().code(cs.getCrawlStatus())
+            .msg(cs.getCrawlStatusMsg()))
         .isWaiting(cs.isCrawlWaiting())
         .isActive(cs.isCrawlActive())
         .isError(cs.isCrawlError())
@@ -870,7 +958,8 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
    */
   private PluginManager getPluginManager() {
     if (pluginManager == null) {
-      pluginManager = (PluginManager) LockssApp.getManagerByKeyStatic(PLUGIN_MANAGER);
+      pluginManager = (PluginManager)LockssApp
+	  .getManagerByKeyStatic(LockssApp.PLUGIN_MANAGER);
     }
     return pluginManager;
   }
@@ -882,12 +971,15 @@ public class CrawlsApiImpl extends SpringLockssBaseApiController
     String errMsg;
     // check limit if assigned is greater than 0
     if (limit != null && limit.intValue() < 0) {
-      errMsg = "Invalid limit: limit must be a non-negative integer; it was '" + limit + "'";
+      errMsg = "Invalid limit: limit must be a non-negative integer; it was '"
+	  + limit + "'";
       log.warn(errMsg);
       throw new IllegalArgumentException(errMsg);
     }
     return limit;
   }
 
-  public enum COUNTER_KIND {errors, excluded, fetched, notmodified, parsed, pending}
+  enum COUNTER_KIND {
+    errors, excluded, fetched, notmodified, parsed, pending
+    }
 }

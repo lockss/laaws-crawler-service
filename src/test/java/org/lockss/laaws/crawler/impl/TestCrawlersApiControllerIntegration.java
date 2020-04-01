@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Board of Trustees of Leland Stanford Jr. University,
+ * Copyright (c) 2018-2020 Board of Trustees of Leland Stanford Jr. University,
  * all rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -24,7 +24,7 @@
  * in this Software without prior written authorization from Stanford University.
  */
 
-package org.lockss.laaws.crawler.api;
+package org.lockss.laaws.crawler.impl;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -33,9 +33,10 @@ import static org.springframework.http.HttpStatus.*;
 import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.lockss.laaws.crawler.api.CrawlersApi;
 import org.lockss.laaws.crawler.model.CrawlerConfig;
 import org.lockss.laaws.crawler.model.CrawlerStatus;
-import org.lockss.laaws.crawler.model.InlineResponse200;
+import org.lockss.laaws.crawler.model.CrawlerStatuses;
 import org.lockss.log.L4JLogger;
 import org.lockss.test.SpringLockssTestCase;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -80,11 +81,11 @@ public class TestCrawlersApiControllerIntegration extends SpringLockssTestCase {
 
   @Test
   public void getCrawlersTest() throws Exception {
-    ResponseEntity<InlineResponse200> responseEntity = api.getCrawlers();
+    ResponseEntity<CrawlerStatuses> responseEntity = api.getCrawlers();
     assertEquals(OK,responseEntity.getStatusCode());
-    InlineResponse200 body  =  responseEntity.getBody();
+    CrawlerStatuses body  =  responseEntity.getBody();
     // we have one and onlu one crawler and it's name is "lockss"
-    Map<String, CrawlerStatus> crawlers = body.getCrawlers();
+    Map<String, CrawlerStatus> crawlers = body.getCrawlerMap();
     assertEquals(1, crawlers.size());
     assertTrue(crawlers.containsKey(LOCKSS_CRAWLER));
   }

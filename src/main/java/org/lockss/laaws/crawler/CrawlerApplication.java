@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Board of Trustees of Leland Stanford Jr. University,
+ * Copyright (c) 2018-2020 Board of Trustees of Leland Stanford Jr. University,
  * all rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -27,23 +27,12 @@
 package org.lockss.laaws.crawler;
 
 import static org.lockss.app.LockssApp.PARAM_START_PLUGINS;
-import static org.lockss.app.ManagerDescs.ACCOUNT_MANAGER_DESC;
-import static org.lockss.app.ManagerDescs.ARCHIVAL_UNIT_STATUS_DESC;
-import static org.lockss.app.ManagerDescs.CONFIG_DB_MANAGER_DESC;
-import static org.lockss.app.ManagerDescs.CONFIG_STATUS_DESC;
-import static org.lockss.app.ManagerDescs.CRAWL_MANAGER_DESC;
-import static org.lockss.app.ManagerDescs.IDENTITY_MANAGER_DESC;
-import static org.lockss.app.ManagerDescs.OVERVIEW_STATUS_DESC;
-import static org.lockss.app.ManagerDescs.PLATFORM_CONFIG_STATUS_DESC;
-import static org.lockss.app.ManagerDescs.PLUGIN_MANAGER_DESC;
-import static org.lockss.app.ManagerDescs.PROXY_MANAGER_DESC;
-import static org.lockss.app.ManagerDescs.REPOSITORY_MANAGER_DESC;
-import static org.lockss.app.ManagerDescs.SERVLET_MANAGER_DESC;
-
+import static org.lockss.app.ManagerDescs.*;
 import org.lockss.app.LockssApp;
 import org.lockss.app.LockssApp.AppSpec;
 import org.lockss.app.LockssApp.ManagerDesc;
 import org.lockss.app.LockssDaemon;
+import org.lockss.app.ServiceDescr;
 import org.lockss.plugin.PluginManager;
 import org.lockss.spring.base.BaseSpringBootApplication;
 import org.slf4j.Logger;
@@ -51,28 +40,33 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.solr.SolrAutoConfiguration;
 import springfox.documentation.swagger2.annotations.EnableSwagger2;
 
-@SpringBootApplication
+/**
+ * The Spring-Boot application.
+ */
+@SpringBootApplication(exclude = {SolrAutoConfiguration.class})
 @EnableSwagger2
 public class CrawlerApplication extends BaseSpringBootApplication
     implements CommandLineRunner {
 
-  private static final Logger logger = LoggerFactory.getLogger(CrawlerApplication.class);
+  private static final Logger logger =
+      LoggerFactory.getLogger(CrawlerApplication.class);
 
-  /**
-   * Manager descriptors used by this service. The order of this table determines the order in which
-   * managers are initialized and started.
-   */
+  // Manager descriptors.  The order of this table determines the order in
+  // which managers are initialized and started.
   private static final ManagerDesc[] myManagerDescs = {
       ACCOUNT_MANAGER_DESC,
       CONFIG_DB_MANAGER_DESC,
       // start plugin manager after generic services
       PLUGIN_MANAGER_DESC,
+      STATE_MANAGER_DESC,
       IDENTITY_MANAGER_DESC,
       CRAWL_MANAGER_DESC,
       REPOSITORY_MANAGER_DESC,
       SERVLET_MANAGER_DESC,
+      ROUTER_MANAGER_DESC,
       PROXY_MANAGER_DESC,
       PLATFORM_CONFIG_STATUS_DESC,
       CONFIG_STATUS_DESC,
@@ -86,7 +80,7 @@ public class CrawlerApplication extends BaseSpringBootApplication
    * @param args A String[] with the command line arguments.
    */
   public static void main(String[] args) {
-    logger.info("Starting the Crawler REST service...");
+    logger.info("Starting the application");
     configure();
 
     // Start the REST service.
@@ -103,12 +97,13 @@ public class CrawlerApplication extends BaseSpringBootApplication
     if (args != null && args.length > 0) {
       // Yes: Start the LOCKSS daemon.
       logger.info("Starting the LOCKSS Crawler Service");
+
       AppSpec spec = new AppSpec()
-          .setName("Crawler Service")
+	  .setService(ServiceDescr.SVC_CRAWLER)
           .setArgs(args)
-          .setAppManagers(myManagerDescs)
           .addAppConfig(PARAM_START_PLUGINS, "true")
-          .addAppConfig(PluginManager.PARAM_START_ALL_AUS, "true");
+          .addAppConfig(PluginManager.PARAM_START_ALL_AUS, "true")
+          .setAppManagers(myManagerDescs);
       logger.info("Calling LockssApp.startStatic...");
       LockssApp.startStatic(LockssDaemon.class, spec);
     }

@@ -1,4 +1,4 @@
-# Copyright (c) 2016-2018 Board of Trustees of Leland Stanford Jr. University,
+# Copyright (c) 2016-2020 Board of Trustees of Leland Stanford Jr. University,
 # all rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -30,25 +30,14 @@ org.lockss.ui.access.ip.logForbidden=true
 org.lockss.proxy.access.ip.logForbidden=true
 
 org.lockss.platform.diskSpacePaths=./cache
-
+org.lockss.cache.location=./cache
 org.lockss.config.reloadInterval = 5m
 org.lockss.ui.allowPluginConfig=true
 
 org.lockss.ui.start=yes
 org.lockss.proxy.start=no
 
-org.lockss.ui.port=49521
-
-org.lockss.ui.access.ip.logForbidden=true
-org.lockss.proxy.access.ip.logForbidden=true
-
-org.lockss.platform.diskSpacePaths=./cache
-
-org.lockss.config.reloadInterval = 5m
-org.lockss.ui.allowPluginConfig=true
-
-org.lockss.ui.start=yes
-org.lockss.proxy.start=no
+org.lockss.ui.port=24661
 
 # Turn off V1 -- This will be the default some day.
 org.lockss.comm.enabled=false
@@ -57,12 +46,15 @@ org.lockss.comm.enabled=false
 org.lockss.platform.v3.identity=TCP:[127.0.0.1]:9720
 
 # Comm settings
+org.lockss.comm.enabled=false
+org.lockss.scomm.enabled=true
 org.lockss.scomm.maxMessageSize=33554430
+org.lockss.scomm.timeout.connect=15s
 
-# Poller settings
-org.lockss.poll.v3.quorum=2
-org.lockss.poll.v3.pollStarterInitialDelay=5m
-org.lockss.poll.v3.pollStarterInterval=5m
+org.lockss.metrics.slowest.hashrate=250
+org.lockss.state.recall.delay=5m
+
+org.lockss.daemon.crawlMode=NonPlugins
 
 # Turn on ICP on port 3131
 org.lockss.proxy.icp.enabled=true
@@ -83,21 +75,13 @@ org.lockss.blockHasher.ignoreFilesOutsideCrawlSpec=true
 org.lockss.baseau.minFetchDelay=3000
 org.lockss.plugin.restartAusWithNewPlugin=true
 
-# crawler, poller and voter
+# Enable crawler
 org.lockss.crawler.enabled=true
-org.lockss.poll.v3.enableV3Poller=false
-org.lockss.poll.v3.enableV3Voter=false
 
 # Disable the SOAP web services.
 org.lockss.ws.enabled=false
 
 # No Repository Manager.
-org.lockss.plugin.auContentFromWs=true
+org.lockss.plugin.auContentFromWs=false
 
-#
-# Repository
-#
-# default to local repo.
-org.lockss.repository.v2Repository=local:demorepo:/tmp/locksslocalrepo
-# Put this in lockss.opt to use a REST repositoy service
-# org.lockss.repository.v2Repository=rest:demorepo:http://localhost:32640
+#org.lockss.restAuth.authenticationType=basic

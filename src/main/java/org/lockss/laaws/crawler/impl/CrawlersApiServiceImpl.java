@@ -48,7 +48,7 @@ import org.springframework.stereotype.Service;
  * Service for accessing crawlers.
  */
 @Service
-public class CrawlersApiImpl extends BaseSpringApiServiceImpl
+public class CrawlersApiServiceImpl extends BaseSpringApiServiceImpl
     implements CrawlersApiDelegate {
   private static final L4JLogger log = L4JLogger.getLogger();
 

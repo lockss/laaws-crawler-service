@@ -47,7 +47,7 @@ import org.springframework.test.context.junit4.SpringRunner;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-public class TestCrawlsApiControllerIntegration extends SpringLockssTestCase {
+public class TestCrawlsApiServiceImpl extends SpringLockssTestCase {
 
   private static final L4JLogger log = L4JLogger.getLogger();
   // The port that Tomcat is using during this test.

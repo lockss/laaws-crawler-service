@@ -26,7 +26,7 @@
 
 package org.lockss.laaws.crawler.impl;
 
-import static org.lockss.laaws.crawler.impl.CrawlsApiImpl.COUNTER_KIND.*;
+import static org.lockss.laaws.crawler.impl.CrawlsApiServiceImpl.COUNTER_KIND.*;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -70,7 +70,7 @@ import org.springframework.web.util.UriComponentsBuilder;
  * Service for accessing crawls.
  */
 @Service
-public class CrawlsApiImpl extends BaseSpringApiServiceImpl
+public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
     implements CrawlsApiDelegate {
 
   static final String NO_REPAIR_URLS =
@@ -92,7 +92,7 @@ public class CrawlsApiImpl extends BaseSpringApiServiceImpl
   /**
    * The logger for this class
    */
-  private static L4JLogger log = L4JLogger.getLogger(CrawlsApiImpl.class);
+  private static L4JLogger log = L4JLogger.getLogger(CrawlsApiServiceImpl.class);
   /**
    * The crawlManager
    */
@@ -110,7 +110,7 @@ public class CrawlsApiImpl extends BaseSpringApiServiceImpl
   public ResponseEntity<RequestCrawlResult> doCrawl(CrawlRequest body) {
     RequestCrawlResult result = null;
     try {
-      if (!CrawlersApiImpl.CRAWLERS.contains(body.getCrawler())) {
+      if (!CrawlersApiServiceImpl.CRAWLERS.contains(body.getCrawler())) {
         return new ResponseEntity<>(null, HttpStatus.BAD_REQUEST);
       }
       switch (body.getCrawlKind()) {

@@ -26,7 +26,6 @@
 
 package org.lockss.laaws.crawler.impl;
 
-import static org.lockss.laaws.crawler.impl.CrawlsApiServiceImpl.COUNTER_KIND.*;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -73,12 +72,15 @@ import org.springframework.web.util.UriComponentsBuilder;
 public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
     implements CrawlsApiDelegate {
 
+  enum COUNTER_KIND {
+    errors, excluded, fetched, notmodified, parsed, pending
+  }
+
   static final String NO_REPAIR_URLS =
       "No urls for repair.";
   static final String NO_SUCH_AU_ERROR_MESSAGE = "No such Archival Unit";
   static final String USE_FORCE_MESSAGE =
       "Use the 'force' parameter to override.";
-  private static final String DEBUG_HEADER = "doRequest: ";
   /**
    * A template URI for returning a counter for a specific URL list (eg. found
    * or parsed URLs).
@@ -92,15 +94,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
   /**
    * The logger for this class
    */
-  private static L4JLogger log = L4JLogger.getLogger(CrawlsApiServiceImpl.class);
-  /**
-   * The crawlManager
-   */
-  private CrawlManagerImpl crawlMgrImpl;
-  /**
-   * The pluginManager for used for turning AUName to Au.
-   */
-  private PluginManager pluginManager;
+  private static final L4JLogger log = L4JLogger.getLogger();
 
   /**
    * @param body A CrawlRequest for the requested crawl
@@ -110,7 +104,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
   public ResponseEntity<RequestCrawlResult> doCrawl(CrawlRequest body) {
     RequestCrawlResult result = null;
     try {
-      if (!CrawlersApiServiceImpl.CRAWLERS.contains(body.getCrawler())) {
+      if (!CrawlersApiServiceImpl.getCrawlerIds().contains(body.getCrawler())) {
         return new ResponseEntity<>(null, HttpStatus.BAD_REQUEST);
       }
       switch (body.getCrawlKind()) {
@@ -183,7 +177,6 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
 //    }
 
     try {
-      CrawlManagerImpl cmi = getCrawlManager();
       CrawlerStatus crawlerStatus = getCrawlerStatus(jobId);
       if (crawlerStatus != null) {
         if (crawlerStatus.isCrawlWaiting() || crawlerStatus.isCrawlActive()) {
@@ -217,7 +210,6 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
 //    }
 
     try {
-      CrawlerStatus crawlerStatus = getCrawlerStatus(jobId);
       CrawlStatus status = getCrawlStatus(jobId);
       return new ResponseEntity<>(status, HttpStatus.OK);
     }
@@ -585,27 +577,29 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
     // add the url counters
     urlCount = cs.getErrorCtr();
     if (urlCount.getCount() > 0) {
-      crawlStatus.errors(getCounter(errors, key, urlCount));
+      crawlStatus.errors(getCounter(COUNTER_KIND.errors, key, urlCount));
     }
     urlCount = cs.getExcludedCtr();
     if (urlCount.getCount() > 0) {
-      crawlStatus.excludedItems(getCounter(excluded, key, urlCount));
+      crawlStatus.excludedItems(getCounter(COUNTER_KIND.excluded, key,
+	  urlCount));
     }
     urlCount = cs.getFetchedCtr();
     if (urlCount.getCount() > 0) {
-      crawlStatus.fetchedItems(getCounter(fetched, key, urlCount));
+      crawlStatus.fetchedItems(getCounter(COUNTER_KIND.fetched, key, urlCount));
     }
     urlCount = cs.getNotModifiedCtr();
     if (urlCount.getCount() > 0) {
-      crawlStatus.notModifiedItems(getCounter(notmodified, key, urlCount));
+      crawlStatus.notModifiedItems(getCounter(COUNTER_KIND.notmodified, key,
+	  urlCount));
     }
     urlCount = cs.getParsedCtr();
     if (urlCount.getCount() > 0) {
-      crawlStatus.parsedItems(getCounter(parsed, key, urlCount));
+      crawlStatus.parsedItems(getCounter(COUNTER_KIND.parsed, key, urlCount));
     }
     urlCount = cs.getPendingCtr();
     if (urlCount.getCount() > 0) {
-      crawlStatus.pendingItems(getCounter(pending, key, urlCount));
+      crawlStatus.pendingItems(getCounter(COUNTER_KIND.pending, key, urlCount));
     }
     crawlStatus.isActive(cs.isCrawlActive());
     crawlStatus.isError(cs.isCrawlError());
@@ -654,10 +648,10 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
   RequestCrawlResult doCrawl(String auId, Integer depth, Integer reqPriority,
       boolean force) {
     if (log.isDebugEnabled()) {
-      log.debug(DEBUG_HEADER + "auId = " + auId);
-      log.debug(DEBUG_HEADER + "depth = " + depth);
-      log.debug(DEBUG_HEADER + "requestedPriority = " + reqPriority);
-      log.debug(DEBUG_HEADER + "force = " + force);
+      log.debug("auId = " + auId);
+      log.debug("depth = " + depth);
+      log.debug("requestedPriority = " + reqPriority);
+      log.debug("force = " + force);
     }
     RequestCrawlResult result = null;
 
@@ -745,7 +739,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
     result = new RequestCrawlResult().auId(auId).refetchDepth(depth)
 	.accepted(success).delayReason(delayReason).errorMessage(errorMessage);
     if (log.isDebugEnabled()) {
-      log.debug(DEBUG_HEADER + "result = " + result);
+      log.debug("result = " + result);
     }
     return result;
   }
@@ -885,18 +879,15 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
       builder.replaceQueryParam("continuationToken", nextToken);
     }
     else {
-      builder.replaceQueryParam("continuationToken", null);
+      builder.replaceQueryParam("continuationToken");
     }
     pi.setNextLink(builder.toUriString());
     return pi;
   }
 
   private CrawlManagerImpl getCrawlManager() throws IllegalStateException{
-    if (crawlMgrImpl == null) {
-      CrawlManager cmgr = LockssApp.getManagerByTypeStatic(CrawlManager.class);
-      crawlMgrImpl = (CrawlManagerImpl) cmgr;
-    }
-    return crawlMgrImpl;
+    CrawlManager cmgr = LockssApp.getManagerByTypeStatic(CrawlManager.class);
+    return (CrawlManagerImpl) cmgr;
 
   }
 
@@ -930,24 +921,32 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
         .depth(cs.getDepth())
         .refetchDepth(cs.getRefetchDepth())
         .proxy(cs.getProxy())
-        .fetchedItems(getCounter(fetched, key, cs.getFetchedCtr()))
-        .excludedItems(getCounter(excluded, key, cs.getFetchedCtr()))
-        .notModifiedItems(getCounter(notmodified, key, cs.getNotModifiedCtr()))
-        .parsedItems(getCounter(parsed, key, cs.getParsedCtr()))
+        .fetchedItems(getCounter(COUNTER_KIND.fetched, key, cs.getFetchedCtr()))
+        .excludedItems(getCounter(COUNTER_KIND.excluded, key,
+            cs.getFetchedCtr()))
+        .notModifiedItems(getCounter(COUNTER_KIND.notmodified, key,
+            cs.getNotModifiedCtr()))
+        .parsedItems(getCounter(COUNTER_KIND.parsed, key, cs.getParsedCtr()))
         .sources(cs.getSources())
-        .pendingItems(getCounter(pending, key, cs.getPendingCtr()))
-        .errors(getCounter(errors, key, cs.getErrorCtr()));
-    // handle the crawl status seperately
+        .pendingItems(getCounter(COUNTER_KIND.pending, key, cs.getPendingCtr()))
+        .errors(getCounter(COUNTER_KIND.errors, key, cs.getErrorCtr()));
+
+    // Handle the crawl status seperately
     crawlStatus.getStartUrls().addAll(cs.getAu().getStartUrls());
-    // add the mime types array if needed.
+
+    // Add the MIME types array if needed.
     Collection<String> mimeTypes = cs.getMimeTypes();
+
     if (mimeTypes != null && !mimeTypes.isEmpty()) {
       List<MimeCounter> typeList = new ArrayList<>();
+
       for (String mtype : mimeTypes) {
         typeList.add(getMimeCounter(key, mtype, cs.getMimeTypeCtr(mtype)));
       }
+
       crawlStatus.setMimeTypes(typeList);
     }
+
     return crawlStatus;
   }
 
@@ -957,29 +956,22 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
    * @return the current Lockss PluginManager.
    */
   private PluginManager getPluginManager() {
-    if (pluginManager == null) {
-      pluginManager = (PluginManager)LockssApp
-	  .getManagerByKeyStatic(LockssApp.PLUGIN_MANAGER);
-    }
-    return pluginManager;
+    return (PluginManager)
+	LockssApp.getManagerByKeyStatic(LockssApp.PLUGIN_MANAGER);
   }
 
   /**
    * Check that a limit field is valid.
    */
-  Integer getLimit(Integer limit) throws IllegalArgumentException {
-    String errMsg;
+  private Integer getLimit(Integer limit) throws IllegalArgumentException {
     // check limit if assigned is greater than 0
     if (limit != null && limit.intValue() < 0) {
-      errMsg = "Invalid limit: limit must be a non-negative integer; it was '"
-	  + limit + "'";
+      String errMsg = "Invalid limit: limit must be a non-negative integer; "
+	  + "it was '" + limit + "'";
       log.warn(errMsg);
       throw new IllegalArgumentException(errMsg);
     }
+
     return limit;
   }
-
-  enum COUNTER_KIND {
-    errors, excluded, fetched, notmodified, parsed, pending
-    }
 }

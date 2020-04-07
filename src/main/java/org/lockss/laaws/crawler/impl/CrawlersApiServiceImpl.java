@@ -53,12 +53,9 @@ public class CrawlersApiServiceImpl extends BaseSpringApiServiceImpl
   private static final L4JLogger log = L4JLogger.getLogger();
 
   /**
-   * The list of known crawlers.
+   * The list of identifiers of known crawlers.
    */
-  public static List<String> CRAWLERS = ListUtil.list("lockss");
-
-  private CrawlManagerImpl crawlManager;
-  private static Map<String, CrawlerConfig> configMap;
+  private static List<String> crawlerIds = ListUtil.list("lockss");
 
   /**
    * Return the list of configured crawlers.
@@ -69,11 +66,11 @@ public class CrawlersApiServiceImpl extends BaseSpringApiServiceImpl
   public ResponseEntity<CrawlerStatuses> getCrawlers() {
     log.debug2("Invoked");
 
-//    // Check whether the service has not been fully initialized.
-//    if (!waitReady()) {
-//      // Yes: Notify the client.
-//      return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
-//    }
+    // Check whether the service has not been fully initialized.
+    if (!waitReady()) {
+      // Yes: Notify the client.
+      return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
+    }
 
     CrawlManagerImpl cmi = getCrawlManager();
     log.trace("cmi = {}", cmi);
@@ -98,11 +95,11 @@ public class CrawlersApiServiceImpl extends BaseSpringApiServiceImpl
   public ResponseEntity<CrawlerConfig> getCrawlerConfig(String crawler) {
     log.debug2("crawler = {}", crawler);
 
-//    // Check whether the service has not been fully initialized.
-//    if (!waitReady()) {
-//      // Yes: Notify the client.
-//      return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
-//    }
+    // Check whether the service has not been fully initialized.
+    if (!waitReady()) {
+      // Yes: Notify the client.
+      return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
+    }
 
     CrawlManagerImpl cmi = getCrawlManager();
     log.trace("cmi = {}", cmi);
@@ -110,6 +107,7 @@ public class CrawlersApiServiceImpl extends BaseSpringApiServiceImpl
     if (cmi == null) {
       return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
     }
+
     CrawlerConfig config = getConfigMap().get(crawler);
     log.trace("config = {}", config);
 
@@ -122,31 +120,51 @@ public class CrawlersApiServiceImpl extends BaseSpringApiServiceImpl
     return new ResponseEntity<>(config, HttpStatus.OK);
   }
 
+  public static List<String> getCrawlerIds() {
+    return crawlerIds;
+  }
+  /**
+   * Provides the crawl manager.
+   * 
+   * @return a CrawlManagerImpl with the crawl manager implementation.
+   */
   private CrawlManagerImpl getCrawlManager() {
-    if (crawlManager == null) {
-      CrawlManager cmgr = LockssApp.getManagerByTypeStatic(CrawlManager.class);
-      if (cmgr instanceof CrawlManagerImpl) {
-        crawlManager = (CrawlManagerImpl) cmgr;
-      }
+    CrawlManagerImpl crawlManager = null;
+    CrawlManager cmgr = LockssApp.getManagerByTypeStatic(CrawlManager.class);
+ 
+    if (cmgr instanceof CrawlManagerImpl) {
+      crawlManager = (CrawlManagerImpl) cmgr;
     }
+
     return crawlManager;
   }
 
+  /**
+   * Provides the map of crawler configurations.
+   * 
+   * @return a Map<String, CrawlerConfig> with the map of crawler
+   *         configurations.
+   */
   private Map<String, CrawlerConfig> getConfigMap() {
-    if (configMap == null) {
-      configMap = new HashMap<String, CrawlerConfig>();
-      for (String crawler : CRAWLERS) {
-        // TODO: add useful subset of the config params here.
+    Map<String, CrawlerConfig> configMap = new HashMap<String, CrawlerConfig>();
 
-        CrawlerConfig config = new CrawlerConfig();
-        HashMap<String,String> crawlerMap = new HashMap<>();
-        config.setConfigMap(crawlerMap);
-        crawlerMap.put("crawlerEnabled",String.valueOf(crawlManager.isCrawlerEnabled()));
-        crawlerMap.put("starterEnabled",String.valueOf(crawlManager.isCrawlStarterEnabled()));
-        //todo: add more later.
-        configMap.put(crawler, config);
-      }
+    for (String crawlerId : crawlerIds) {
+      log.trace("crawlerId = {}", crawlerId);
+      // TODO: add useful subset of the config params here.
+
+      CrawlerConfig config = new CrawlerConfig();
+      HashMap<String,String> crawlerMap = new HashMap<>();
+
+      crawlerMap.put("crawlerEnabled",
+	  String.valueOf(getCrawlManager().isCrawlerEnabled()));
+      crawlerMap.put("starterEnabled",
+	  String.valueOf(getCrawlManager().isCrawlStarterEnabled()));
+      //todo: add more later.
+
+      config.setConfigMap(crawlerMap);
+      configMap.put(crawlerId, config);
     }
+
     return configMap;
   }
 }

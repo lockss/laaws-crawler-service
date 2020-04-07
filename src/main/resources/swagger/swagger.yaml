@@ -248,7 +248,7 @@ paths:
           description: "Not Found"
         '500':
           description: "Internal Server Error"
-  '/crawls/{jobId}/notModsified':
+  '/crawls/{jobId}/notModified':
     get:
       tags:
       - crawls

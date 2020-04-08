@@ -34,3 +34,23 @@ sed -i.backup "s/import org.lockss.laaws.crawler.model.ApiStatus/import org.lock
 # Edit StatusApi.java.
 STATUS_API=src/generated/java/org/lockss/laaws/crawler/api/StatusApi.java
 sed -i.backup "s/import org.lockss.laaws.crawler.model.ApiStatus/import org.lockss.util.rest.status.ApiStatus/" $STATUS_API && rm $STATUS_API.backup
+
+# Edit CrawlsApiDelegate.java.
+CRAWLS_API_DELEGATE=src/generated/java/org/lockss/laaws/crawler/api/CrawlsApiDelegate.java
+sed -i.backup "s/import org.lockss.laaws.crawler.model.Crawl;/import org.lockss.util.rest.crawler.Crawl;/" $CRAWLS_API_DELEGATE && rm $CRAWLS_API_DELEGATE.backup
+sed -i.backup "s/import org.lockss.laaws.crawler.model.CrawlDesc/import org.lockss.util.rest.crawler.CrawlDesc/" $CRAWLS_API_DELEGATE && rm $CRAWLS_API_DELEGATE.backup
+sed -i.backup "s/import org.lockss.laaws.crawler.model.Status/import org.lockss.util.rest.crawler.Status/" $CRAWLS_API_DELEGATE && rm $CRAWLS_API_DELEGATE.backup
+
+# Edit CrawlsApi.java.
+CRAWLS_API=src/generated/java/org/lockss/laaws/crawler/api/CrawlsApi.java
+sed -i.backup "s/import org.lockss.laaws.crawler.model.Crawl;/import org.lockss.util.rest.crawler.Crawl;/" $CRAWLS_API && rm $CRAWLS_API.backup
+sed -i.backup "s/import org.lockss.laaws.crawler.model.CrawlDesc/import org.lockss.util.rest.crawler.CrawlDesc/" $CRAWLS_API && rm $CRAWLS_API.backup
+sed -i.backup "s/import org.lockss.laaws.crawler.model.Status/import org.lockss.util.rest.crawler.Status/" $CRAWLS_API && rm $CRAWLS_API.backup
+
+# Edit CrawlerStatus.java.
+CRAWLER_STATUS=src/generated/java/org/lockss/laaws/crawler/model/CrawlerStatus.java
+sed -i.backup "s/import org.lockss.laaws.crawler.model.Status/import org.lockss.util.rest.crawler.Status/" $CRAWLER_STATUS && rm $CRAWLER_STATUS.backup
+
+# Edit CrawlStatus.java.
+CRAWL_STATUS=src/generated/java/org/lockss/laaws/crawler/model/CrawlStatus.java
+sed -i.backup "s/import org.lockss.laaws.crawler.model.Status/import org.lockss.util.rest.crawler.Status/" $CRAWL_STATUS && rm $CRAWL_STATUS.backup

@@ -29,14 +29,13 @@ package org.lockss.laaws.crawler.impl;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.lockss.laaws.crawler.api.CrawlsApi;
-import org.lockss.laaws.crawler.model.CrawlRequest;
-import org.lockss.laaws.crawler.model.CrawlRequest.CrawlKindEnum;
 import org.lockss.laaws.crawler.model.CrawlStatus;
 import org.lockss.laaws.crawler.model.JobPager;
-import org.lockss.laaws.crawler.model.RequestCrawlResult;
 import org.lockss.laaws.crawler.model.UrlPager;
 import org.lockss.log.L4JLogger;
 import org.lockss.test.SpringLockssTestCase;
+import org.lockss.util.rest.crawler.Crawl;
+import org.lockss.util.rest.crawler.CrawlDesc;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.embedded.LocalServerPort;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -79,11 +78,11 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase {
 
   @Test
   public void doCrawlTest() throws Exception {
-    CrawlRequest body = new CrawlRequest();
-    body.crawlKind(CrawlKindEnum.NEWCONTENT);
+    CrawlDesc body = new CrawlDesc();
+    body.crawlKind("FollowLinkCrawler");
     body.auId("auId");
-    ResponseEntity<RequestCrawlResult> responseEntity = api.doCrawl(body);
-    assertEquals(HttpStatus.BAD_REQUEST, responseEntity.getStatusCode());
+    ResponseEntity<Crawl> responseEntity = api.doCrawl(body);
+    assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, responseEntity.getStatusCode());
   }
 
   @Test

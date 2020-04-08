@@ -41,13 +41,10 @@ import org.lockss.crawler.CrawlerStatus.UrlErrorInfo;
 import org.lockss.laaws.crawler.api.CrawlsApi;
 import org.lockss.laaws.crawler.api.CrawlsApiDelegate;
 import org.lockss.laaws.crawler.model.Counter;
-import org.lockss.laaws.crawler.model.CrawlRequest;
 import org.lockss.laaws.crawler.model.CrawlStatus;
 import org.lockss.laaws.crawler.model.JobPager;
 import org.lockss.laaws.crawler.model.MimeCounter;
 import org.lockss.laaws.crawler.model.PageInfo;
-import org.lockss.laaws.crawler.model.RequestCrawlResult;
-import org.lockss.laaws.crawler.model.Status;
 import org.lockss.laaws.crawler.model.UrlError;
 import org.lockss.laaws.crawler.model.UrlError.SeverityEnum;
 import org.lockss.laaws.crawler.model.UrlInfo;
@@ -59,6 +56,9 @@ import org.lockss.plugin.PluginManager;
 import org.lockss.spring.base.BaseSpringApiServiceImpl;
 import org.lockss.util.ListUtil;
 import org.lockss.util.RateLimiter;
+import org.lockss.util.rest.crawler.Crawl;
+import org.lockss.util.rest.crawler.CrawlDesc;
+import org.lockss.util.rest.crawler.Status;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -71,6 +71,10 @@ import org.springframework.web.util.UriComponentsBuilder;
 @Service
 public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
     implements CrawlsApiDelegate {
+
+  enum CRAWL_KIND {
+    FollowLinkCrawler, RepairCrawler
+  }
 
   enum COUNTER_KIND {
     errors, excluded, fetched, notmodified, parsed, pending
@@ -101,22 +105,22 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
    * @see CrawlsApi#doCrawl
    */
   @Override
-  public ResponseEntity<RequestCrawlResult> doCrawl(CrawlRequest body) {
-    RequestCrawlResult result = null;
+  public ResponseEntity<Crawl> doCrawl(CrawlDesc body) {
+    Crawl result = null;
     try {
       if (!CrawlersApiServiceImpl.getCrawlerIds().contains(body.getCrawler())) {
         return new ResponseEntity<>(null, HttpStatus.BAD_REQUEST);
       }
       switch (body.getCrawlKind()) {
-        case NEWCONTENT:
+        case "FollowLinkCrawler":
           result = doCrawl(body.getAuId(), body.getRefetchDepth(),
               body.getPriority(), body.isForceCrawl());
           break;
-        case REPAIR:
+        case "RepairCrawler":
           result = doRepair(body.getAuId(), body.getRepairList());
           break;
       }
-      if (result.isAccepted()) {
+      if (result.getStatus().getCode() < 300) {
         return new ResponseEntity<>(result, HttpStatus.ACCEPTED);
       }
       else {
@@ -645,7 +649,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
     return ctr;
   }
 
-  RequestCrawlResult doCrawl(String auId, Integer depth, Integer reqPriority,
+  Crawl doCrawl(String auId, Integer depth, Integer reqPriority,
       boolean force) {
     if (log.isDebugEnabled()) {
       log.debug("auId = " + auId);
@@ -653,7 +657,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
       log.debug("requestedPriority = " + reqPriority);
       log.debug("force = " + force);
     }
-    RequestCrawlResult result = null;
+    Crawl result = null;
 
     // Get the Archival Unit to be crawled.
     ArchivalUnit au = getPluginManager().getAuFromId(auId);
@@ -733,19 +737,21 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
     return result;
   }
 
-  private RequestCrawlResult getRequestCrawlResult(String auId, Integer depth,
+  private Crawl getRequestCrawlResult(String auId, Integer depth,
       boolean success, String delayReason, String errorMessage) {
-    RequestCrawlResult result;
-    result = new RequestCrawlResult().auId(auId).refetchDepth(depth)
-	.accepted(success).delayReason(delayReason).errorMessage(errorMessage);
+    CrawlDesc crawlDesc = new CrawlDesc().auId(auId);
+    Status status = new Status().msg(errorMessage);
+    Crawl result;
+    result = new Crawl().crawlDesc(crawlDesc).status(status)
+	.delayReason(delayReason);
     if (log.isDebugEnabled()) {
       log.debug("result = " + result);
     }
     return result;
   }
 
-  RequestCrawlResult doRepair(String auId, List<String> urls) {
-    RequestCrawlResult result;
+  Crawl doRepair(String auId, List<String> urls) {
+    Crawl result;
     CrawlManagerImpl cmi = getCrawlManager();
     ArchivalUnit au = getPluginManager().getAuFromId(auId);
 

@@ -127,21 +127,21 @@ paths:
       tags:
         - crawls
       summary: Request a crawl using a descriptor
-      description: Use the information found in the request object to initiate\
-        \ a crawl.
+      description: Use the information found in the descriptor object to\
+        \ initiate a crawl.
       operationId: doCrawl
       parameters:
-        - name: 'crawlRequest'
+        - name: 'crawlDesc'
           in: body
           description: crawl request
           required: true
           schema:
-            $ref: '#/definitions/crawlRequest'
+            $ref: '#/definitions/crawlDesc'
       responses:
         '202':
           description: The crawl request has been queued for operation.
           schema:
-            $ref: '#/definitions/requestCrawlResult'
+            $ref: '#/definitions/crawl'
         '400':
           description: "Bad Request"
         '401':
@@ -531,7 +531,7 @@ definitions:
         description: The link to the next page.
         type: string
   status:
-    description: A status which include a code and message.
+    description: A status which includes a code and a message.
     required:
     - code
     - msg
@@ -539,10 +539,10 @@ definitions:
     properties:
       code:
         format: int32
-        description: The numeric value for the current state.
+        description: The numeric value for this status.
         type: integer
       msg:
-        description: A text message defining the current state.
+        description: A text message explaining this status.
         type: string
   apiStatus:
     type: "object"
@@ -571,35 +571,32 @@ definitions:
         description: A link to the list of count items or to a pager with count\
           \ items.
         type: string
-  crawlRequest:
-    description: A descriptor for a LOCKSS crawl.
+  crawlDesc:
+    description: A descriptor for a crawl.
     required:
       - auId
       - crawlKind
     type: object
     properties:
       auId:
-        description: The unique au id for this crawled unit.
+        description: The identifier of the archival unit to be crawled.
         type: string
       crawlKind:
-        description: >-
-          The kind of crawl being performed.  For now this is either new
-          content or repair.
-        enum:
-          - newContent
-          - repair
+        description: The kind of crawl being performed. For now, this is either\
+          \ FollowLinkCrawler or RepairCrawler.
         type: string
       crawler:
-        description: The crawler for this crawl.
+        description: The crawler to be used for this crawl.
         type: string
         default: lockss
       repairList:
-        description: The repair urls in a repair crawl
+        description: The repair URLs in a repair crawl.
         type: array
         items:
           type: string
       forceCrawl:
-        description: Force crawl even if outside crawl window.
+        description: An indication of whether the crawl is to be forced, even\
+          \ if outside the crawl window.
         type: boolean
         default: false
       refetchDepth:
@@ -611,30 +608,69 @@ definitions:
         description: The priority for the crawl.
         type: integer
         format: int32
-  requestCrawlResult:
+      crawlList:
+        type: "array"
+        description: The list of URLs to crawl.
+        items:
+          type: "string"
+      crawlDepth:
+        type: "integer"
+        description: The depth of the crawl.
+      tags:
+        type: "array"
+        description: The tags to include, if different from default anchor tags.
+        items:
+          type: "string"
+      includeRegex:
+        type: "array"
+        description: A list of regular expressions of URLS to include, if not\
+          \ in the exclude list.
+        items:
+          type: "string"
+      excludeRegex:
+        type: "array"
+        description: A list of regular expressions of URLS to exclude.
+        items:
+          type: "string"
+  crawl:
     description: The result from a request to perform a crawl.
     required:
-    - auId
-    - accepted
+    - crawlDesc
+    - "creationDate"
+    - "jobId"
+    - "status"
     type: object
     properties:
-      auId:
-        description: A String with the Archival Unit identifier.
-        type: string
-      accepted:
-        description: True if this crawl was successfully enqueued.
-        type: boolean
+      crawlDesc:
+        description: The descriptor of the crawl.
+        $ref: '#/definitions/crawlDesc'
+      creationDate:
+        type: "string"
+        format: "date"
+        description: The time, in ISO-8601 format, the crawl was requested.
+        example: "yyyy-MM-ddTHH:mm:ss.SSSZ"
+      jobId:
+        description: Identifier of the job performing the crawl.
+        type: "string"
+      status:
+        description: The status of the crawl operation.
+        $ref: "#/definitions/status"
+      startDate:
+        type: "string"
+        format: "date"
+        description: The time, in ISO-8601 format, the crawl began.
+        example: "yyyy-MM-ddTHH:mm:ss.SSSZ"
+      endDate:
+        type: "string"
+        format: "date"
+        description: The time, in ISO-8601 format, the crawl ended.
+        example: "yyyy-MM-ddTHH:mm:ss.SSSZ"
+      result:
+        type: "string"
+        description: A URI which can be used to retrieve the crawl data.
       delayReason:
         description: The reason for any delay in performing the operation.
         type: string
-      errorMessage:
-        description: Any error message as a result of the operation.
-        type: string
-      refetchDepth:
-        description: The refetch depth of the crawl if one was requested.
-        type: integer
-        format: int32
-        default: -1
   crawlerStatus:
     description: Status about a specific crawler.
     required:

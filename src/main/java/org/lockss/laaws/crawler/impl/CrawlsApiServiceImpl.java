@@ -1041,6 +1041,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
 
     // The continuation token timestamp.
     long timeStamp = crawlerStatus.getStartTime();
+    log.trace("timeStamp = {}", timeStamp);
 
     // Validate the requested limit.
     Integer validLimit = validateLimit(requestLimit);
@@ -1133,17 +1134,20 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
   /**
    * Checks that a continuation token is valid.
    * 
-   * @param timeStamp         A Long with the timestamp used to validate the
+   * @param timeStamp         A long with the timestamp used to validate the
    *                          continuation token.
    * @param continuationToken A ContinuationToken with the continuation token to
    *                          be validated.
    * @throws IllegalArgumentException if the passed continuation token is not
    *                                  valid.
    */
-  private void validateContinuationToken(Long timeStamp,
+  private void validateContinuationToken(long timeStamp,
       ContinuationToken continuationToken) throws IllegalArgumentException {
+    log.debug2("timeStamp = {}", timeStamp);
+    log.debug2("continuationToken = {}", continuationToken);
+
     // Validate the continuation token.
-    if (continuationToken.getTimestamp() != timeStamp) {
+    if (continuationToken.getTimestamp().longValue() != timeStamp) {
       String errorMessage = "Invalid continuation token: " + continuationToken;
       log.warn(errorMessage);
       throw new IllegalArgumentException(errorMessage);
@@ -1198,6 +1202,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
 
     // The continuation token timestamp.
     long timeStamp = LockssDaemon.getLockssDaemon().getStartDate().getTime();
+    log.trace("timeStamp = {}", timeStamp);
 
     // Validate the requested limit.
     Integer validLimit = validateLimit(requestLimit);

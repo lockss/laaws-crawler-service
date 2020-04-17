@@ -141,7 +141,7 @@ paths:
         '202':
           description: The crawl request has been queued for operation.
           schema:
-            $ref: '#/definitions/crawl'
+            $ref: '#/definitions/crawlJob'
         '400':
           description: "Bad Request"
         '401':
@@ -191,15 +191,15 @@ paths:
           in: path
           required: true
           type: string
+        - name: limit
+          in: query
+          description: The number of jobs per page.
+          type: integer
         - name: continuationToken
           in: query
           description: The continuation token of the next page of jobs to be\
             \ returned.
           type: string
-        - name: limit
-          in: query
-          description: The number of jobs per page.
-          type: integer
       responses:
         '200':
           description: The requested fetched urls.
@@ -226,15 +226,15 @@ paths:
           description: identifier used to identify a specific crawl.
           required: true
           type: string
+        - name: limit
+          in: query
+          description: The number of jobs per page.
+          type: integer
         - name: continuationToken
           in: query
           description: The continuation token of the next page of jobs to be\
             \ returned.
           type: string
-        - name: limit
-          in: query
-          description: The number of jobs per page.
-          type: integer
       responses:
         '200':
           description: The requested excluded urls.
@@ -260,15 +260,15 @@ paths:
           in: path
           required: true
           type: string
+        - name: limit
+          in: query
+          description: The number of jobs per page.
+          type: integer
         - name: continuationToken
           in: query
           description: The continuation token of the next page of jobs to be\
             \ returned.
           type: string
-        - name: limit
-          in: query
-          description: The number of jobs per page.
-          type: integer
       responses:
         '200':
           description: The requested not modified urls.
@@ -294,15 +294,15 @@ paths:
           in: path
           required: true
           type: string
+        - name: limit
+          in: query
+          description: The number of jobs per page.
+          type: integer
         - name: continuationToken
           in: query
           description: The continuation token of the next page of jobs to be\
             \ returned.
           type: string
-        - name: limit
-          in: query
-          description: The number of jobs per page.
-          type: integer
       responses:
         '200':
           description: The requested pending urls.
@@ -328,15 +328,15 @@ paths:
           in: path
           required: true
           type: string
+        - name: limit
+          in: query
+          description: The number of jobs per page.
+          type: integer
         - name: continuationToken
           in: query
           description: The continuation token of the next page of jobs to be\
             \ returned.
           type: string
-        - name: limit
-          in: query
-          description: The number of jobs per page.
-          type: integer
       responses:
         '200':
           description: The requested parsed urls.
@@ -362,15 +362,15 @@ paths:
           in: path
           required: true
           type: string
+        - name: limit
+          in: query
+          description: The number of jobs per page.
+          type: integer
         - name: continuationToken
           in: query
           description: The continuation token of the next page of jobs to be\
             \ returned.
           type: string
-        - name: limit
-          in: query
-          description: The number of jobs per page.
-          type: integer
       responses:
         '200':
           description: The requested urls with errors.
@@ -400,15 +400,15 @@ paths:
           in: path
           required: true
           type: string
+        - name: limit
+          in: query
+          description: The number of jobs per page.
+          type: integer
         - name: continuationToken
           in: query
           description: The continuation token of the next page of jobs to be\
             \ returned.
           type: string
-        - name: limit
-          in: query
-          description: The number of jobs per page.
-          type: integer
       responses:
         '200':
           description: The requested urls.
@@ -583,8 +583,8 @@ definitions:
         type: string
       crawlKind:
         description: The kind of crawl being performed. For now, this is either\
-          \ FollowLinkCrawler or RepairCrawler.
-        type: string
+          \ 'newContent' or 'repair'.
+        $ref: "#/definitions/crawlKind"
       crawler:
         description: The crawler to be used for this crawl.
         type: string
@@ -595,8 +595,9 @@ definitions:
         items:
           type: string
       forceCrawl:
-        description: An indication of whether the crawl is to be forced, even\
-          \ if outside the crawl window.
+        description: An indication of whether the crawl is to be forced,\
+          \ suppressing conditions that might otherwise prevent the crawl from\
+          \ happening.
         type: boolean
         default: false
       refetchDepth:
@@ -616,24 +617,18 @@ definitions:
       crawlDepth:
         type: "integer"
         description: The depth of the crawl.
-      tags:
-        type: "array"
-        description: The tags to include, if different from default anchor tags.
-        items:
-          type: "string"
-      includeRegex:
-        type: "array"
-        description: A list of regular expressions of URLS to include, if not\
-          \ in the exclude list.
-        items:
-          type: "string"
-      excludeRegex:
-        type: "array"
-        description: A list of regular expressions of URLS to exclude.
-        items:
-          type: "string"
-  crawl:
-    description: The result from a request to perform a crawl.
+      extraCrawlerData:
+        type: string
+        description: A JSON object with content required by the crawler.
+  crawlKind:
+    type: "string"
+    description: The kind of crawl being performed. For now this is either\
+      \ 'newContent' or 'repair'.
+    enum:
+    - "newContent"
+    - "repair"
+  crawlJob:
+    description: The job resulting from a request to perform a crawl.
     required:
     - crawlDesc
     - "creationDate"
@@ -668,9 +663,6 @@ definitions:
       result:
         type: "string"
         description: A URI which can be used to retrieve the crawl data.
-      delayReason:
-        description: The reason for any delay in performing the operation.
-        type: string
   crawlerStatus:
     description: Status about a specific crawler.
     required:

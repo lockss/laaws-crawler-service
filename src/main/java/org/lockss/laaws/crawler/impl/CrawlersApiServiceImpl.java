@@ -123,6 +123,7 @@ public class CrawlersApiServiceImpl extends BaseSpringApiServiceImpl
   public static List<String> getCrawlerIds() {
     return crawlerIds;
   }
+
   /**
    * Provides the crawl manager.
    * 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Board of Trustees of Leland Stanford Jr. University,
+ * Copyright (c) 2018-2020 Board of Trustees of Leland Stanford Jr. University,
  * all rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -34,33 +34,30 @@ import org.lockss.log.L4JLogger;
 public class ContinuationToken {
 
   private static final String SEPARATOR = ".";
-  private static L4JLogger log = L4JLogger.getLogger(ContinuationToken.class);
+  private static final L4JLogger log = L4JLogger.getLogger();
   private Long timestamp = null;
   private Long lastElement = null;
 
+  public ContinuationToken(String requestedToken)
+      throws IllegalArgumentException {
+    log.debug2("requestedToken = {}", requestedToken);
 
-  public ContinuationToken(String requestedToken) throws IllegalArgumentException {
-    if (log.isDebug2Enabled()) {
-      log.debug2("requestedToken = " + requestedToken);
-    }
     String errMsg = "Invalid continuation token '" + requestedToken + "'";
+
     if (requestedToken != null && !requestedToken.trim().isEmpty()) {
       try {
         List<Long> tokenItems = splitToken(requestedToken.trim());
-        if (log.isTraceEnabled()) {
-          log.trace("tokenItems = " + tokenItems);
-        }
+        log.trace("tokenItems = {}", tokenItems);
+
         timestamp = tokenItems.get(0);
         lastElement = tokenItems.get(1);
-        if (log.isTraceEnabled()) {
-          log.trace(this.toString());
-        }
-      }
-      catch (Exception ex) {
+        log.trace("this = {}", this.toString());
+      } catch (Exception ex) {
         log.warn(errMsg, ex);
         throw new IllegalArgumentException(errMsg, ex);
       }
     }
+
     validateMembers();
   }
 
@@ -71,8 +68,10 @@ public class ContinuationToken {
   }
 
   public List<Long> splitToken(String str) {
-    return Stream.of(str.split(SEPARATOR))
-        .map(num -> Long.parseLong(num.trim()))
+    String[] tokenArray = str.split("\\" + SEPARATOR);
+    log.trace("tokenArray = {}", tokenArray);
+
+    return Stream.of(tokenArray).map(num -> Long.parseLong(num.trim()))
         .collect(Collectors.toList());
   }
 

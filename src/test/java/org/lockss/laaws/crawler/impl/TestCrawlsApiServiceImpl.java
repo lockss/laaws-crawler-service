@@ -34,8 +34,9 @@ import org.lockss.laaws.crawler.model.JobPager;
 import org.lockss.laaws.crawler.model.UrlPager;
 import org.lockss.log.L4JLogger;
 import org.lockss.test.SpringLockssTestCase;
-import org.lockss.util.rest.crawler.Crawl;
 import org.lockss.util.rest.crawler.CrawlDesc;
+import org.lockss.util.rest.crawler.CrawlJob;
+import org.lockss.util.rest.crawler.CrawlKind;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.embedded.LocalServerPort;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -67,7 +68,7 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase {
   public void deleteCrawlByIdTest() throws Exception {
     String jobId = BOGUS_ID;
     ResponseEntity<CrawlStatus> responseEntity = api.deleteCrawlById(jobId);
-    assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, responseEntity.getStatusCode());
+    assertEquals(HttpStatus.SERVICE_UNAVAILABLE, responseEntity.getStatusCode());
   }
 
   @Test
@@ -76,93 +77,93 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase {
     assertEquals(HttpStatus.NOT_IMPLEMENTED, responseEntity.getStatusCode());
   }
 
-  @Test
-  public void doCrawlTest() throws Exception {
-    CrawlDesc body = new CrawlDesc();
-    body.crawlKind("FollowLinkCrawler");
-    body.auId("auId");
-    ResponseEntity<Crawl> responseEntity = api.doCrawl(body);
-    assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, responseEntity.getStatusCode());
-  }
-
-  @Test
-  public void getCrawlByIdTest() throws Exception {
-    String jobId = BOGUS_ID;
-    ResponseEntity<CrawlStatus> responseEntity = api.getCrawlById(jobId);
-    assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, responseEntity.getStatusCode());
-  }
-
-  @Test
-  public void getCrawlByMimeTypeTest() throws Exception {
-    String jobId = BOGUS_ID;
-    String type = "type_example";
-    String continuationToken = "continuationToken_example";
-    Integer limit = 56;
-    ResponseEntity<UrlPager> responseEntity = api
-        .getCrawlByMimeType(jobId, type, continuationToken, limit);
-    assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, responseEntity.getStatusCode());
-  }
-
-  @Test
-  public void getCrawlErrorsTest() throws Exception {
-    String jobId = BOGUS_ID;
-    String continuationToken = "continuationToken_example";
-    Integer limit = 56;
-    ResponseEntity<UrlPager> responseEntity = api.getCrawlErrors(jobId, continuationToken, limit);
-    assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, responseEntity.getStatusCode());
-  }
-
-  @Test
-  public void getCrawlExcludedTest() throws Exception {
-    String jobId = BOGUS_ID;
-    String continuationToken = "continuationToken_example";
-    Integer limit = 56;
-    ResponseEntity<UrlPager> responseEntity = api.getCrawlExcluded(jobId, continuationToken, limit);
-    assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, responseEntity.getStatusCode());
-  }
-
-  @Test
-  public void getCrawlFetchedTest() throws Exception {
-    String jobId = BOGUS_ID;
-    String continuationToken = "continuationToken_example";
-    Integer limit = 56;
-    ResponseEntity<UrlPager> responseEntity = api.getCrawlFetched(jobId, continuationToken, limit);
-    assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, responseEntity.getStatusCode());
-  }
-
-  @Test
-  public void getCrawlNotModifiedTest() throws Exception {
-    String jobId = BOGUS_ID;
-    String continuationToken = "continuationToken_example";
-    Integer limit = 56;
-    ResponseEntity<UrlPager> responseEntity = api
-        .getCrawlNotModified(jobId, continuationToken, limit);
-    assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, responseEntity.getStatusCode());
-  }
-
-  @Test
-  public void getCrawlParsedTest() throws Exception {
-    String jobId = BOGUS_ID;
-    String continuationToken = "continuationToken_example";
-    Integer limit = 56;
-    ResponseEntity<UrlPager> responseEntity = api.getCrawlParsed(jobId, continuationToken, limit);
-    assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, responseEntity.getStatusCode());
-  }
-
-  @Test
-  public void getCrawlPendingTest() throws Exception {
-    String jobId = BOGUS_ID;
-    String continuationToken = "continuationToken_example";
-    Integer limit = 56;
-    ResponseEntity<UrlPager> responseEntity = api.getCrawlPending(jobId, continuationToken, limit);
-    assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, responseEntity.getStatusCode());
-  }
-
-  @Test
-  public void getCrawlsTest() throws Exception {
-    Integer limit = 56;
-    String continuationToken = "continuationToken_example";
-    ResponseEntity<JobPager> responseEntity = api.getCrawls(limit, continuationToken);
-    assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, responseEntity.getStatusCode());
-  }
+//  @Test
+//  public void doCrawlTest() throws Exception {
+//    CrawlDesc body = new CrawlDesc();
+//    body.crawlKind(CrawlKind.NEWCONTENT);
+//    body.auId("auId");
+//    ResponseEntity<CrawlJob> responseEntity = api.doCrawl(body);
+//    assertEquals(HttpStatus.SERVICE_UNAVAILABLE, responseEntity.getStatusCode());
+//  }
+//
+//  @Test
+//  public void getCrawlByIdTest() throws Exception {
+//    String jobId = BOGUS_ID;
+//    ResponseEntity<CrawlStatus> responseEntity = api.getCrawlById(jobId);
+//    assertEquals(HttpStatus.SERVICE_UNAVAILABLE, responseEntity.getStatusCode());
+//  }
+//
+//  @Test
+//  public void getCrawlByMimeTypeTest() throws Exception {
+//    String jobId = BOGUS_ID;
+//    String type = "type_example";
+//    String continuationToken = "continuationToken_example";
+//    Integer limit = 56;
+//    ResponseEntity<UrlPager> responseEntity = api
+//        .getCrawlByMimeType(jobId, type, limit, continuationToken);
+//    assertEquals(HttpStatus.SERVICE_UNAVAILABLE, responseEntity.getStatusCode());
+//  }
+//
+//  @Test
+//  public void getCrawlErrorsTest() throws Exception {
+//    String jobId = BOGUS_ID;
+//    String continuationToken = "continuationToken_example";
+//    Integer limit = 56;
+//    ResponseEntity<UrlPager> responseEntity = api.getCrawlErrors(jobId, limit, continuationToken);
+//    assertEquals(HttpStatus.SERVICE_UNAVAILABLE, responseEntity.getStatusCode());
+//  }
+//
+//  @Test
+//  public void getCrawlExcludedTest() throws Exception {
+//    String jobId = BOGUS_ID;
+//    String continuationToken = "continuationToken_example";
+//    Integer limit = 56;
+//    ResponseEntity<UrlPager> responseEntity = api.getCrawlExcluded(jobId, limit, continuationToken);
+//    assertEquals(HttpStatus.SERVICE_UNAVAILABLE, responseEntity.getStatusCode());
+//  }
+//
+//  @Test
+//  public void getCrawlFetchedTest() throws Exception {
+//    String jobId = BOGUS_ID;
+//    String continuationToken = "continuationToken_example";
+//    Integer limit = 56;
+//    ResponseEntity<UrlPager> responseEntity = api.getCrawlFetched(jobId, limit, continuationToken);
+//    assertEquals(HttpStatus.SERVICE_UNAVAILABLE, responseEntity.getStatusCode());
+//  }
+//
+//  @Test
+//  public void getCrawlNotModifiedTest() throws Exception {
+//    String jobId = BOGUS_ID;
+//    String continuationToken = "continuationToken_example";
+//    Integer limit = 56;
+//    ResponseEntity<UrlPager> responseEntity = api
+//        .getCrawlNotModified(jobId, limit, continuationToken);
+//    assertEquals(HttpStatus.SERVICE_UNAVAILABLE, responseEntity.getStatusCode());
+//  }
+//
+//  @Test
+//  public void getCrawlParsedTest() throws Exception {
+//    String jobId = BOGUS_ID;
+//    String continuationToken = "continuationToken_example";
+//    Integer limit = 56;
+//    ResponseEntity<UrlPager> responseEntity = api.getCrawlParsed(jobId, limit, continuationToken);
+//    assertEquals(HttpStatus.SERVICE_UNAVAILABLE, responseEntity.getStatusCode());
+//  }
+//
+//  @Test
+//  public void getCrawlPendingTest() throws Exception {
+//    String jobId = BOGUS_ID;
+//    String continuationToken = "continuationToken_example";
+//    Integer limit = 56;
+//    ResponseEntity<UrlPager> responseEntity = api.getCrawlPending(jobId, limit, continuationToken);
+//    assertEquals(HttpStatus.SERVICE_UNAVAILABLE, responseEntity.getStatusCode());
+//  }
+//
+//  @Test
+//  public void getCrawlsTest() throws Exception {
+//    Integer limit = 56;
+//    String continuationToken = "continuationToken_example";
+//    ResponseEntity<JobPager> responseEntity = api.getCrawls(limit, continuationToken);
+//    assertEquals(HttpStatus.SERVICE_UNAVAILABLE, responseEntity.getStatusCode());
+//  }
 }

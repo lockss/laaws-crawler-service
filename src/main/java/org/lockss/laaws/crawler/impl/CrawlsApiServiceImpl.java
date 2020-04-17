@@ -26,6 +26,11 @@
 
 package org.lockss.laaws.crawler.impl;
 
+import static org.lockss.servlet.DebugPanel.DEFAULT_CRAWL_PRIORITY;
+import static org.lockss.servlet.DebugPanel.PARAM_CRAWL_PRIORITY;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -33,10 +38,15 @@ import java.util.List;
 import java.util.Map;
 import javax.ws.rs.NotFoundException;
 import org.lockss.app.LockssApp;
+import org.lockss.app.LockssDaemon;
+import org.lockss.app.ServiceBinding;
+import org.lockss.app.ServiceDescr;
+import org.lockss.config.ConfigManager;
+import org.lockss.config.Configuration;
 import org.lockss.crawler.CrawlManager;
 import org.lockss.crawler.CrawlManagerImpl;
-import org.lockss.crawler.CrawlReq;
 import org.lockss.crawler.CrawlerStatus;
+import org.lockss.crawler.CrawlReq;
 import org.lockss.crawler.CrawlerStatus.UrlErrorInfo;
 import org.lockss.laaws.crawler.api.CrawlsApi;
 import org.lockss.laaws.crawler.api.CrawlsApiDelegate;
@@ -56,8 +66,9 @@ import org.lockss.plugin.PluginManager;
 import org.lockss.spring.base.BaseSpringApiServiceImpl;
 import org.lockss.util.ListUtil;
 import org.lockss.util.RateLimiter;
-import org.lockss.util.rest.crawler.Crawl;
 import org.lockss.util.rest.crawler.CrawlDesc;
+import org.lockss.util.rest.crawler.CrawlJob;
+import org.lockss.util.rest.crawler.CrawlKind;
 import org.lockss.util.rest.crawler.Status;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -72,71 +83,140 @@ import org.springframework.web.util.UriComponentsBuilder;
 public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
     implements CrawlsApiDelegate {
 
-  enum CRAWL_KIND {
-    FollowLinkCrawler, RepairCrawler
-  }
-
   enum COUNTER_KIND {
     errors, excluded, fetched, notmodified, parsed, pending
   }
 
-  static final String NO_REPAIR_URLS =
-      "No urls for repair.";
+  static final String NO_REPAIR_URLS = "No urls for repair.";
   static final String NO_SUCH_AU_ERROR_MESSAGE = "No such Archival Unit";
   static final String USE_FORCE_MESSAGE =
       "Use the 'force' parameter to override.";
-  /**
-   * A template URI for returning a counter for a specific URL list (eg. found
-   * or parsed URLs).
-   */
+
+  // A template URI for returning a counter for a specific URL list (eg. found
+  // or parsed URLs).
   private static final String COUNTER_URI = "crawls/{jobId}/{counterName}";
-  /**
-   * A template URI for returning a counter for a list of URLs of a specific
-   * mimeType.
-   */
+
+  // A template URI for returning a counter for a list of URLs of a specific
+  // mimeType.
   private static final String MIME_URI = "crawls/{jobId}/mimeType/{mimeType}";
-  /**
-   * The logger for this class
-   */
+
+  // The logger for this class.
   private static final L4JLogger log = L4JLogger.getLogger();
 
   /**
-   * @param body A CrawlRequest for the requested crawl
+   * Requests a crawl.
+   * 
+   * @param request A CrawlDesc with the information about the requested crawl.
+   * @return a {@code ResponseEntity<CrawlJob>} with the information about the
+   *         job created to perform the crawl.
    * @see CrawlsApi#doCrawl
    */
   @Override
-  public ResponseEntity<Crawl> doCrawl(CrawlDesc body) {
-    Crawl result = null;
+  public ResponseEntity<CrawlJob> doCrawl(CrawlDesc request) {
+    log.debug2("request = {}", request);
+
+    CrawlJob crawlJob = new CrawlJob().crawlDesc(request);
+
     try {
-      if (!CrawlersApiServiceImpl.getCrawlerIds().contains(body.getCrawler())) {
-        return new ResponseEntity<>(null, HttpStatus.BAD_REQUEST);
+      // Check whether the service has not been fully initialized.
+      if (!waitConfig()) {
+	// Yes: Report the problem.
+        String message = "The service has not been fully initialized";
+        log.error(message);
+        log.error("request = {}", request);
+        HttpStatus httpStatus = HttpStatus.SERVICE_UNAVAILABLE;
+        crawlJob.status(new Status().code(httpStatus.value()).msg(message));
+        log.debug2("crawlJob = {}", crawlJob);
+        return new ResponseEntity<>(crawlJob, httpStatus);
       }
-      switch (body.getCrawlKind()) {
-        case "FollowLinkCrawler":
-          result = doCrawl(body.getAuId(), body.getRefetchDepth(),
-              body.getPriority(), body.isForceCrawl());
+
+      String crawler = request.getCrawler();
+
+      // Validate the specified crawler.
+      if (!CrawlersApiServiceImpl.getCrawlerIds().contains(crawler)) {
+        String message = "Invalid crawler '" + crawler + "'";
+        log.error(message);
+        log.error("request = {}", request);
+        HttpStatus httpStatus = HttpStatus.BAD_REQUEST;
+        crawlJob.status(new Status().code(httpStatus.value()).msg(message));
+        log.debug2("crawlJob = {}", crawlJob);
+        return new ResponseEntity<>(crawlJob, httpStatus);
+      }
+
+      // Get the Archival Unit to be crawled.
+      ArchivalUnit au = getPluginManager().getAuFromId(request.getAuId());
+
+      // Handle a missing Archival Unit.
+      if (au == null) {
+        String message = NO_SUCH_AU_ERROR_MESSAGE;
+        log.error(message);
+        log.error("request = {}", request);
+        HttpStatus httpStatus = HttpStatus.NOT_FOUND;
+        crawlJob.status(new Status().code(httpStatus.value()).msg(message));
+        log.debug2("crawlJob = {}", crawlJob);
+        return new ResponseEntity<>(crawlJob, httpStatus);
+      }
+
+      // Determine which crawler to use.
+      switch (crawler) {
+        case "lockss":
+          CrawlKind crawlKind = request.getCrawlKind();
+
+          // Determine which kind of crawl is being requested.
+          switch (crawlKind) {
+            case NEWCONTENT:
+              crawlJob = startLockssCrawl(au, request.getRefetchDepth(),
+        	  request.getPriority(), request.isForceCrawl())
+              .crawlDesc(request);
+              break;
+            case REPAIR:
+              crawlJob = startLockssRepair(request.getAuId(),
+        	  request.getRepairList()).crawlDesc(request);
+              break;
+            default:
+              String message = "Invalid crawl kind '" + crawlKind + "'";
+              log.error(message);
+              log.error("request = {}", request);
+              HttpStatus httpStatus = HttpStatus.BAD_REQUEST;
+              crawlJob.status(
+        	  new Status().code(httpStatus.value()).msg(message));
+              log.debug2("crawlJob = {}", crawlJob);
+              return new ResponseEntity<>(crawlJob, httpStatus);
+          }
+
           break;
-        case "RepairCrawler":
-          result = doRepair(body.getAuId(), body.getRepairList());
-          break;
+        default:
+          String message = "Unimplemented crawler '" + crawler + "'";
+          log.error(message);
+          log.error("request = {}", request);
+          HttpStatus httpStatus = HttpStatus.BAD_REQUEST;
+          crawlJob.status(new Status().code(httpStatus.value()).msg(message));
+          log.debug2("crawlJob = {}", crawlJob);
+          return new ResponseEntity<>(crawlJob, httpStatus);
       }
-      if (result.getStatus().getCode() < 300) {
-        return new ResponseEntity<>(result, HttpStatus.ACCEPTED);
-      }
-      else {
-        return new ResponseEntity<>(result, HttpStatus.BAD_REQUEST);
-      }
-    }
-    catch (Exception ex) {
-      log.error("do crawl failed", ex);
-      return new ResponseEntity<>(result, HttpStatus.INTERNAL_SERVER_ERROR);
+
+      log.debug2("crawlJob = {}", crawlJob);
+      return new ResponseEntity<>(crawlJob,
+	  HttpStatus.valueOf(crawlJob.getStatus().getCode()));
+    } catch (Exception e) {
+      String message = "Cannot doCrawl() for request = '" + request + "'";
+      log.error(message, e);
+      HttpStatus httpStatus = HttpStatus.INTERNAL_SERVER_ERROR;
+      crawlJob.status(new Status().code(httpStatus.value()).msg(message));
+      log.debug2("crawlJob = {}", crawlJob);
+      return new ResponseEntity<>(crawlJob, httpStatus);
     }
   }
 
-
   /**
-   * @param limit the number of items per page
-   * @param continuationToken the continuation token used to fetch the next page
+   * Provides all (or a pageful of) the crawls in the service.
+   * 
+   * @param limit             An Integer with the maximum number of crawls per
+   *                          page.
+   * @param continuationToken A String with the continuation token used to fetch
+   *                          the next page
+   * @return a {@code ResponseEntity<JobPager>} with the information about the
+   *         crawls.
    * @see CrawlsApi#getCrawls
    */
   @Override
@@ -145,481 +225,583 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
     log.debug2("limit = {}", limit);
     log.debug2("continuationToken = {}", continuationToken);
 
-//    // Check whether the service has not been fully initialized.
-//    if (!waitReady()) {
-//      // Yes: Notify the client.
-//      return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
-//    }
-
     try {
+      // Check whether the service has not been fully initialized.
+      if (!waitConfig()) {
+	// Yes: Report the problem.
+        String message = "The service has not been fully initialized";
+        log.error(message);
+        log.error("limit = {}, continuationToken = {}", limit,
+            continuationToken);
+        return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
+      }
+
       JobPager pager = getJobsPager(limit, continuationToken);
+      log.debug2("pager = {}", pager);
       return new ResponseEntity<>(pager, HttpStatus.OK);
-    }
-    catch (Exception e) {
-      String message = "Cannot return crawls: " + e.getMessage();
+    } catch (IllegalArgumentException iae) {
+      return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+    } catch (Exception e) {
+      String message = "Cannot getCrawls() for limit = " + limit
+	  + ", continuationToken = " + continuationToken;
       log.error(message, e);
       return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
     }
-
   }
 
   /**
-   * Delete a crawl previously added to the crawl queue, stop the crawl if
+   * Deletes a crawl previously added to the crawl queue, stopping the crawl if
    * already running.
    *
-   * @param jobId the id assigned to the crawl when added.
+   * @param jobId A String with the identifier assigned to the crawl when added.
+   * @return a {@code ResponseEntity<CrawlStatus>} with the status of the
+   *         deleted crawl.
    * @see CrawlsApi#deleteCrawlById
    */
   @Override
   public ResponseEntity<CrawlStatus> deleteCrawlById(String jobId) {
     log.debug2("jobId = {}", jobId);
 
-//    // Check whether the service has not been fully initialized.
-//    if (!waitReady()) {
-//      // Yes: Notify the client.
-//      return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
-//    }
+    CrawlStatus crawlStatus = null;
 
     try {
-      CrawlerStatus crawlerStatus = getCrawlerStatus(jobId);
-      if (crawlerStatus != null) {
-        if (crawlerStatus.isCrawlWaiting() || crawlerStatus.isCrawlActive()) {
-          //todo: unhighlight when we push the corresponding change in lockss-core
-          //cmi.deleteCrawl(crawlerStatus.getAu());
-        }
-        return new ResponseEntity<>(CrawlStatusfromCrawlerStatus(crawlerStatus),
-            HttpStatus.OK);
+      // Check whether the service has not been fully initialized.
+      if (!waitConfig()) {
+	// Yes: Report the problem.
+	String message = "The service has not been fully initialized";
+	log.error(message);
+	log.error("jobId = {}", jobId);
+	HttpStatus httpStatus = HttpStatus.SERVICE_UNAVAILABLE;
+	Status status = new Status().code(httpStatus.value()).msg(message);
+	crawlStatus = new CrawlStatus().key(jobId).status(status);
+	return new ResponseEntity<>(crawlStatus, httpStatus);
       }
-      return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-    } catch(Exception ex) {
-      log.error("deletion error on server.", ex);
-      return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+
+      CrawlerStatus crawlerStatus = getCrawlerStatus(jobId);
+      log.debug2("crawlerStatus = {}", crawlerStatus);
+
+      if (crawlerStatus.isCrawlWaiting() || crawlerStatus.isCrawlActive()) {
+	//TODO: unhighlight when we push the corresponding change in lockss-core
+	getCrawlManager().deleteCrawl(crawlerStatus.getAu());
+      }
+
+      return new ResponseEntity<>(getCrawlStatus(crawlerStatus),
+	  HttpStatus.OK);
+    } catch (NotFoundException nfe) {
+      String message = "No crawl found for jobId '" + jobId + "'.";
+      log.warn(message);
+      HttpStatus httpStatus = HttpStatus.NOT_FOUND;
+      Status status = new Status().code(httpStatus.value()).msg(message);
+      crawlStatus = new CrawlStatus().key(jobId).status(status);
+      return new ResponseEntity<>(crawlStatus, httpStatus);
+    } catch (Exception e) {
+      String message = "Cannot deleteCrawlById() for jobId = '" + jobId + "'";
+      log.error(message, e);
+      HttpStatus httpStatus = HttpStatus.INTERNAL_SERVER_ERROR;
+      Status status = new Status().code(httpStatus.value()).msg(message);
+      crawlStatus = new CrawlStatus().key(jobId).status(status);
+      return new ResponseEntity<>(crawlStatus, httpStatus);
     }
   }
 
   /**
-   * Return the status of a requested crawl.
+   * Provides the status of a requested crawl.
    *
-   * @param jobId the id assigned to the crawl when added
+   * @param jobId A String with the identifier assigned to the crawl when added.
+   * @return a {@code ResponseEntity<CrawlStatus>} with the status of the crawl.
    * @see CrawlsApi#getCrawlById
    */
   @Override
   public ResponseEntity<CrawlStatus> getCrawlById(String jobId) {
     log.debug2("jobId = {}", jobId);
 
-//    // Check whether the service has not been fully initialized.
-//    if (!waitReady()) {
-//      // Yes: Notify the client.
-//      return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
-//    }
+    CrawlStatus crawlStatus = null;
 
     try {
-      CrawlStatus status = getCrawlStatus(jobId);
-      return new ResponseEntity<>(status, HttpStatus.OK);
-    }
-    catch (NotFoundException nfe) {
-      String msg = "No info found for '" + jobId + "'.";
-      log.warn(msg);
-      return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-    }
-    catch (Exception ex) {
-      log.error("unable to return crawl status: server error", ex);
-      return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+      // Check whether the service has not been fully initialized.
+      if (!waitConfig()) {
+	// Yes: Report the problem.
+        String message = "The service has not been fully initialized";
+        log.error(message);
+        log.error("jobId = {}", jobId);
+        HttpStatus httpStatus = HttpStatus.SERVICE_UNAVAILABLE;
+        Status status = new Status().code(httpStatus.value()).msg(message);
+        crawlStatus = new CrawlStatus().key(jobId).status(status);
+        return new ResponseEntity<>(crawlStatus, httpStatus);
+      }
+
+      crawlStatus = getCrawlStatus(jobId);
+      log.debug2("crawlStatus = {}", crawlStatus);
+      return new ResponseEntity<>(crawlStatus, HttpStatus.OK);
+    } catch (NotFoundException nfe) {
+      String message = "No crawl found for jobId '" + jobId + "'.";
+      log.warn(message);
+      HttpStatus httpStatus = HttpStatus.NOT_FOUND;
+      Status status = new Status().code(httpStatus.value()).msg(message);
+      crawlStatus = new CrawlStatus().key(jobId).status(status);
+      return new ResponseEntity<>(crawlStatus, httpStatus);
+    } catch (Exception e) {
+      String message = "Cannot getCrawlById() for jobId = '" + jobId + "'";
+      log.error(message, e);
+      HttpStatus httpStatus = HttpStatus.INTERNAL_SERVER_ERROR;
+      Status status = new Status().code(httpStatus.value()).msg(message);
+      crawlStatus = new CrawlStatus().key(jobId).status(status);
+      return new ResponseEntity<>(crawlStatus, httpStatus);
     }
   }
 
   /**
-   * Return the list of error urls with error code and message.
+   * Returns all (or a pageful of) the error URLS in a crawl.
    *
-   * @param jobId the id of the crawl
-   * @param continuationToken the continuation token used to fetch the next page
-   * @param limit the number of items per page
+   * @param jobId             A String with the identifier assigned to the crawl
+   *                          when added.
+   * @param limit             An Integer with the maximum number of URLs per
+   *                          page.
+   * @param continuationToken A String with the continuation token used to fetch
+   *                          the next page
+   * @return a {@code ResponseEntity<UrlPager>} with the information about the
+   *         error URLs.
    * @see CrawlsApi#getCrawlErrors
    */
   @Override
-  public ResponseEntity<UrlPager> getCrawlErrors(String jobId,
-      String continuationToken, Integer limit) {
+  public ResponseEntity<UrlPager> getCrawlErrors(String jobId, Integer limit,
+      String continuationToken) {
     log.debug2("jobId = {}", jobId);
-    log.debug2("continuationToken = {}", continuationToken);
     log.debug2("limit = {}", limit);
+    log.debug2("continuationToken = {}", continuationToken);
 
-//    // Check whether the service has not been fully initialized.
-//    if (!waitReady()) {
-//      // Yes: Notify the client.
-//      return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
-//    }
-
-    UrlPager pager;
     try {
+      // Check whether the service has not been fully initialized.
+      if (!waitConfig()) {
+	// Yes: Report the problem.
+        String message = "The service has not been fully initialized";
+        log.error(message);
+        log.error("limit = {}, continuationToken = {}", limit,
+            continuationToken);
+        return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
+      }
+
       CrawlerStatus status = getCrawlerStatus(jobId);
-      List<String> urls = new ArrayList(status.getUrlsErrorMap().keySet());
-      pager = getUrlPager(status, urls, continuationToken, limit);
+      log.trace("status = {}", status);
+      List<String> urls = new ArrayList<>(status.getUrlsErrorMap().keySet());
+      log.trace("urls = {}", urls);
+      UrlPager pager = getUrlPager(status, urls, limit, continuationToken);
+      log.debug2("pager = {}", pager);
       return new ResponseEntity<>(pager, HttpStatus.OK);
-    }
-    catch (NotFoundException nfe) {
-      String msg = "No info found for '" + jobId + "'.";
-      log.warn(msg);
+    } catch (NotFoundException nfe) {
+      String message = "No crawl found for jobId '" + jobId + "'.";
+      log.warn(message);
       return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-    }
-    catch (IllegalArgumentException iae) {
-      String msg = "Invalid continuation token'" + continuationToken + "'";
-      log.warn(msg, iae);
+    } catch (IllegalArgumentException iae) {
       return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
-    }
-    catch (Exception e) {
-      String msg = "Cannot return mime-type for auid '" + jobId + "'";
-      log.error(msg, e);
+    } catch (Exception e) {
+      String message = "Cannot getCrawlErrors() for jobId '" + jobId
+	  + "', limit = " + limit + ", continuationToken = "
+	  + continuationToken;
+      log.error(message, e);
       return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
   /**
-   * Return the list of urls excluded from the crawl.
+   * Returns all (or a pageful of) the excluded URLS in a crawl.
    *
-   * @param jobId the id of the crawl
-   * @param continuationToken the continuation token used to fetch the next page
-   * @param limit the number of items per page
+   * @param jobId             A String with the identifier assigned to the crawl
+   *                          when added.
+   * @param limit             An Integer with the maximum number of URLs per
+   *                          page.
+   * @param continuationToken A String with the continuation token used to fetch
+   *                          the next page
+   * @return a {@code ResponseEntity<UrlPager>} with the information about the
+   *         excluded URLs.
    * @see CrawlsApi#getCrawlExcluded
    */
   @Override
-  public ResponseEntity<UrlPager> getCrawlExcluded(String jobId,
-      String continuationToken, Integer limit) {
+  public ResponseEntity<UrlPager> getCrawlExcluded(String jobId, Integer limit,
+      String continuationToken) {
     log.debug2("jobId = {}", jobId);
     log.debug2("continuationToken = {}", continuationToken);
     log.debug2("limit = {}", limit);
 
-//    // Check whether the service has not been fully initialized.
-//    if (!waitReady()) {
-//      // Yes: Notify the client.
-//      return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
-//    }
-
-    UrlPager pager;
     try {
+      // Check whether the service has not been fully initialized.
+      if (!waitConfig()) {
+	// Yes: Report the problem.
+        String message = "The service has not been fully initialized";
+        log.error(message);
+        log.error("limit = {}, continuationToken = {}", limit,
+            continuationToken);
+        return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
+      }
+
       CrawlerStatus status = getCrawlerStatus(jobId);
       List<String> urls = status.getUrlsExcluded();
-      pager = getUrlPager(status, urls, continuationToken, limit);
+      UrlPager pager = getUrlPager(status, urls, limit, continuationToken);
+      log.debug2("pager = {}", pager);
       return new ResponseEntity<>(pager, HttpStatus.OK);
-    }
-    catch (NotFoundException nfe) {
-      String msg = "No urls found for '" + jobId + "'.";
-      log.warn(msg);
+    } catch (NotFoundException nfe) {
+      String message = "No crawl found for jobId '" + jobId + "'.";
+      log.warn(message);
       return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-    }
-    catch (IllegalArgumentException iae) {
-      String msg = "Invalid continuation token'" + continuationToken + "'";
-      log.warn(msg, iae);
+    } catch (IllegalArgumentException iae) {
       return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
-    }
-    catch (Exception e) {
-      String msg = "Cannot return mime-type for auid '" + jobId + "'";
-      log.error(msg, e);
+    } catch (Exception e) {
+      String message = "Cannot getCrawlExcluded() for jobId '" + jobId
+	  + "', limit = " + limit + ", continuationToken = "
+	  + continuationToken;
+      log.error(message, e);
       return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
   /**
-   * Return the list of urls fetched in the crawl.
+   * Returns all (or a pageful of) the fetched URLS in a crawl.
    *
-   * @param jobId the id of the crawl
-   * @param continuationToken the continuation token used to fetch the next page
-   * @param limit the number of items per page
+   * @param jobId             A String with the identifier assigned to the crawl
+   *                          when added.
+   * @param limit             An Integer with the maximum number of URLs per
+   *                          page.
+   * @param continuationToken A String with the continuation token used to fetch
+   *                          the next page
+   * @return a {@code ResponseEntity<UrlPager>} with the information about the
+   *         fetched URLs.
    * @see CrawlsApi#getCrawlFetched
    */
   @Override
-  public ResponseEntity<UrlPager> getCrawlFetched(String jobId,
-      String continuationToken, Integer limit) {
+  public ResponseEntity<UrlPager> getCrawlFetched(String jobId, Integer limit,
+      String continuationToken) {
     log.debug2("jobId = {}", jobId);
     log.debug2("continuationToken = {}", continuationToken);
     log.debug2("limit = {}", limit);
 
-//    // Check whether the service has not been fully initialized.
-//    if (!waitReady()) {
-//      // Yes: Notify the client.
-//      return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
-//    }
-
-    UrlPager pager;
     try {
+      // Check whether the service has not been fully initialized.
+      if (!waitConfig()) {
+	// Yes: Report the problem.
+        String message = "The service has not been fully initialized";
+        log.error(message);
+        log.error("limit = {}, continuationToken = {}", limit,
+            continuationToken);
+        return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
+      }
+
       CrawlerStatus status = getCrawlerStatus(jobId);
       List<String> urls = status.getUrlsFetched();
-      pager = getUrlPager(status, urls, continuationToken, limit);
+      UrlPager pager = getUrlPager(status, urls, limit, continuationToken);
+      log.debug2("pager = {}", pager);
       return new ResponseEntity<UrlPager>(pager, HttpStatus.OK);
-    }
-    catch (NotFoundException nfe) {
-      String msg = "No urls found for '" + jobId + "'.";
-      log.warn(msg);
+    } catch (NotFoundException nfe) {
+      String message = "No crawl found for jobId '" + jobId + "'.";
+      log.warn(message);
       return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-    }
-    catch (IllegalArgumentException iae) {
-      String msg = "Invalid continuation token'" + continuationToken + "'";
-      log.warn(msg, iae);
+    } catch (IllegalArgumentException iae) {
       return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
-    }
-    catch (Exception e) {
-      String msg = "Cannot return mime-type for auid '" + jobId + "'";
-      log.error(msg, e);
+    } catch (Exception e) {
+      String message = "Cannot getCrawlFetched() for jobId '" + jobId
+	  + "', limit = " + limit + ", continuationToken = "
+	  + continuationToken;
+      log.error(message, e);
       return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
   /**
-   * Return the list of urls found to be notModified during the crawl.
+   * Returns all (or a pageful of) the not-modified URLS in a crawl.
    *
-   * @param jobId the id of the crawl
-   * @param continuationToken the continuation token used to fetch the next page
-   * @param limit the number of items per page
+   * @param jobId             A String with the identifier assigned to the crawl
+   *                          when added.
+   * @param limit             An Integer with the maximum number of URLs per
+   *                          page.
+   * @param continuationToken A String with the continuation token used to fetch
+   *                          the next page
+   * @return a {@code ResponseEntity<UrlPager>} with the information about the
+   *         not-modified URLs.
    * @see CrawlsApi#getCrawlNotModified
    */
   @Override
   public ResponseEntity<UrlPager> getCrawlNotModified(String jobId,
-      String continuationToken, Integer limit) {
+      Integer limit, String continuationToken) {
     log.debug2("jobId = {}", jobId);
     log.debug2("continuationToken = {}", continuationToken);
     log.debug2("limit = {}", limit);
 
-//    // Check whether the service has not been fully initialized.
-//    if (!waitReady()) {
-//      // Yes: Notify the client.
-//      return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
-//    }
-
-    UrlPager pager;
     try {
+      // Check whether the service has not been fully initialized.
+      if (!waitConfig()) {
+	// Yes: Report the problem.
+        String message = "The service has not been fully initialized";
+        log.error(message);
+        log.error("limit = {}, continuationToken = {}", limit,
+            continuationToken);
+        return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
+      }
+
       CrawlerStatus status = getCrawlerStatus(jobId);
       List<String> urls = status.getUrlsNotModified();
-      pager = getUrlPager(status, urls, continuationToken, limit);
+      UrlPager pager = getUrlPager(status, urls, limit, continuationToken);
+      log.debug2("pager = {}", pager);
       return new ResponseEntity<UrlPager>(pager, HttpStatus.OK);
-    }
-    catch (NotFoundException nfe) {
-      String msg = "No urls found for '" + jobId + "'.";
-      log.warn(msg);
+    } catch (NotFoundException nfe) {
+      String message = "No crawl found for jobId '" + jobId + "'.";
+      log.warn(message);
       return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-    }
-    catch (IllegalArgumentException iae) {
-      String msg = "Invalid continuation token'" + continuationToken + "'";
-      log.warn(msg, iae);
+    } catch (IllegalArgumentException iae) {
       return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
-    }
-    catch (Exception e) {
-      String msg = "Cannot return mime-type for auid '" + jobId + "'";
-      log.error(msg, e);
+    } catch (Exception e) {
+      String message = "Cannot getCrawlNotModified() for jobId '" + jobId
+	  + "', limit = " + limit + ", continuationToken = "
+	  + continuationToken;
+      log.error(message, e);
       return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
   /**
-   * Return the list of urls parsed during the crawl.
+   * Returns all (or a pageful of) the parsed URLS in a crawl.
    *
-   * @param jobId the id of the crawl
-   * @param continuationToken the continuation token used to fetch the next page
-   * @param limit the number of items per page
+   * @param jobId             A String with the identifier assigned to the crawl
+   *                          when added.
+   * @param limit             An Integer with the maximum number of URLs per
+   *                          page.
+   * @param continuationToken A String with the continuation token used to fetch
+   *                          the next page
+   * @return a {@code ResponseEntity<UrlPager>} with the information about the
+   *         parsed URLs.
    * @see CrawlsApi#getCrawlParsed
    */
   @Override
-  public ResponseEntity<UrlPager> getCrawlParsed(String jobId,
-      String continuationToken, Integer limit) {
+  public ResponseEntity<UrlPager> getCrawlParsed(String jobId, Integer limit,
+      String continuationToken) {
     log.debug2("jobId = {}", jobId);
     log.debug2("continuationToken = {}", continuationToken);
     log.debug2("limit = {}", limit);
 
-//    // Check whether the service has not been fully initialized.
-//    if (!waitReady()) {
-//      // Yes: Notify the client.
-//      return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
-//    }
-
-    UrlPager pager;
     try {
+      // Check whether the service has not been fully initialized.
+      if (!waitConfig()) {
+	// Yes: Report the problem.
+        String message = "The service has not been fully initialized";
+        log.error(message);
+        log.error("limit = {}, continuationToken = {}", limit,
+            continuationToken);
+        return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
+      }
+
       CrawlerStatus status = getCrawlerStatus(jobId);
       List<String> urls = status.getUrlsParsed();
-      pager = getUrlPager(status, urls, continuationToken, limit);
+      UrlPager pager = getUrlPager(status, urls, limit, continuationToken);
+      log.debug2("pager = {}", pager);
       return new ResponseEntity<UrlPager>(pager, HttpStatus.OK);
-    }
-    catch (NotFoundException nfe) {
-      String msg = "No urls found for '" + jobId + "'.";
-      log.warn(msg);
+    } catch (NotFoundException nfe) {
+      String message = "No crawl found for jobId '" + jobId + "'.";
+      log.warn(message);
       return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-    }
-    catch (IllegalArgumentException iae) {
-      String msg = "Invalid continuation token'" + continuationToken + "'";
-      log.warn(msg, iae);
+    } catch (IllegalArgumentException iae) {
       return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
-    }
-    catch (Exception e) {
-      String msg = "Cannot return mime-type for auid '" + jobId + "'";
-      log.error(msg, e);
+    } catch (Exception e) {
+      String message = "Cannot getCrawlParsed() for jobId '" + jobId
+	  + "', limit = " + limit + ", continuationToken = "
+	  + continuationToken;
+      log.error(message, e);
       return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
   /**
-   * Return the list of urls pending for the crawl.
+   * Returns all (or a pageful of) the pending URLS in a crawl.
    *
-   * @param jobId the id of the crawl
-   * @param continuationToken the continuation token used to fetch the next page
-   * @param limit the number of items per page
+   * @param jobId             A String with the identifier assigned to the crawl
+   *                          when added.
+   * @param limit             An Integer with the maximum number of URLs per
+   *                          page.
+   * @param continuationToken A String with the continuation token used to fetch
+   *                          the next page
+   * @return a {@code ResponseEntity<UrlPager>} with the information about the
+   *         pending URLs.
    * @see CrawlsApi#getCrawlPending
    */
   @Override
-  public ResponseEntity<UrlPager> getCrawlPending(String jobId,
-      String continuationToken, Integer limit) {
+  public ResponseEntity<UrlPager> getCrawlPending(String jobId, Integer limit,
+      String continuationToken) {
     log.debug2("jobId = {}", jobId);
     log.debug2("continuationToken = {}", continuationToken);
     log.debug2("limit = {}", limit);
 
-//    // Check whether the service has not been fully initialized.
-//    if (!waitReady()) {
-//      // Yes: Notify the client.
-//      return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
-//    }
-
-    UrlPager pager;
     try {
+      // Check whether the service has not been fully initialized.
+      if (!waitConfig()) {
+	// Yes: Report the problem.
+        String message = "The service has not been fully initialized";
+        log.error(message);
+        log.error("limit = {}, continuationToken = {}", limit,
+            continuationToken);
+        return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
+      }
+
       CrawlerStatus status = getCrawlerStatus(jobId);
       List<String> urls = status.getUrlsPending();
-      pager = getUrlPager(status, urls, continuationToken, limit);
+      UrlPager pager = getUrlPager(status, urls, limit, continuationToken);
+      log.debug2("pager = {}", pager);
       return new ResponseEntity<>(pager, HttpStatus.OK);
-    }
-    catch (NotFoundException nfe) {
-      String msg = "No urls found for '" + jobId + "'.";
-      log.warn(msg);
+    } catch (NotFoundException nfe) {
+      String message = "No crawl found for jobId '" + jobId + "'.";
+      log.warn(message);
       return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-    }
-    catch (IllegalArgumentException iae) {
-      String msg = "Invalid continuation token'" + continuationToken + "'";
-      log.warn(msg, iae);
+    } catch (IllegalArgumentException iae) {
       return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
-    }
-    catch (Exception e) {
-      String msg = "Cannot return mime-type for auid '" + jobId + "'";
-      log.error(msg, e);
+    } catch (Exception e) {
+      String message = "Cannot getCrawlPending() for jobId '" + jobId
+	  + "', limit = " + limit + ", continuationToken = "
+	  + continuationToken;
+      log.error(message, e);
       return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
     }
-
   }
 
   /**
-   * Return the list of items by mime-type.
+   * Returns all (or a pageful of) the items in a crawl by MIME type..
    *
-   * @param jobId the id of the crawl
-   * @param type the mime-type
-   * @param continuationToken the continuation token used to fetch the next page
-   * @param limit the number of items per page
+   * @param jobId             A String with the identifier assigned to the crawl
+   *                          when added.
+   * @param type              A String with the MIME type.
+   * @param limit             An Integer with the maximum number of URLs per
+   *                         s page.
+   * @param continuationToken A String with the continuation token used to fetch
+   *                          the next page
+   * @return a {@code ResponseEntity<UrlPager>} with the information about the
+   *         items.
    * @see CrawlsApi#getCrawlByMimeType
    */
   @Override
   public ResponseEntity<UrlPager> getCrawlByMimeType(String jobId, String type,
-      String continuationToken, Integer limit) {
+      Integer limit, String continuationToken) {
     log.debug2("jobId = {}", jobId);
-    log.debug2("continuationToken = {}", continuationToken);
+    log.debug2("type = {}", type);
     log.debug2("limit = {}", limit);
+    log.debug2("continuationToken = '{}'", continuationToken);
 
-//    // Check whether the service has not been fully initialized.
-//    if (!waitReady()) {
-//      // Yes: Notify the client.
-//      return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
-//    }
-
-    UrlPager pager;
     try {
+      // Check whether the service has not been fully initialized.
+      if (!waitConfig()) {
+	// Yes: Report the problem.
+        String message = "The service has not been fully initialized";
+        log.error(message);
+        log.error("limit = {}, continuationToken = {}", limit,
+            continuationToken);
+        return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
+      }
+
       CrawlerStatus status = getCrawlerStatus(jobId);
       List<String> urls = status.getUrlsOfMimeType(type);
-      pager = getUrlPager(status, urls, continuationToken, limit);
+      UrlPager pager = getUrlPager(status, urls, limit, continuationToken);
+      log.debug2("pager = {}", pager);
       return new ResponseEntity<UrlPager>(pager, HttpStatus.OK);
-    }
-    catch (NotFoundException nfe) {
-      String msg =
-	  "Unable to find mime type '" + type + "' for job " + jobId + "'.";
-      log.warn(msg);
+    } catch (NotFoundException nfe) {
+      String message = "No crawl found for jobId '" + jobId + "'.";
+      log.warn(message);
       return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-    }
-    catch (IllegalArgumentException iae) {
-      String msg = "Invalid continuation token'" + continuationToken + "'";
-      log.warn(msg, iae);
+    } catch (IllegalArgumentException iae) {
       return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
-    }
-    catch (Exception e) {
-      String msg = "Cannot return mime-type for auid '" + jobId + "'";
-      log.error(msg, e);
+    } catch (Exception e) {
+      String message = "Cannot getCrawlByMimeType() for jobId '" + jobId
+	  + "', type = '" + type + "', limit = " + limit
+	  + ", continuationToken = " + continuationToken;
+      log.error(message, e);
       return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
   /**
    * Return a CrawlStatus for the jobId.
+   * @param jobId A String with the identifier assigned to the crawl when added.
    */
-  CrawlStatus getCrawlStatus(String key) {
-    CrawlerStatus cs = getCrawlerStatus(key);
-    CrawlStatus crawlStatus = new CrawlStatus();
-    crawlStatus.key(cs.getKey());
-    crawlStatus.auId(cs.getAuId());
-    crawlStatus.auName(cs.getAuName());
-    crawlStatus.type(cs.getType());
-    crawlStatus.startUrls(ListUtil.fromIterable(cs.getStartUrls()));
-    crawlStatus.startTime(cs.getStartTime());
-    crawlStatus.endTime(cs.getEndTime());
-    crawlStatus.status(getStatus(cs));
-    crawlStatus.priority(cs.getPriority());
-    crawlStatus.sources(ListUtil.immutableListOfType(cs.getSources(),
-	String.class));
-    crawlStatus.bytesFetched(cs.getContentBytesFetched());
-    crawlStatus.depth(cs.getDepth());
-    crawlStatus.refetchDepth(cs.getRefetchDepth());
-    crawlStatus.proxy(cs.getProxy());
+  private CrawlStatus getCrawlStatus(String jobId) {
+    log.debug2("jobId = {}", jobId);
+
+    CrawlerStatus cs = getCrawlerStatus(jobId);
+
+    CrawlStatus crawlStatus = new CrawlStatus()
+	.key(cs.getKey())
+	.auId(cs.getAuId())
+	.auName(cs.getAuName())
+	.type(cs.getType())
+	.startUrls(ListUtil.fromIterable(cs.getStartUrls()))
+	.startTime(cs.getStartTime())
+	.endTime(cs.getEndTime())
+	.status(new Status().code(cs.getCrawlStatus())
+	    .msg(cs.getCrawlStatusMsg()))
+	.priority(cs.getPriority())
+	.sources(ListUtil.immutableListOfType(cs.getSources(), String.class))
+	.bytesFetched(cs.getContentBytesFetched())
+	.depth(cs.getDepth())
+	.refetchDepth(cs.getRefetchDepth())
+	.proxy(cs.getProxy())
+	.isActive(cs.isCrawlActive())
+	.isError(cs.isCrawlError())
+	.isWaiting(cs.isCrawlWaiting());
 
     CrawlerStatus.UrlCount urlCount;
+
     if (cs.getNumOfMimeTypes() > 0) {
       crawlStatus.mimeTypes(new ArrayList<MimeCounter>());
+
       for (String mimeType : cs.getMimeTypes()) {
         urlCount = cs.getMimeTypeCtr(mimeType);
+
         if (urlCount.getCount() > 0) {
-          crawlStatus.addMimeTypesItem(getMimeCounter(key, mimeType, urlCount));
+          crawlStatus.addMimeTypesItem(getMimeCounter(jobId, mimeType,
+              urlCount));
         }
       }
     }
+
     // add the url counters
     urlCount = cs.getErrorCtr();
     if (urlCount.getCount() > 0) {
-      crawlStatus.errors(getCounter(COUNTER_KIND.errors, key, urlCount));
+      crawlStatus.errors(getCounter(COUNTER_KIND.errors, jobId, urlCount));
     }
+
     urlCount = cs.getExcludedCtr();
     if (urlCount.getCount() > 0) {
-      crawlStatus.excludedItems(getCounter(COUNTER_KIND.excluded, key,
+      crawlStatus.excludedItems(getCounter(COUNTER_KIND.excluded, jobId,
 	  urlCount));
     }
+
     urlCount = cs.getFetchedCtr();
     if (urlCount.getCount() > 0) {
-      crawlStatus.fetchedItems(getCounter(COUNTER_KIND.fetched, key, urlCount));
-    }
-    urlCount = cs.getNotModifiedCtr();
-    if (urlCount.getCount() > 0) {
-      crawlStatus.notModifiedItems(getCounter(COUNTER_KIND.notmodified, key,
+      crawlStatus.fetchedItems(getCounter(COUNTER_KIND.fetched, jobId,
 	  urlCount));
     }
+
+    urlCount = cs.getNotModifiedCtr();
+    if (urlCount.getCount() > 0) {
+      crawlStatus.notModifiedItems(getCounter(COUNTER_KIND.notmodified, jobId,
+	  urlCount));
+    }
+
     urlCount = cs.getParsedCtr();
     if (urlCount.getCount() > 0) {
-      crawlStatus.parsedItems(getCounter(COUNTER_KIND.parsed, key, urlCount));
+      crawlStatus.parsedItems(getCounter(COUNTER_KIND.parsed, jobId, urlCount));
     }
+
     urlCount = cs.getPendingCtr();
     if (urlCount.getCount() > 0) {
-      crawlStatus.pendingItems(getCounter(COUNTER_KIND.pending, key, urlCount));
+      crawlStatus.pendingItems(getCounter(COUNTER_KIND.pending, jobId,
+	  urlCount));
     }
-    crawlStatus.isActive(cs.isCrawlActive());
-    crawlStatus.isError(cs.isCrawlError());
-    crawlStatus.isWaiting(cs.isCrawlWaiting());
 
+    log.debug2("crawlStatus = {}", crawlStatus);
     return crawlStatus;
   }
 
-  Status getStatus(CrawlerStatus cs) {
-    Status status = new Status();
-    status.code(cs.getCrawlStatus());
-    status.msg(cs.getCrawlStatusMsg());
-    return status;
-  }
-
-  Counter getCounter(COUNTER_KIND kind, String jobId,
+  /**
+   * 
+   * @param kind
+   * @param jobId A String with the identifier assigned to the crawl when added.
+   * @param urlCount
+   * @return
+   */
+  static Counter getCounter(COUNTER_KIND kind, String jobId,
       CrawlerStatus.UrlCount urlCount) {
     // create path and map variables
     final Map<String, Object> uriVariables = new HashMap<String, Object>();
@@ -633,7 +815,14 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
     return ctr;
   }
 
-  MimeCounter getMimeCounter(String jobId, String mimeType,
+  /**
+   * 
+   * @param jobId A String with the identifier assigned to the crawl when added.
+   * @param mimeType
+   * @param urlCount
+   * @return
+   */
+  static MimeCounter getMimeCounter(String jobId, String mimeType,
       CrawlerStatus.UrlCount urlCount) {
     // create path and map variables
     final Map<String, Object> uriVariables = new HashMap<String, Object>();
@@ -649,109 +838,157 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
     return ctr;
   }
 
-  Crawl doCrawl(String auId, Integer depth, Integer reqPriority,
-      boolean force) {
-    if (log.isDebugEnabled()) {
-      log.debug("auId = " + auId);
-      log.debug("depth = " + depth);
-      log.debug("requestedPriority = " + reqPriority);
-      log.debug("force = " + force);
-    }
-    Crawl result = null;
+  private CrawlJob startLockssCrawl(ArchivalUnit au, Integer depth,
+      Integer requestedPriority, boolean force) throws InterruptedException {
+    log.debug2("au = {}", au);
+    log.debug2("depth = {}", depth);
+    log.debug2("requestedPriority = {}", requestedPriority);
+    log.debug2("force = {}", force);
 
-    // Get the Archival Unit to be crawled.
-    ArchivalUnit au = getPluginManager().getAuFromId(auId);
-
-    // Handle a missing Archival Unit.
-    if (au == null) {
-      result = getRequestCrawlResult(auId, depth, false, null,
-	  NO_SUCH_AU_ERROR_MESSAGE);
-      return result;
-    }
+    CrawlJob crawlJob = new CrawlJob();
 
     CrawlManagerImpl cmi = getCrawlManager();
 
     // Reset the rate limiter if the request is forced.
     if (force) {
       RateLimiter limiter = cmi.getNewContentRateLimiter(au);
+      log.trace("limiter = {}", limiter);
+
       if (!limiter.isEventOk()) {
-        limiter.unevent();
+	limiter.unevent();
       }
     }
 
     // Handle eligibility for queuing the crawl.
     try {
       cmi.checkEligibleToQueueNewContentCrawl(au);
-    }
-    catch (CrawlManagerImpl.NotEligibleException.RateLimiter neerl) {
+    } catch (CrawlManagerImpl.NotEligibleException.RateLimiter neerl) {
       String errorMessage = "AU has crawled recently (" + neerl.getMessage()
-          + "). " + USE_FORCE_MESSAGE;
-      result = getRequestCrawlResult(auId, depth, false, null, errorMessage);
-      return result;
-
-    }
-    catch (CrawlManagerImpl.NotEligibleException nee) {
+	+ "). " + USE_FORCE_MESSAGE;
+      Status status =
+	  new Status().code(HttpStatus.BAD_REQUEST.value()).msg(errorMessage);
+      crawlJob.status(status);
+      log.debug2("crawlJob = {}", crawlJob);
+      return crawlJob;
+    } catch (CrawlManagerImpl.NotEligibleException nee) {
       String errorMessage = "Can't enqueue crawl: " + nee.getMessage();
-      result = getRequestCrawlResult(auId, depth, false, null, errorMessage);
-      return result;
+      Status status =
+	  new Status().code(HttpStatus.BAD_REQUEST.value()).msg(errorMessage);
+      crawlJob.status(status);
+      log.debug2("crawlJob = {}", crawlJob);
+      return crawlJob;
     }
 
     String delayReason = null;
 
     try {
       cmi.checkEligibleForNewContentCrawl(au);
-    }
-    catch (CrawlManagerImpl.NotEligibleException nee) {
+    } catch (CrawlManagerImpl.NotEligibleException nee) {
       delayReason = "Start delayed due to: " + nee.getMessage();
+      crawlJob.delayReason(delayReason);
     }
 
     // Get the crawl priority, specified or configured.
     int priority = 0;
 
-    if (reqPriority != null) {
-      priority = reqPriority;
+    if (requestedPriority != null) {
+      priority = requestedPriority.intValue();
+    } else {
+      Configuration config = ConfigManager.getCurrentConfig();
+      priority = config.getInt(PARAM_CRAWL_PRIORITY, DEFAULT_CRAWL_PRIORITY);
     }
+
+    log.trace("priority = " + priority);
 
     // Create the crawl request.
     CrawlReq req;
 
     try {
-      req = new CrawlReq(au);
+      CrawlerStatus crawlerStatus =
+	  new CrawlerStatus(au, null, null);
+      req = new CrawlReq(au, crawlerStatus);
       req.setPriority(priority);
 
       if (depth != null) {
-        req.setRefetchDepth(depth);
+	req.setRefetchDepth(depth.intValue());
       }
-    }
-    catch (RuntimeException e) {
+    } catch (RuntimeException e) {
       String errorMessage = "Can't enqueue crawl: ";
       log.error(errorMessage + au, e);
-      result = getRequestCrawlResult(auId, depth, false, null,
-	  errorMessage + e.toString());
-      return result;
+      Status status = new Status()
+	  .code(HttpStatus.INTERNAL_SERVER_ERROR.value()).msg(errorMessage);
+      crawlJob.status(status);
+      log.debug2("crawlJob = {}", crawlJob);
+      return crawlJob;
     }
+
+    crawlJob.creationDate(LocalDateTime.now());
 
     // Perform the crawl request.
-    cmi.startNewContentCrawl(req);
-    result = getRequestCrawlResult(auId, depth, true, delayReason, null);
-    return result;
-  }
+    CrawlerStatus crawlerStatus = cmi.startNewContentCrawl(req);
+    log.trace("crawlerStatus = {}", crawlerStatus);
 
-  private Crawl getRequestCrawlResult(String auId, Integer depth,
-      boolean success, String delayReason, String errorMessage) {
-    CrawlDesc crawlDesc = new CrawlDesc().auId(auId);
-    Status status = new Status().msg(errorMessage);
-    Crawl result;
-    result = new Crawl().crawlDesc(crawlDesc).status(status)
-	.delayReason(delayReason);
-    if (log.isDebugEnabled()) {
-      log.debug("result = " + result);
+    if (crawlerStatus.isCrawlError()) {
+      String errorMessage = "Can't perform crawl for " + au + ": "
+	  + crawlerStatus.getCrawlErrorMsg();
+      log.error(errorMessage);
+      Status status = new Status()
+	  .code(HttpStatus.INTERNAL_SERVER_ERROR.value()).msg(errorMessage);
+      crawlJob.status(status);
+      log.debug2("crawlJob = {}", crawlJob);
+      return crawlJob;
     }
-    return result;
+
+    String jobId = crawlerStatus.getKey();
+    log.trace("jobId = {}", jobId);
+    crawlJob.jobId(jobId);
+
+    long startTimeInMs = crawlerStatus.getStartTime();
+    log.trace("startTimeInMs = {}", startTimeInMs);
+
+    if (startTimeInMs >= 0) {
+      crawlJob.startDate(localDateTimeFromEpochMs(startTimeInMs));
+    }
+
+    long endTimeInMs = crawlerStatus.getEndTime();
+    log.trace("endTimeInMs = {}", endTimeInMs);
+
+    if (endTimeInMs >= 0) {
+      crawlJob.endDate(localDateTimeFromEpochMs(endTimeInMs));
+    }
+
+    ServiceBinding crawlerServiceBinding = LockssDaemon.getLockssDaemon()
+	.getServiceBinding(ServiceDescr.SVC_CRAWLER);
+    log.trace("crawlerServiceBinding = {}", crawlerServiceBinding);
+
+    if (crawlerServiceBinding != null) {
+      String crawlerServiceUrl = crawlerServiceBinding.getRestStem();
+      crawlJob.result(crawlerServiceUrl);
+    }
+
+    Status status =
+	new Status().code(HttpStatus.ACCEPTED.value()).msg("Success");
+    crawlJob.status(status);
+
+    log.debug2("result = {}", crawlJob);
+    return crawlJob;
   }
 
-  Crawl doRepair(String auId, List<String> urls) {
-    Crawl result;
+  /**
+   * Provides the local timestamp that corresponds to a number of milliseconds
+   * since the epoch.
+   * 
+   * @param epochMs A long with the number of milliseconds since the epoch to be
+   *                converted.
+   * @return a LocalDateTime with the result of the conversion.
+   */
+  private LocalDateTime localDateTimeFromEpochMs(long epochMs) {
+    return Instant.ofEpochMilli(epochMs).atZone(ZoneId.of("UTC"))
+	.toLocalDateTime();
+  }
+
+  CrawlJob startLockssRepair(String auId, List<String> urls) {
+    CrawlJob result;
     CrawlManagerImpl cmi = getCrawlManager();
     ArchivalUnit au = getPluginManager().getAuFromId(auId);
 
@@ -771,45 +1008,165 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
     return result = getRequestCrawlResult(auId, null, true, null, null);
   }
 
-  UrlPager getUrlPager(CrawlerStatus status, List<String> urls,
-      String continuationToken, Integer limit) {
-    UrlPager pager = new UrlPager();
-    Integer curLimit = getLimit(limit);
-    ContinuationToken inToken = null;
+  private CrawlJob getRequestCrawlResult(String auId, Integer depth,
+      boolean success, String delayReason, String errorMessage) {
+    CrawlDesc crawlDesc = new CrawlDesc().auId(auId);
+    Status status = new Status().msg(errorMessage);
+    CrawlJob result = new CrawlJob().crawlDesc(crawlDesc).status(status)
+	.delayReason(delayReason);
+    if (log.isDebugEnabled()) {
+      log.debug("result = " + result);
+    }
+    return result;
+  }
+
+  /**
+   * Provides a pageful of URLs.
+   * 
+   * @param crawlerStatus     A CrawlerStatus with the crawler status.
+   * @param allUrls           A List<String> with the complete collection of
+   *                          URLs to paginate.
+   * @param requestLimit      An Integer with the request maximum number of URLs
+   *                          per page.
+   * @param continuationToken A String with the continuation token provided in
+   *                          the request.
+   * @return a UrlPager with the pageful of URLs.
+   */
+  UrlPager getUrlPager(CrawlerStatus crawlerStatus, List<String> allUrls,
+      Integer requestLimit, String continuationToken) {
+    log.debug2("crawlerStatus = {}", crawlerStatus);
+    log.debug2("allUrls = {}", allUrls);
+    log.debug2("requestLimit = {}", requestLimit);
+    log.debug2("continuationToken = {}", continuationToken);
+
+    // The continuation token timestamp.
+    long timeStamp = crawlerStatus.getStartTime();
+
+    // Validate the requested limit.
+    Integer validLimit = validateLimit(requestLimit);
+    log.trace("validLimit = {}", validLimit);
+
+    // The last URL, of the list of all the URLs, to skip.
+    long lastUrlToSkip = -1;
+
+    // Check whether a continuation token has been received.
     if (continuationToken != null) {
-      inToken = new ContinuationToken(continuationToken);
-    }
-    int listSize = urls.size();   // Get the pageful of results.
+      // Yes.
+      ContinuationToken requestToken = new ContinuationToken(continuationToken);
+      log.trace("requestToken = {}", requestToken);
 
-    if (listSize > 0) {// there may be something to send
-      List<UrlInfo> urlInfos = new ArrayList<>();
-      // find the boundary
-      int count = 0;
-      Long lastElement = 0L;
+      // Validate the continuation token.
+      validateContinuationToken(timeStamp, requestToken);
 
-      if (curLimit > 0 && curLimit < listSize) { // we need to break up the list.
-        if (inToken != null) {
-          lastElement = inToken.getLastElement();
-        }
-        int el = lastElement.intValue();
-        while (el < listSize && count < curLimit) {
-          // convert our urls to to url infos.
-          String url = urls.get(el);
-          urlInfos.add(makeUrlInfo(url, status));
-          el++;
-          count++;
-        }
+      // Get the last previously served URL index.
+      Long previouslastUrlIndex = requestToken.getLastElement();
+      log.trace("previouslastUrlIndex = {}", previouslastUrlIndex);
+
+      if (previouslastUrlIndex != null) {
+	lastUrlToSkip = previouslastUrlIndex;
       }
-      else { // send everything
-        for (String url : urls) {
-          urlInfos.add(makeUrlInfo(url, status));
-        }
-        count = urls.size();
-      }
-      pager.setUrls(urlInfos);
-      pager.setPageInfo(createPageInfo(curLimit, count, lastElement, listSize));
     }
+
+    // Get the size of the collection of all URLs.
+    int listSize = allUrls.size();
+    log.trace("listSize = {}", listSize);
+
+    // Validate the count of URLs to skip.
+    if (lastUrlToSkip + 1 >= listSize) {
+      String errorMessage = "Invalid pagination request: startAt = "
+	  + (lastUrlToSkip + 1) + ", Total = " + listSize;
+      log.warn(errorMessage);
+      throw new IllegalArgumentException(errorMessage);
+    }
+
+    UrlPager pager = new UrlPager();
+    Long lastItem = null;
+
+    // Check whether there is anything to provide,
+    if (listSize > 0) {
+      // Yes.
+      List<UrlInfo> outputUrls = new ArrayList<>();
+
+      // Get the number of URLs to return.
+      int outputSize = (int)(listSize - (lastUrlToSkip + 1));
+
+      if (validLimit != null && validLimit > 0 && validLimit < outputSize) {
+	outputSize = validLimit;
+      }
+
+      log.trace("outputSize = {}", outputSize);
+
+      int idx = 0;
+
+      // Loop through all the URLs until the output size has been reached.
+      while (outputUrls.size() < outputSize) {
+	log.trace("idx = {}", idx);
+
+	// Check whether this URL does not need to be skipped.
+	if (idx > lastUrlToSkip) {
+	  // Yes: Get it.
+          String url = allUrls.get(idx);
+          log.trace("url = {}", url);
+
+	  // Add it to the output collection.
+          outputUrls.add(makeUrlInfo(url, crawlerStatus));
+
+          // Record that it is the last one so far.
+          lastItem = (long)idx;
+	}
+
+	// Point to the next URL.
+        idx++;
+      }
+
+      // Add the output URLs to the pagination.
+      pager.setUrls(outputUrls);
+    }
+
+    // Set the pagination information.
+    pager.setPageInfo(getPageInfo(validLimit, lastItem, listSize, timeStamp));
+
+    log.debug2("pager = {}", pager);
     return pager;
+  }
+
+  /**
+   * Checks that a continuation token is valid.
+   * 
+   * @param timeStamp         A Long with the timestamp used to validate the
+   *                          continuation token.
+   * @param continuationToken A ContinuationToken with the continuation token to
+   *                          be validated.
+   * @throws IllegalArgumentException if the passed continuation token is not
+   *                                  valid.
+   */
+  private void validateContinuationToken(Long timeStamp,
+      ContinuationToken continuationToken) throws IllegalArgumentException {
+    // Validate the continuation token.
+    if (continuationToken.getTimestamp() != timeStamp) {
+      String errorMessage = "Invalid continuation token: " + continuationToken;
+      log.warn(errorMessage);
+      throw new IllegalArgumentException(errorMessage);
+    }
+  }
+
+  /**
+   * Checks that a limit field is valid.
+   * 
+   * @param limit An Integer with the limit value to validate.
+   * @return an Integer with the validated limit value.
+   * @throws IllegalArgumentException if the passed limit value is not valid.
+   */
+  private Integer validateLimit(Integer limit) throws IllegalArgumentException {
+    // check limit if assigned is greater than 0
+    if (limit != null && limit.intValue() < 0) {
+      String errMsg = "Invalid limit: limit must be a non-negative integer; "
+	  + "it was '" + limit + "'";
+      log.warn(errMsg);
+      throw new IllegalArgumentException(errMsg);
+    }
+
+    return limit;
   }
 
   UrlInfo makeUrlInfo(String url, CrawlerStatus status) {
@@ -826,89 +1183,180 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
     return uInfo;
   }
 
-  JobPager getJobsPager(Integer limit, String continuationToken) {
-    JobPager pager = new JobPager();
-    Integer curLimit = getLimit(limit);
-    ContinuationToken inToken = null;
+  /**
+   * Provides a pageful of jobs.
+   * 
+   * @param requestLimit      An Integer with the request maximum number of jobs
+   *                          per page.
+   * @param continuationToken A String with the continuation token provided in
+   *                          the request.
+   * @return a UrlPager with the pageful of jobs.
+   */
+  JobPager getJobsPager(Integer requestLimit, String continuationToken) {
+    log.debug2("requestLimit = {}", requestLimit);
+    log.debug2("continuationToken = {}", continuationToken);
+
+    // The continuation token timestamp.
+    long timeStamp = LockssDaemon.getLockssDaemon().getStartDate().getTime();
+
+    // Validate the requested limit.
+    Integer validLimit = validateLimit(requestLimit);
+    log.trace("validLimit = {}", validLimit);
+
+    // The last job, of the list of all the job, to skip.
+    long lastJobToSkip = -1;
+
+    // Check whether a continuation token has been received.
     if (continuationToken != null) {
-      inToken = new ContinuationToken(continuationToken);
-    }
-    // Get the pageful of results.
-    CrawlManagerImpl cmi = getCrawlManager();
-    List<CrawlerStatus> inList = cmi.getStatus().getCrawlerStatusList();
-    List<CrawlStatus> items = new ArrayList<>();
-    pager.setJobs(items);
-    int count = 0;
-    Long lastElement = 0L;
-    int listSize = inList.size();
-    if (curLimit > 0 && curLimit < listSize) { // we need to break up the list.
-      if (inToken != null) {
-        lastElement = inToken.getLastElement();
-      }
-      int el = lastElement.intValue();
-      while (el < listSize && count < curLimit) {
-        items.add(CrawlStatusfromCrawlerStatus(inList.get(el)));
-        el++;
-        count++;
+      // Yes.
+      ContinuationToken requestToken = new ContinuationToken(continuationToken);
+      log.trace("requestToken = {}", requestToken);
+
+      // Validate the continuation token.
+      validateContinuationToken(timeStamp, requestToken);
+
+      // Get the last previously served job index.
+      Long previouslastJobIndex = requestToken.getLastElement();
+      log.trace("previouslastJobIndex = {}", previouslastJobIndex);
+
+      if (previouslastJobIndex != null) {
+	lastJobToSkip = previouslastJobIndex;
       }
     }
-    else { // just send everything
-      for (CrawlerStatus inCs : inList) {
-        items.add(CrawlStatusfromCrawlerStatus(inCs));
+
+    // Get the collection of all jobs.
+    List<CrawlerStatus> allJobs =
+	getCrawlManager().getStatus().getCrawlerStatusList();
+    log.trace("allJobs = {}", allJobs);
+
+    // Get the size of the collection of all jobs.
+    int listSize = allJobs.size();
+    log.trace("listSize = {}", listSize);
+
+    // Validate the count of jobs to skip.
+    if (lastJobToSkip + 1 >= listSize) {
+      String errorMessage = "Invalid pagination request: startAt = "
+	  + (lastJobToSkip + 1) + ", Total = " + listSize;
+      log.warn(errorMessage);
+      throw new IllegalArgumentException(errorMessage);
+    }
+
+    JobPager pager = new JobPager();
+    Long lastItem = null;
+
+    // Check whether there is anything to provide,
+    if (listSize > 0) {
+      // Yes.
+      List<CrawlStatus> outputJobs = new ArrayList<>();
+
+      // Get the number of jobs to return.
+      int outputSize = (int)(listSize - (lastJobToSkip + 1));
+
+      if (validLimit != null && validLimit > 0 && validLimit < outputSize) {
+	outputSize = validLimit;
       }
-      count = listSize;
+
+      log.trace("outputSize = {}", outputSize);
+
+      int idx = 0;
+
+      // Loop through all the jobs until the output size has been reached.
+      while (outputJobs.size() < outputSize) {
+	log.trace("idx = {}", idx);
+
+	// Check whether this job does not need to be skipped.
+	if (idx > lastJobToSkip) {
+	  // Yes: Get it.
+          CrawlerStatus crawlerStatus = allJobs.get(idx);
+          log.trace("crawlerStatus = {}", crawlerStatus);
+
+	  // Add it to the output collection.
+          outputJobs.add(getCrawlStatus(crawlerStatus));
+
+          // Record that it is the last one so far.
+          lastItem = (long)idx;
+	}
+
+	// Point to the next job.
+        idx++;
+      }
+
+      // Add the output URLs to the pagination.
+      pager.setJobs(outputJobs);
     }
-    if (log.isTraceEnabled()) {
-      log.trace("jobs = {}", () -> items);
-    }
-    // create the page
-    // create page info block
-    pager.setPageInfo(createPageInfo(curLimit, count, lastElement, listSize));
-    log.debug2("result = {}", () -> pager);
+
+    // Set the pagination information.
+    pager.setPageInfo(getPageInfo(validLimit, lastItem, listSize, timeStamp));
+
+    log.debug2("pager = {}", pager);
     return pager;
   }
 
-  private PageInfo createPageInfo(Integer curLimit, int count, Long lastElement,
-      int listSize) {
+  /**
+   * Provides the pagination information.
+   * 
+   * @param resultsPerPage An Integer with the number of results per page.
+   * @param lastElement    A Long with the index of the last element in the
+   *                       page.
+   * @param totalCount     An int with the total number of elements.
+   * @param timeStamp      A Long with the timestamp to use in the continuation
+   *                       token, if necessary.
+   * @return a PageInfo with the pagination information.
+   */
+  private PageInfo getPageInfo(Integer resultsPerPage, Long lastElement,
+      int totalCount, Long timeStamp) {
+    log.debug2("resultsPerPage = {}", resultsPerPage);
+    log.debug2("lastElement = {}", lastElement);
+    log.debug2("totalCount = {}", totalCount);
+    log.debug2("timeStamp = {}", timeStamp);
+
     PageInfo pi = new PageInfo();
+
+    pi.setTotalCount(totalCount);
+    pi.setResultsPerPage(resultsPerPage);
 
     ServletUriComponentsBuilder builder =
 	ServletUriComponentsBuilder.fromCurrentRequest();
-    // set current link
+
     pi.setCurLink(builder.cloneBuilder().toUriString());
-    pi.setTotalCount(count);
-    pi.setResultsPerPage(curLimit);
-    if (lastElement < listSize) {
-      String nextToken = new ContinuationToken(System.currentTimeMillis(),
-	  lastElement).toToken();
+
+    String nextToken = null;
+
+    // Determine whether a continuation token needs to be provided.
+    if (lastElement < totalCount - 1) {
+      // Yes: Create it.
+      nextToken = new ContinuationToken(timeStamp, lastElement).toToken();
+      log.trace("nextToken = {}", nextToken);
+
       pi.setContinuationToken(nextToken);
       builder.replaceQueryParam("continuationToken", nextToken);
+      pi.setNextLink(builder.toUriString());
     }
-    else {
-      builder.replaceQueryParam("continuationToken");
-    }
-    pi.setNextLink(builder.toUriString());
+
+    log.debug2("pi = {}", pi);
     return pi;
   }
 
-  private CrawlManagerImpl getCrawlManager() throws IllegalStateException{
-    CrawlManager cmgr = LockssApp.getManagerByTypeStatic(CrawlManager.class);
-    return (CrawlManagerImpl) cmgr;
+  /**
+   * 
+   * @param jobId A String with the identifier assigned to the crawl when added.
+   * @return
+   * @throws NotFoundException
+   */
+  private CrawlerStatus getCrawlerStatus(String jobId)
+      throws NotFoundException {
+    CrawlerStatus cs = getCrawlManager().getStatus().getCrawlerStatus(jobId);
 
-  }
-
-  private CrawlerStatus getCrawlerStatus(String key) throws NotFoundException {
-    CrawlManagerImpl cmi = getCrawlManager();
-    CrawlerStatus cs = cmi.getStatus().getCrawlerStatus(key);
     if (cs == null) {
-      String msg = "No Job found for '" + key + "'";
-      log.warn(msg);
+      String message = "No Job found for '" + jobId + "'";
+      log.warn(message);
       throw new NotFoundException();
     }
+
     return cs;
   }
 
-  private CrawlStatus CrawlStatusfromCrawlerStatus(CrawlerStatus cs) {
+  private static CrawlStatus getCrawlStatus(CrawlerStatus cs) {
     String key = cs.getKey();
     CrawlStatus crawlStatus = new CrawlStatus()
         .key(cs.getKey())
@@ -957,6 +1405,22 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
   }
 
   /**
+   * Provides the crawl manager.
+   * 
+   * @return a CrawlManagerImpl with the crawl manager implementation.
+   */
+  private CrawlManagerImpl getCrawlManager() {
+    CrawlManagerImpl crawlManager = null;
+    CrawlManager cmgr = LockssApp.getManagerByTypeStatic(CrawlManager.class);
+ 
+    if (cmgr instanceof CrawlManagerImpl) {
+      crawlManager = (CrawlManagerImpl) cmgr;
+    }
+
+    return crawlManager;
+  }
+
+  /**
    * Provides the plugin manager.
    *
    * @return the current Lockss PluginManager.
@@ -964,20 +1428,5 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
   private PluginManager getPluginManager() {
     return (PluginManager)
 	LockssApp.getManagerByKeyStatic(LockssApp.PLUGIN_MANAGER);
-  }
-
-  /**
-   * Check that a limit field is valid.
-   */
-  private Integer getLimit(Integer limit) throws IllegalArgumentException {
-    // check limit if assigned is greater than 0
-    if (limit != null && limit.intValue() < 0) {
-      String errMsg = "Invalid limit: limit must be a non-negative integer; "
-	  + "it was '" + limit + "'";
-      log.warn(errMsg);
-      throw new IllegalArgumentException(errMsg);
-    }
-
-    return limit;
   }
 }

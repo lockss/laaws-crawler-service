@@ -250,6 +250,35 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
   }
 
   /**
+   * Deletes all of the currently queued and active crawl requests.
+   *
+   * @return a {@code ResponseEntity<Void>}.
+   * @see CrawlsApi#deleteCrawls
+   */
+  @Override
+  public ResponseEntity<Void> deleteCrawls() {
+    log.debug2("Invoked");
+
+    try {
+      // Check whether the service has not been fully initialized.
+      if (!waitConfig()) {
+	// Yes: Report the problem.
+	String message = "The service has not been fully initialized";
+	log.error(message);
+	return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
+      }
+
+      getCrawlManager().deleteAllCrawls();
+
+      return new ResponseEntity<>(HttpStatus.OK);
+    } catch (Exception e) {
+      String message = "Cannot deleteCrawls()";
+      log.error(message, e);
+      return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  /**
    * Deletes a crawl previously added to the crawl queue, stopping the crawl if
    * already running.
    *
@@ -905,7 +934,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
 
     try {
       CrawlerStatus crawlerStatus =
-	  new CrawlerStatus(au, null, null);
+	  new CrawlerStatus(au, au.getStartUrls(), null);
       req = new CrawlReq(au, crawlerStatus);
       req.setPriority(priority);
 
@@ -1072,20 +1101,19 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
     int listSize = allUrls.size();
     log.trace("listSize = {}", listSize);
 
-    // Validate the count of URLs to skip.
-    if (lastUrlToSkip + 1 >= listSize) {
-      String errorMessage = "Invalid pagination request: startAt = "
-	  + (lastUrlToSkip + 1) + ", Total = " + listSize;
-      log.warn(errorMessage);
-      throw new IllegalArgumentException(errorMessage);
-    }
-
     UrlPager pager = new UrlPager();
     Long lastItem = null;
 
     // Check whether there is anything to provide,
     if (listSize > 0) {
-      // Yes.
+      // Yes: Validate the count of URLs to skip.
+      if (lastUrlToSkip + 1 >= listSize) {
+        String errorMessage = "Invalid pagination request: startAt = "
+  	  + (lastUrlToSkip + 1) + ", Total = " + listSize;
+        log.warn(errorMessage);
+        throw new IllegalArgumentException(errorMessage);
+      }
+
       List<UrlInfo> outputUrls = new ArrayList<>();
 
       // Get the number of URLs to return.
@@ -1238,20 +1266,19 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
     int listSize = allJobs.size();
     log.trace("listSize = {}", listSize);
 
-    // Validate the count of jobs to skip.
-    if (lastJobToSkip + 1 >= listSize) {
-      String errorMessage = "Invalid pagination request: startAt = "
-	  + (lastJobToSkip + 1) + ", Total = " + listSize;
-      log.warn(errorMessage);
-      throw new IllegalArgumentException(errorMessage);
-    }
-
     JobPager pager = new JobPager();
     Long lastItem = null;
 
     // Check whether there is anything to provide,
     if (listSize > 0) {
-      // Yes.
+      // Yes: Validate the count of jobs to skip.
+      if (lastJobToSkip + 1 >= listSize) {
+        String errorMessage = "Invalid pagination request: startAt = "
+  	  + (lastJobToSkip + 1) + ", Total = " + listSize;
+        log.warn(errorMessage);
+        throw new IllegalArgumentException(errorMessage);
+      }
+
       List<CrawlStatus> outputJobs = new ArrayList<>();
 
       // Get the number of jobs to return.
@@ -1328,7 +1355,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
     String nextToken = null;
 
     // Determine whether a continuation token needs to be provided.
-    if (lastElement < totalCount - 1) {
+    if (lastElement != null && lastElement < totalCount - 1) {
       // Yes: Create it.
       nextToken = new ContinuationToken(timeStamp, lastElement).toToken();
       log.trace("nextToken = {}", nextToken);

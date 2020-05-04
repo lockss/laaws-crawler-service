@@ -28,6 +28,9 @@ package org.lockss.laaws.crawler.impl;
 
 import static org.lockss.servlet.DebugPanel.DEFAULT_CRAWL_PRIORITY;
 import static org.lockss.servlet.DebugPanel.PARAM_CRAWL_PRIORITY;
+import static org.lockss.util.rest.crawler.CrawlDesc.LOCKSS_CRAWLER_ID;
+import static org.lockss.util.rest.crawler.CrawlDesc.WGET_CRAWLER_ID;
+import java.io.IOException;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -60,6 +63,9 @@ import org.lockss.laaws.crawler.model.UrlError.SeverityEnum;
 import org.lockss.laaws.crawler.model.UrlInfo;
 import org.lockss.laaws.crawler.model.UrlPager;
 import org.lockss.laaws.crawler.utils.ContinuationToken;
+import org.lockss.laaws.crawler.wget.WgetCrawlProcessor;
+import org.lockss.laaws.crawler.wget.WgetCrawlReq;
+import org.lockss.laaws.crawler.wget.WgetCrawlerStatus;
 import org.lockss.log.L4JLogger;
 import org.lockss.plugin.ArchivalUnit;
 import org.lockss.plugin.PluginManager;
@@ -106,16 +112,17 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
   /**
    * Requests a crawl.
    * 
-   * @param request A CrawlDesc with the information about the requested crawl.
+   * @param crawlDesc A CrawlDesc with the information about the requested
+   *                  crawl.
    * @return a {@code ResponseEntity<CrawlJob>} with the information about the
    *         job created to perform the crawl.
    * @see CrawlsApi#doCrawl
    */
   @Override
-  public ResponseEntity<CrawlJob> doCrawl(CrawlDesc request) {
-    log.debug2("request = {}", request);
+  public ResponseEntity<CrawlJob> doCrawl(CrawlDesc crawlDesc) {
+    log.debug2("crawlDesc = {}", crawlDesc);
 
-    CrawlJob crawlJob = new CrawlJob().crawlDesc(request);
+    CrawlJob crawlJob = new CrawlJob().crawlDesc(crawlDesc);
 
     try {
       // Check whether the service has not been fully initialized.
@@ -123,35 +130,21 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
 	// Yes: Report the problem.
         String message = "The service has not been fully initialized";
         log.error(message);
-        log.error("request = {}", request);
+        log.error("crawlDesc = {}", crawlDesc);
         HttpStatus httpStatus = HttpStatus.SERVICE_UNAVAILABLE;
         crawlJob.status(new Status().code(httpStatus.value()).msg(message));
         log.debug2("crawlJob = {}", crawlJob);
         return new ResponseEntity<>(crawlJob, httpStatus);
       }
 
-      String crawler = request.getCrawler();
+      String crawler = crawlDesc.getCrawler();
 
       // Validate the specified crawler.
       if (!CrawlersApiServiceImpl.getCrawlerIds().contains(crawler)) {
         String message = "Invalid crawler '" + crawler + "'";
         log.error(message);
-        log.error("request = {}", request);
+        log.error("crawlDesc = {}", crawlDesc);
         HttpStatus httpStatus = HttpStatus.BAD_REQUEST;
-        crawlJob.status(new Status().code(httpStatus.value()).msg(message));
-        log.debug2("crawlJob = {}", crawlJob);
-        return new ResponseEntity<>(crawlJob, httpStatus);
-      }
-
-      // Get the Archival Unit to be crawled.
-      ArchivalUnit au = getPluginManager().getAuFromId(request.getAuId());
-
-      // Handle a missing Archival Unit.
-      if (au == null) {
-        String message = NO_SUCH_AU_ERROR_MESSAGE;
-        log.error(message);
-        log.error("request = {}", request);
-        HttpStatus httpStatus = HttpStatus.NOT_FOUND;
         crawlJob.status(new Status().code(httpStatus.value()).msg(message));
         log.debug2("crawlJob = {}", crawlJob);
         return new ResponseEntity<>(crawlJob, httpStatus);
@@ -159,24 +152,62 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
 
       // Determine which crawler to use.
       switch (crawler) {
-        case "lockss":
-          CrawlKind crawlKind = request.getCrawlKind();
+        case LOCKSS_CRAWLER_ID:
+          // Get the Archival Unit to be crawled.
+          ArchivalUnit au = getPluginManager().getAuFromId(crawlDesc.getAuId());
+
+          // Handle a missing Archival Unit.
+          if (au == null) {
+            String message = NO_SUCH_AU_ERROR_MESSAGE;
+            log.error(message);
+            log.error("crawlDesc = {}", crawlDesc);
+            HttpStatus httpStatus = HttpStatus.NOT_FOUND;
+            crawlJob.status(new Status().code(httpStatus.value()).msg(message));
+            log.debug2("crawlJob = {}", crawlJob);
+            return new ResponseEntity<>(crawlJob, httpStatus);
+          }
+
+          CrawlKind crawlKind = crawlDesc.getCrawlKind();
 
           // Determine which kind of crawl is being requested.
           switch (crawlKind) {
             case NEWCONTENT:
-              crawlJob = startLockssCrawl(au, request.getRefetchDepth(),
-        	  request.getPriority(), request.isForceCrawl())
-              .crawlDesc(request);
+              crawlJob = startLockssCrawl(au, crawlDesc.getRefetchDepth(),
+        	  crawlDesc.getPriority(), crawlDesc.isForceCrawl())
+              .crawlDesc(crawlDesc);
               break;
             case REPAIR:
-              crawlJob = startLockssRepair(request.getAuId(),
-        	  request.getRepairList()).crawlDesc(request);
+              crawlJob = startLockssRepair(crawlDesc.getAuId(),
+        	  crawlDesc.getRepairList()).crawlDesc(crawlDesc);
               break;
             default:
               String message = "Invalid crawl kind '" + crawlKind + "'";
               log.error(message);
-              log.error("request = {}", request);
+              log.error("crawlDesc = {}", crawlDesc);
+              HttpStatus httpStatus = HttpStatus.BAD_REQUEST;
+              crawlJob.status(
+        	  new Status().code(httpStatus.value()).msg(message));
+              log.debug2("crawlJob = {}", crawlJob);
+              return new ResponseEntity<>(crawlJob, httpStatus);
+          }
+
+          break;
+        case WGET_CRAWLER_ID:
+          crawlKind = crawlDesc.getCrawlKind();
+
+          // Determine which kind of crawl is being requested.
+          switch (crawlKind) {
+            case NEWCONTENT:
+              crawlJob = startWgetCrawl(crawlDesc).crawlDesc(crawlDesc);
+              break;
+            case REPAIR:
+              crawlJob = startWgetRepair(crawlDesc.getAuId(),
+        	  crawlDesc.getRepairList()).crawlDesc(crawlDesc);
+              break;
+            default:
+              String message = "Invalid crawl kind '" + crawlKind + "'";
+              log.error(message);
+              log.error("crawlDesc = {}", crawlDesc);
               HttpStatus httpStatus = HttpStatus.BAD_REQUEST;
               crawlJob.status(
         	  new Status().code(httpStatus.value()).msg(message));
@@ -188,7 +219,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
         default:
           String message = "Unimplemented crawler '" + crawler + "'";
           log.error(message);
-          log.error("request = {}", request);
+          log.error("crawlDesc = {}", crawlDesc);
           HttpStatus httpStatus = HttpStatus.BAD_REQUEST;
           crawlJob.status(new Status().code(httpStatus.value()).msg(message));
           log.debug2("crawlJob = {}", crawlJob);
@@ -199,7 +230,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
       return new ResponseEntity<>(crawlJob,
 	  HttpStatus.valueOf(crawlJob.getStatus().getCode()));
     } catch (Exception e) {
-      String message = "Cannot doCrawl() for request = '" + request + "'";
+      String message = "Cannot doCrawl() for crawlDesc = '" + crawlDesc + "'";
       log.error(message, e);
       HttpStatus httpStatus = HttpStatus.INTERNAL_SERVER_ERROR;
       crawlJob.status(new Status().code(httpStatus.value()).msg(message));
@@ -839,7 +870,11 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
     String path = UriComponentsBuilder.fromPath(COUNTER_URI)
 	.buildAndExpand(uriVariables).toUriString();
     Counter ctr = new Counter();
-    ctr.count(urlCount.getCount());
+    if (urlCount != null) {
+      ctr.count(urlCount.getCount());
+    } else {
+      ctr.count(0);
+    }
     ctr.itemsLink(path);
     return ctr;
   }
@@ -1418,7 +1453,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
         .errors(getCounter(COUNTER_KIND.errors, key, cs.getErrorCtr()));
 
     // Handle the crawl status seperately
-    crawlStatus.getStartUrls().addAll(cs.getAu().getStartUrls());
+    crawlStatus.getStartUrls().addAll(cs.getStartUrls());
 
     // Add the MIME types array if needed.
     Collection<String> mimeTypes = cs.getMimeTypes();
@@ -1434,6 +1469,130 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
     }
 
     return crawlStatus;
+  }
+
+  private CrawlJob startWgetCrawl(CrawlDesc crawlDesc)
+      throws InterruptedException {
+    log.debug2("crawlDesc = {}", crawlDesc);
+
+    CrawlJob crawlJob = new CrawlJob();
+
+    CrawlManagerImpl cmi = getCrawlManager();
+
+    // Get the crawl priority, specified or configured.
+    int priority = 0;
+
+    if (crawlDesc.getPriority() != null) {
+      priority = crawlDesc.getPriority().intValue();
+    } else {
+      Configuration config = ConfigManager.getCurrentConfig();
+      priority = config.getInt(PARAM_CRAWL_PRIORITY, DEFAULT_CRAWL_PRIORITY);
+    }
+
+    log.trace("priority = " + priority);
+
+    // Create the crawl request.
+    WgetCrawlReq wgetCrawlReq;
+
+    try {
+      CrawlerStatus crawlerStatus = new WgetCrawlerStatus(crawlDesc.getAuId(),
+	  crawlDesc.getCrawlList(), crawlDesc.getCrawlKind().name());
+      wgetCrawlReq = new WgetCrawlReq(crawlDesc, crawlerStatus);
+      wgetCrawlReq.setPriority(priority);
+
+      if (crawlDesc.getCrawlDepth() != null) {
+	wgetCrawlReq.setRefetchDepth(crawlDesc.getCrawlDepth().intValue());
+      }
+    } catch (IOException ioe) {
+      String errorMessage = "Can't parse crawl description for AU ";
+      log.error(errorMessage + crawlDesc.getAuId() + ":", ioe);
+      Status status =
+	  new Status().code(HttpStatus.BAD_REQUEST.value()).msg(errorMessage);
+      crawlJob.status(status);
+      log.debug2("crawlJob = {}", crawlJob);
+      return crawlJob;
+    } catch (RuntimeException e) {
+      String errorMessage = "Can't enqueue crawl for AU ";
+      log.error(errorMessage + crawlDesc.getAuId() + ":", e);
+      Status status = new Status()
+	  .code(HttpStatus.INTERNAL_SERVER_ERROR.value()).msg(errorMessage);
+      crawlJob.status(status);
+      log.debug2("crawlJob = {}", crawlJob);
+      return crawlJob;
+    }
+
+    crawlJob.creationDate(LocalDateTime.now());
+
+    // Perform the crawl request.
+    CrawlerStatus crawlerStatus =
+	new WgetCrawlProcessor(cmi).startNewContentCrawl(wgetCrawlReq);
+    log.trace("crawlerStatus = {}", crawlerStatus);
+
+    if (crawlerStatus.isCrawlError()) {
+      String errorMessage = "Can't perform crawl for " + crawlDesc.getAuId()
+      	+ ": " + crawlerStatus.getCrawlErrorMsg();
+      log.error(errorMessage);
+      Status status = new Status()
+	  .code(HttpStatus.INTERNAL_SERVER_ERROR.value()).msg(errorMessage);
+      crawlJob.status(status);
+      log.debug2("crawlJob = {}", crawlJob);
+      return crawlJob;
+    }
+
+    String jobId = crawlerStatus.getKey();
+    log.trace("jobId = {}", jobId);
+    crawlJob.jobId(jobId);
+
+    long startTimeInMs = crawlerStatus.getStartTime();
+    log.trace("startTimeInMs = {}", startTimeInMs);
+
+    if (startTimeInMs >= 0) {
+      crawlJob.startDate(localDateTimeFromEpochMs(startTimeInMs));
+    }
+
+    long endTimeInMs = crawlerStatus.getEndTime();
+    log.trace("endTimeInMs = {}", endTimeInMs);
+
+    if (endTimeInMs >= 0) {
+      crawlJob.endDate(localDateTimeFromEpochMs(endTimeInMs));
+    }
+
+    ServiceBinding crawlerServiceBinding = LockssDaemon.getLockssDaemon()
+	.getServiceBinding(ServiceDescr.SVC_CRAWLER);
+    log.trace("crawlerServiceBinding = {}", crawlerServiceBinding);
+
+    if (crawlerServiceBinding != null) {
+      String crawlerServiceUrl = crawlerServiceBinding.getRestStem();
+      crawlJob.result(crawlerServiceUrl);
+    }
+
+    Status status =
+	new Status().code(HttpStatus.ACCEPTED.value()).msg("Success");
+    crawlJob.status(status);
+
+    log.debug2("result = {}", crawlJob);
+    return crawlJob;
+  }
+
+  CrawlJob startWgetRepair(String auId, List<String> urls) {
+    CrawlJob result;
+    CrawlManagerImpl cmi = getCrawlManager();
+    ArchivalUnit au = getPluginManager().getAuFromId(auId);
+
+    // Handle a missing Archival Unit.
+    if (au == null) {
+      result = getRequestCrawlResult(auId, null, false, null,
+	  NO_SUCH_AU_ERROR_MESSAGE);
+      return result;
+    }
+    // Handle missing Repair Urls.
+    if (urls == null) {
+      result = getRequestCrawlResult(auId, null, false, null, NO_REPAIR_URLS);
+      return result;
+    }
+
+    cmi.startRepair(au, urls, null, null);
+    return result = getRequestCrawlResult(auId, null, true, null, null);
   }
 
   /**

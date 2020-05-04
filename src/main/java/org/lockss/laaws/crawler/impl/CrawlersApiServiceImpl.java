@@ -26,6 +26,8 @@
 
 package org.lockss.laaws.crawler.impl;
 
+import static org.lockss.util.rest.crawler.CrawlDesc.LOCKSS_CRAWLER_ID;
+import static org.lockss.util.rest.crawler.CrawlDesc.WGET_CRAWLER_ID;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -55,7 +57,8 @@ public class CrawlersApiServiceImpl extends BaseSpringApiServiceImpl
   /**
    * The list of identifiers of known crawlers.
    */
-  private static List<String> crawlerIds = ListUtil.list("lockss");
+  private static List<String> crawlerIds =
+      ListUtil.list(LOCKSS_CRAWLER_ID, WGET_CRAWLER_ID);
 
   /**
    * Return the list of configured crawlers.
@@ -80,10 +83,13 @@ public class CrawlersApiServiceImpl extends BaseSpringApiServiceImpl
     }
 
     CrawlerStatuses response = new CrawlerStatuses();
-    // we only have one for now so no need to iterate.
     CrawlerStatus status = new CrawlerStatus().isEnabled(cmi.isCrawlerEnabled())
         .isRunning(cmi.isCrawlStarterRunning());
-    response.putCrawlerMapItem("lockss", status);
+
+    for (String crawlerId : getCrawlerIds()) {
+      response.putCrawlerMapItem(crawlerId, status);
+    }
+
     log.debug2("response = {}", response);
     return new ResponseEntity<>(response, HttpStatus.OK);
   }
@@ -120,7 +126,13 @@ public class CrawlersApiServiceImpl extends BaseSpringApiServiceImpl
     return new ResponseEntity<>(config, HttpStatus.OK);
   }
 
-  public static List<String> getCrawlerIds() {
+  /**
+   * Provides the identifiers of the supported crawlers.
+   * 
+   * @return a {@code List<String>} with the identifiers of the supported
+   * crawlers.
+   */
+  static List<String> getCrawlerIds() {
     return crawlerIds;
   }
 

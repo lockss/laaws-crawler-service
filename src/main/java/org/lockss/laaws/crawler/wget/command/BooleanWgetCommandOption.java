@@ -66,20 +66,26 @@ public class BooleanWgetCommandOption extends WgetCommandOption {
     log.debug2("jsonObject = {}", jsonObject);
     log.debug2("command = {}", command);
 
+    // Create the object to be returned.
     BooleanWgetCommandOption option = new BooleanWgetCommandOption(optionKey);
 
     Boolean interpretedValue = null;
 
+    // Check whether this option was specified at all.
     if (jsonObject != null) {
+      // Yes: Interpret it as a boolean.
       interpretedValue = (Boolean) jsonObject;
       log.trace("interpretedValue = {}", interpretedValue);
 
       String optionValue = option.setValue(interpretedValue.toString());
       log.trace("optionValue = {}", optionValue);
 
+      // Check whether the option value is specified as true.
       if (interpretedValue) {
+	// Yes: Add it to the command line.
 	command.add(option.getLongKey());
       } else {
+	// No: Add the opposite option to the command line.
 	command.add(option.getOppositeLongKey());
       }
 
@@ -90,6 +96,12 @@ public class BooleanWgetCommandOption extends WgetCommandOption {
     return option;
   }
 
+  /**
+   * Provides the long key of the boolean opposite option to this option.
+   * 
+   * @return a String with the long key of the boolean opposite option to this
+   *         option.
+   */
   private String getOppositeLongKey() {
     if (getLongKey().startsWith("--no-")) {
       return "-" + getLongKey().substring(3);

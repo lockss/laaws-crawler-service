@@ -65,35 +65,37 @@ public class ListStringWgetCommandOption extends WgetCommandOption {
     log.debug2("jsonObject = {}", jsonObject);
     log.debug2("command = {}", command);
 
+    // Create the object to be returned.
     ListStringWgetCommandOption option =
 	new ListStringWgetCommandOption(optionKey);
 
     List<String> interpretedValue = null;
 
+    // Check whether this option was specified at all.
     if (jsonObject != null) {
+      // Yes: Interpret it as a list of strings.
       interpretedValue = (List<String>)jsonObject;
       log.trace("interpretedValue = {}", interpretedValue);
 
-      if (!interpretedValue.isEmpty()) {
-	StringBuffer valueBuffer = new StringBuffer();
-	int valueCount = interpretedValue.size();
-
-	for (String individualValue : interpretedValue) {
-	  log.trace("individualValue = {}", individualValue);
-	  valueBuffer.append(individualValue);
-
-	  if (--valueCount > 0) {
-	    valueBuffer.append(",");
-	  }
-	}
-
-	String optionValue = option.setValue(valueBuffer.toString());
+      // Check whether it is an empty list.
+      if (interpretedValue.isEmpty()) {
+	// Yes: Add it to the command line.
+	command.add(option.getLongKey() + "=''");
+      } else {
+	// No: Turn it into a comma-separated string.
+	String optionValue = String.join(",", interpretedValue);
 	log.trace("optionValue = {}", optionValue);
 
+	// Check whether a non-empty list was created.
 	if (optionValue != null && !optionValue.isEmpty()) {
+	  // Yes.
 	  command.add(option.getLongKey() + "=" + optionValue);
-	  log.trace("command = {}", command);
+	} else {
+	  // No.
+	  command.add(option.getLongKey() + "=''");
 	}
+
+	log.trace("command = {}", command);
       }
     }
 

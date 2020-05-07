@@ -75,23 +75,32 @@ public class FileWgetCommandOption extends WgetCommandOption {
     log.debug2("tmpDir = {}", tmpDir);
     log.debug2("command = {}", command);
 
+    // Create the object to be returned.
     FileWgetCommandOption option = new FileWgetCommandOption(optionKey);
 
     List<String> interpretedValue = null;
 
+    // Check whether this option was specified at all.
     if (jsonObject != null) {
+      // Yes: Interpret it as a list of strings with the content of a file.
       interpretedValue = (List<String>)jsonObject;
       log.trace("interpretedValue = {}", interpretedValue);
 
+      // Check whether it is not an empty list.
       if (!interpretedValue.isEmpty()) {
+	// Yes: Create a file in the temporary directory to store the passed
+	// Contents.
 	File tmpFile = new File(tmpDir, optionKey.substring(2));
 	log.trace("tmpFile = {}", tmpFile);
 
+	// Populate the file.
 	Files.write(tmpFile.toPath(), interpretedValue, StandardCharsets.UTF_8);
 
+	// The absolute path of the file is the value of the option.
 	String optionValue = option.setValue(tmpFile.getAbsolutePath());
 	log.trace("optionValue = {}", optionValue);
 
+	// Add it to the command line.
 	if (optionValue != null && !optionValue.isEmpty()) {
 	  command.add(option.getLongKey() + "=" + optionValue);
 	  log.trace("command = {}", command);

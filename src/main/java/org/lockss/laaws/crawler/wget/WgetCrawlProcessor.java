@@ -77,8 +77,6 @@ public class WgetCrawlProcessor {
       req.getCrawlerStatus().setType(crawler.getType().toString());
       crawler.setCrawlerStatus(req.getCrawlerStatus());
       crawlerStatus = crawler.getCrawlerStatus();
-      // TODO: Remove
-      //crawler.setWgetCrawlProcessor(this);
 
       runner = new WgetRunner(req);
       log.trace("{} set to start", runner);

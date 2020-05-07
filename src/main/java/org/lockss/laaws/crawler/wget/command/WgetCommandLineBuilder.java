@@ -152,6 +152,7 @@ public class WgetCommandLineBuilder {
 	    }
 
 	    break;
+	  case INPUT_FILE_KEY:
 	  case WARC_DEDUP_KEY:
 	    FileWgetCommandOption.process(optionKey, extraCrawlerOptionData,
 		tmpDir, command);
@@ -165,10 +166,16 @@ public class WgetCommandLineBuilder {
     List<String> crawlList = crawlDesc.getCrawlList();
     log.trace("crawlList = {}", crawlList);
 
-    if (crawlList != null) {
+    if (crawlList != null && !crawlList.isEmpty()) {
       for (String crawlUrl : crawlList) {
 	log.trace("crawlUrl = {}", crawlUrl);
 	command.add(crawlUrl);
+      }
+    } else {
+      if (!command.contains(INPUT_FILE_KEY)) {
+	String message = "No URLs to crawl with wget were specified";
+	log.error(message);
+	throw new IllegalArgumentException(message);
       }
     }
 

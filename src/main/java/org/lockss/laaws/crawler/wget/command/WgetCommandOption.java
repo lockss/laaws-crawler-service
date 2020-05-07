@@ -44,6 +44,7 @@ public abstract class WgetCommandOption {
   public static final String EXCLUDE_DIRECTORIES_KEY = "--exclude-directories";
   public static final String HEADER_KEY = "--header";
   public static final String INCLUDE_DIRECTORIES_KEY = "--include-directories";
+  public static final String INPUT_FILE_KEY = "--input-file";
   public static final String LEVEL_KEY = "--level";
   public static final String NO_DIRECTORIES_KEY = "--no-directories";
   public static final String NO_PARENT_KEY = "--no-parent";
@@ -70,6 +71,7 @@ public abstract class WgetCommandOption {
     add(EXCLUDE_DIRECTORIES_KEY);
     add(HEADER_KEY);
     add(INCLUDE_DIRECTORIES_KEY);
+    add(INPUT_FILE_KEY);
     add(LEVEL_KEY);
     add(NO_DIRECTORIES_KEY);
     add(NO_PARENT_KEY);

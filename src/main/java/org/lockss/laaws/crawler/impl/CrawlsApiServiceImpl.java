@@ -1503,6 +1503,15 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
       if (crawlDesc.getCrawlDepth() != null) {
 	wgetCrawlReq.setRefetchDepth(crawlDesc.getCrawlDepth().intValue());
       }
+    } catch (IllegalArgumentException iae) {
+      String errorMessage = "Invalid wget crawl specification for AU "
+	  + crawlDesc.getAuId() + ": " + iae.getMessage();
+      log.error(errorMessage);
+      Status status =
+	  new Status().code(HttpStatus.BAD_REQUEST.value()).msg(errorMessage);
+      crawlJob.status(status);
+      log.debug2("crawlJob = {}", crawlJob);
+      return crawlJob;
     } catch (IOException ioe) {
       String errorMessage = "Can't parse crawl description for AU ";
       log.error(errorMessage + crawlDesc.getAuId() + ":", ioe);

@@ -42,7 +42,7 @@ import org.lockss.laaws.crawler.model.CrawlerConfig;
 import org.lockss.laaws.crawler.model.CrawlerStatus;
 import org.lockss.laaws.crawler.model.CrawlerStatuses;
 import org.lockss.log.L4JLogger;
-import org.lockss.test.SpringLockssTestCase;
+import org.lockss.spring.test.SpringLockssTestCase4;
 import org.lockss.util.rest.RestUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
@@ -65,7 +65,7 @@ import org.springframework.web.util.UriComponentsBuilder;
  */
 @RunWith(SpringRunner.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-public class TestCrawlersApiServiceImpl extends SpringLockssTestCase {
+public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
   private static final L4JLogger log = L4JLogger.getLogger();
 
   private static final String UI_PORT_CONFIGURATION_TEMPLATE =

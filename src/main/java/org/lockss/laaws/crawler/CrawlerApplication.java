@@ -103,6 +103,7 @@ public class CrawlerApplication extends BaseSpringBootApplication
           .setArgs(args)
           .addAppConfig(PARAM_START_PLUGINS, "true")
           .addAppConfig(PluginManager.PARAM_START_ALL_AUS, "true")
+          .setSpringApplicatonContext(getApplicationContext())
           .setAppManagers(myManagerDescs);
       logger.info("Calling LockssApp.startStatic...");
       LockssApp.startStatic(LockssDaemon.class, spec);

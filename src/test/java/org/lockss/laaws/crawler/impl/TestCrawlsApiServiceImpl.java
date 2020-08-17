@@ -50,7 +50,7 @@ import org.lockss.laaws.crawler.model.UrlPager;
 import org.lockss.log.L4JLogger;
 import org.lockss.plugin.PluginTestUtil;
 import org.lockss.plugin.simulated.SimulatedContentGenerator;
-import org.lockss.test.SpringLockssTestCase;
+import org.lockss.spring.test.SpringLockssTestCase4;
 import org.lockss.util.rest.RestUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.crawler.CrawlJob;
@@ -77,7 +77,7 @@ import org.springframework.web.util.UriComponentsBuilder;
  */
 @RunWith(SpringRunner.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-public class TestCrawlsApiServiceImpl extends SpringLockssTestCase {
+public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
   private static final L4JLogger log = L4JLogger.getLogger();
 
   private static final String UI_PORT_CONFIGURATION_TEMPLATE =

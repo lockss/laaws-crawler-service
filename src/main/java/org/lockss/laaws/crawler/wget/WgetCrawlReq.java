@@ -37,7 +37,7 @@ import java.util.List;
 import org.lockss.crawler.CrawlReq;
 import org.lockss.crawler.CrawlerStatus;
 import org.lockss.laaws.crawler.wget.command.WgetCommandLineBuilder;
-import org.lockss.util.FileUtil;
+import org.lockss.util.io.FileUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
 
 /**

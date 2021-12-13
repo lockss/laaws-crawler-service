@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
 
-Copyright (c) 2000-2020, Board of Trustees of Leland Stanford Jr. University
+Copyright (c) 2000-2021, Board of Trustees of Leland Stanford Jr. University
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -39,7 +39,7 @@ POSSIBILITY OF SUCH DAMAGE.
   <parent>
     <groupId>org.lockss</groupId>
     <artifactId>lockss-parent-pom</artifactId>
-    <version>1.12.0-SNAPSHOT</version>
+    <version>1.14.0-SNAPSHOT</version>
     <relativePath />
   </parent>
 
@@ -61,7 +61,7 @@ POSSIBILITY OF SUCH DAMAGE.
     <build.docker.skip>false</build.docker.skip>
     <build.docker.dockerBuild.restPort>24660</build.docker.dockerBuild.restPort>
     <build.docker.dockerBuild.uiPort>24661</build.docker.dockerBuild.uiPort>
-    
+
     <!-- Needs lockss-legacy repository for lockss-plugins -->
     <repository.enabled.lockss-legacy>true</repository.enabled.lockss-legacy>
   </properties>
@@ -97,26 +97,5 @@ POSSIBILITY OF SUCH DAMAGE.
       <type>pom</type>
       <scope>test</scope>
     </dependency>
-
-    <dependency>
-      <groupId>org.lockss</groupId>
-      <artifactId>lockss-core-bundle</artifactId>
-      <version>${version.lockss.lockss-core-bundle}</version>
-      <type>pom</type>
-    </dependency>
-
-    <dependency>
-      <groupId>com.fasterxml.jackson.datatype</groupId>
-      <artifactId>jackson-datatype-jsr310</artifactId>
-      <version>${version.group.jackson}</version>
-    </dependency>
-
-    <dependency>
-      <groupId>org.lockss</groupId>
-      <artifactId>lockss-plugins</artifactId>
-      <version>${version.lockss.lockss-plugins}</version>
-      <scope>test</scope>
-    </dependency>
-
   </dependencies>
 </project>

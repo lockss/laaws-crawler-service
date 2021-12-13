@@ -39,7 +39,7 @@ import org.lockss.crawler.CrawlerStatus;
 import org.lockss.daemon.Crawler;
 import org.lockss.daemon.LockssRunnable;
 import org.lockss.log.L4JLogger;
-import org.lockss.util.FileUtil;
+import org.lockss.util.io.FileUtil;
 
 /**
  * The processor of a wget crawl.

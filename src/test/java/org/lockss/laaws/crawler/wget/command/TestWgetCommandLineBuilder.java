@@ -65,7 +65,6 @@ public class TestWgetCommandLineBuilder extends LockssTestCase4 {
   @Override
   public void tearDown() throws Exception {
     super.tearDown();
- //   assertFalse(tmpDir.exists());
   }
 
   /**

@@ -63,6 +63,7 @@ paths:
       operationId: getCrawlers
       responses:
         '200':
+          description: The Status of supported Crawlers.
           schema:
             $ref: '#/definitions/crawlerStatuses'
         '404':
@@ -641,8 +642,8 @@ definitions:
         $ref: '#/definitions/crawlDesc'
       creationDate:
         type: "string"
-        format: "date"
-        description: The time, in ISO-8601 format, the crawl was requested.
+        format: "date-time"
+        description: The timestamp when the crawl was requested.
         example: "yyyy-MM-ddTHH:mm:ss.SSSZ"
       jobId:
         description: Identifier of the job performing the crawl.
@@ -652,13 +653,13 @@ definitions:
         $ref: "#/definitions/status"
       startDate:
         type: "string"
-        format: "date"
-        description: The time, in ISO-8601 format, the crawl began.
+        format: "date-time"
+        description: The timestamp when the crawl began.
         example: "yyyy-MM-ddTHH:mm:ss.SSSZ"
       endDate:
         type: "string"
-        format: "date"
-        description: The time, in ISO-8601 format, the crawl ended.
+        format: "date-time"
+        description: The timestamp when the crawl ended.
         example: "yyyy-MM-ddTHH:mm:ss.SSSZ"
       result:
         type: "string"
@@ -681,12 +682,17 @@ definitions:
   crawlerConfig:
     description: Configuration information about a specific crawler.
     required:
-      - configMap
+      - crawlerId
+      - attributes
     type: object
     properties:
-      configMap:
-        description: key value pairs specific providing configuration\
-          \ information.
+      crawlerId:
+        description: The identifier for this crawler
+        type: "string"
+        example: "lockss"
+      attributes:
+        description: key value pairs specific providing attributes\
+          \ and configuration information.
         type: object
         additionalProperties:
           type: string

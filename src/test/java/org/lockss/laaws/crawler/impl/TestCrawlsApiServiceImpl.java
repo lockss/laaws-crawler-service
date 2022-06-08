@@ -824,8 +824,6 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
    *          A CrawlDesc with the description of the crawl to be performed.
    * @param credentials
    *          A Credentials with the request credentials.
-   * @param expectedHttpStatus
-   *          An HttpStatus with the expected HTTP status of the result.
    * @return a JobPager with the crawls.
    * 
    * @throws Exception if there are problems.
@@ -1094,7 +1092,7 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
    * @param crawlStatus A CrawlStatus with the status of the crawl.
    */
   private void validateGetCrawlByIdResult(CrawlStatus crawlStatus) {
-    log.debug2("crawlStatus = {}", crawlStatus);
+    log.info("crawlStatus = {}", crawlStatus);
     assertEquals(sau.getAuId(), crawlStatus.getAuId());
 
     if (crawlStatus.getStatus().getCode() == 3) {

@@ -24,18 +24,18 @@
 #
 # Don't make local changes in this file; put local settings in lockss.opt
 
-#org.lockss.log.default.level=debug
+org.lockss.log.default.level=debug
 
 org.lockss.ui.access.ip.logForbidden=true
 org.lockss.proxy.access.ip.logForbidden=true
 
-org.lockss.platform.diskSpacePaths=./cache
-org.lockss.cache.location=./cache
+org.lockss.platform.diskSpacePaths=./daemon
+org.lockss.cache.location=./daemon
 org.lockss.config.reloadInterval = 5m
 org.lockss.ui.allowPluginConfig=true
 
 org.lockss.ui.start=yes
-org.lockss.proxy.start=no
+#org.lockss.proxy.start=no
 
 org.lockss.ui.port=24661
 
@@ -57,8 +57,8 @@ org.lockss.state.recall.delay=5m
 org.lockss.daemon.crawlMode=NonPlugins
 
 # Turn on ICP on port 3131
-org.lockss.proxy.icp.enabled=true
-org.lockss.proxy.icp.port=3131
+# org.lockss.proxy.icp.enabled=true
+# org.lockss.proxy.icp.port=3131
 
 # Crawl starter interval
 org.lockss.crawler.startCrawlsInterval=5m
@@ -77,6 +77,9 @@ org.lockss.plugin.restartAusWithNewPlugin=true
 
 # Enable crawler
 org.lockss.crawler.enabled=true
+org.lockss.crawler.crawlers=lockss;wget
+org.lockss.crawler.lockss.enabled=true
+org.lockss.crawler.wget.enabled=true
 
 # Disable the SOAP web services.
 org.lockss.ws.enabled=false

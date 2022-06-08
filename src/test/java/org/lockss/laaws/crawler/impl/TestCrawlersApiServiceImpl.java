@@ -26,8 +26,12 @@
 
 package org.lockss.laaws.crawler.impl;
 
+import static org.lockss.laaws.crawler.impl.CrawlersApiServiceImpl.CRAWLING_ENABLED;
+import static org.lockss.laaws.crawler.impl.CrawlersApiServiceImpl.CRAWL_STARTER_ENABLED;
+import static org.lockss.laaws.crawler.impl.CrawlersApiServiceImpl.ENABLED;
 import static org.lockss.util.rest.crawler.CrawlDesc.LOCKSS_CRAWLER_ID;
 import static org.lockss.util.rest.crawler.CrawlDesc.WGET_CRAWLER_ID;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.File;
 import java.io.IOException;
@@ -40,6 +44,7 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.lockss.crawler.CrawlManagerImpl;
 import org.lockss.laaws.crawler.model.CrawlerConfig;
 import org.lockss.laaws.crawler.model.CrawlerStatus;
 import org.lockss.laaws.crawler.model.CrawlerStatuses;
@@ -52,62 +57,50 @@ import org.springframework.boot.context.embedded.LocalServerPort;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.context.ApplicationContext;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
 
-/**
- * Test class for org.lockss.laaws.crawler.impl.CrawlersApiServiceImpl.
- */
+/** Test class for org.lockss.laaws.crawler.impl.CrawlersApiServiceImpl. */
 @RunWith(SpringRunner.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
   private static final L4JLogger log = L4JLogger.getLogger();
 
-  private static final String UI_PORT_CONFIGURATION_TEMPLATE =
-      "UiPortConfigTemplate.txt";
+  private static final String UI_PORT_CONFIGURATION_TEMPLATE = "UiPortConfigTemplate.txt";
   private static final String UI_PORT_CONFIGURATION_FILE = "UiPort.txt";
 
   private static final String EMPTY_STRING = "";
 
   // The identifier of a crawler that does not exist in the test system.
-  private static final String UNKNOWN_CRAWLER ="unknown_crawler";
+  private static final String UNKNOWN_CRAWLER = "unknown_crawler";
 
   // Credentials.
-  private final Credentials USER_ADMIN =
-      this.new Credentials("lockss-u", "lockss-p");
+  private final Credentials USER_ADMIN = this.new Credentials("lockss-u", "lockss-p");
   private final Credentials CONTENT_ADMIN =
       this.new Credentials("content-admin", "I'mContentAdmin");
   private final Credentials ACCESS_CONTENT =
       this.new Credentials("access-content", "I'mAccessContent");
-  private final Credentials ANYBODY =
-      this.new Credentials("someUser", "somePassword");
+  private final Credentials ANYBODY = this.new Credentials("someUser", "somePassword");
 
   // The port that Tomcat is using during this test.
-  @LocalServerPort
-  private int port;
+  @LocalServerPort private int port;
 
   // The application Context used to specify the command line arguments to be
   // used for the tests.
-  @Autowired
-  private ApplicationContext appCtx;
+  @Autowired private ApplicationContext appCtx;
 
-  /**
-   * Set up code to be run before all tests.
-   */
+  private CrawlManagerImpl cmi;
+
+  /** Set up code to be run before all tests. */
   @BeforeClass
-  public static void setUpBeforeAllTests() {
-  }
+  public static void setUpBeforeAllTests() {}
 
   /**
    * Set up code to be run before each test.
-   * 
+   *
    * @throws Exception if there are problems.
    */
   @Before
@@ -125,9 +118,8 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
 
   /**
    * Runs the tests with authentication turned off.
-   * 
-   * @throws Exception
-   *           if there are problems.
+   *
+   * @throws Exception if there are problems.
    */
   @Test
   public void runUnAuthenticatedTests() throws Exception {
@@ -151,9 +143,8 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
 
   /**
    * Runs the tests with authentication turned on.
-   * 
-   * @throws Exception
-   *           if there are problems.
+   *
+   * @throws Exception if there are problems.
    */
   @Test
   public void runAuthenticatedTests() throws Exception {
@@ -177,9 +168,8 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
 
   /**
    * Runs the tests with crawling disabled.
-   * 
-   * @throws Exception
-   *           if there are problems.
+   *
+   * @throws Exception if there are problems.
    */
   @Test
   public void runDisabledTests() throws Exception {
@@ -203,10 +193,9 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
 
   /**
    * Provides the standard command line arguments to start the server.
-   * 
+   *
    * @return a List<String> with the command line arguments.
-   * @throws IOException
-   *           if there are problems.
+   * @throws IOException if there are problems.
    */
   private List<String> getCommandLineArguments() throws IOException {
     log.debug2("Invoked");
@@ -217,8 +206,7 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
     cmdLineArgs.add("-p");
     cmdLineArgs.add("config/common.xml");
 
-    File folder =
-	new File(new File(new File(getTempDirPath()), "tdbxml"), "prod");
+    File folder = new File(new File(new File(getTempDirPath()), "tdbxml"), "prod");
     log.trace("folder = {}", () -> folder);
 
     cmdLineArgs.add("-x");
@@ -234,9 +222,7 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
     return cmdLineArgs;
   }
 
-  /**
-   * Runs the invalid method-related un-authenticated-specific tests.
-   */
+  /** Runs the invalid method-related un-authenticated-specific tests. */
   private void runMethodsNotAllowedUnAuthenticatedTest() {
     log.debug2("Invoked");
 
@@ -244,100 +230,83 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
     runTestMethodNotAllowed(null, null, HttpMethod.PUT, HttpStatus.NOT_FOUND);
 
     // Empty crawler ID.
-    runTestMethodNotAllowed(EMPTY_STRING, ANYBODY, HttpMethod.PATCH,
-	HttpStatus.NOT_FOUND);
+    runTestMethodNotAllowed(EMPTY_STRING, ANYBODY, HttpMethod.PATCH, HttpStatus.NOT_FOUND);
 
     // Unknown crawler ID.
-    runTestMethodNotAllowed(UNKNOWN_CRAWLER, ANYBODY, HttpMethod.PUT,
-	HttpStatus.METHOD_NOT_ALLOWED);
+    runTestMethodNotAllowed(
+        UNKNOWN_CRAWLER, ANYBODY, HttpMethod.PUT, HttpStatus.METHOD_NOT_ALLOWED);
 
-    runTestMethodNotAllowed(UNKNOWN_CRAWLER, null, HttpMethod.PATCH,
-	HttpStatus.METHOD_NOT_ALLOWED);
+    runTestMethodNotAllowed(UNKNOWN_CRAWLER, null, HttpMethod.PATCH, HttpStatus.METHOD_NOT_ALLOWED);
 
     // Good crawler ID.
-    runTestMethodNotAllowed(LOCKSS_CRAWLER_ID, null, HttpMethod.PATCH,
-	HttpStatus.METHOD_NOT_ALLOWED);
+    runTestMethodNotAllowed(
+        LOCKSS_CRAWLER_ID, null, HttpMethod.PATCH, HttpStatus.METHOD_NOT_ALLOWED);
 
-    runTestMethodNotAllowed(WGET_CRAWLER_ID, ANYBODY, HttpMethod.PUT,
-	HttpStatus.METHOD_NOT_ALLOWED);
+    runTestMethodNotAllowed(
+        WGET_CRAWLER_ID, ANYBODY, HttpMethod.PUT, HttpStatus.METHOD_NOT_ALLOWED);
 
     runMethodsNotAllowedCommonTest();
 
     log.debug2("Done");
   }
 
-  /**
-   * Runs the invalid method-related authenticated-specific tests.
-   */
+  /** Runs the invalid method-related authenticated-specific tests. */
   private void runMethodsNotAllowedAuthenticatedTest() {
     log.debug2("Invoked");
 
     // Missing crawler ID.
-    runTestMethodNotAllowed(null, ANYBODY, HttpMethod.PUT,
-	HttpStatus.UNAUTHORIZED);
+    runTestMethodNotAllowed(null, ANYBODY, HttpMethod.PUT, HttpStatus.UNAUTHORIZED);
 
     // Empty crawler ID.
-    runTestMethodNotAllowed(EMPTY_STRING, null, HttpMethod.PATCH,
-	HttpStatus.UNAUTHORIZED);
+    runTestMethodNotAllowed(EMPTY_STRING, null, HttpMethod.PATCH, HttpStatus.UNAUTHORIZED);
 
     // Unknown crawler ID.
-    runTestMethodNotAllowed(UNKNOWN_CRAWLER, ANYBODY, HttpMethod.PUT,
-	HttpStatus.UNAUTHORIZED);
+    runTestMethodNotAllowed(UNKNOWN_CRAWLER, ANYBODY, HttpMethod.PUT, HttpStatus.UNAUTHORIZED);
 
     // No credentials.
-    runTestMethodNotAllowed(LOCKSS_CRAWLER_ID, null, HttpMethod.PATCH,
-	HttpStatus.UNAUTHORIZED);
+    runTestMethodNotAllowed(LOCKSS_CRAWLER_ID, null, HttpMethod.PATCH, HttpStatus.UNAUTHORIZED);
 
     // Bad credentials.
-    runTestMethodNotAllowed(WGET_CRAWLER_ID, ANYBODY, HttpMethod.PUT,
-	HttpStatus.UNAUTHORIZED);
+    runTestMethodNotAllowed(WGET_CRAWLER_ID, ANYBODY, HttpMethod.PUT, HttpStatus.UNAUTHORIZED);
 
     runMethodsNotAllowedCommonTest();
 
     log.debug2("Done");
   }
 
-  /**
-   * Runs the invalid method-related authentication-independent tests.
-   */
+  /** Runs the invalid method-related authentication-independent tests. */
   private void runMethodsNotAllowedCommonTest() {
     log.debug2("Invoked");
 
     // Missing crawler ID.
-    runTestMethodNotAllowed(null, USER_ADMIN, HttpMethod.PUT,
-	HttpStatus.NOT_FOUND);
+    runTestMethodNotAllowed(null, USER_ADMIN, HttpMethod.PUT, HttpStatus.NOT_FOUND);
 
     // Empty crawler ID.
-    runTestMethodNotAllowed(EMPTY_STRING, CONTENT_ADMIN, HttpMethod.PATCH,
-	HttpStatus.NOT_FOUND);
+    runTestMethodNotAllowed(EMPTY_STRING, CONTENT_ADMIN, HttpMethod.PATCH, HttpStatus.NOT_FOUND);
 
     // Unknown crawler ID.
-    runTestMethodNotAllowed(UNKNOWN_CRAWLER, ACCESS_CONTENT, HttpMethod.PUT,
-	HttpStatus.METHOD_NOT_ALLOWED);
+    runTestMethodNotAllowed(
+        UNKNOWN_CRAWLER, ACCESS_CONTENT, HttpMethod.PUT, HttpStatus.METHOD_NOT_ALLOWED);
 
-    runTestMethodNotAllowed(LOCKSS_CRAWLER_ID, USER_ADMIN, HttpMethod.PUT,
-	HttpStatus.METHOD_NOT_ALLOWED);
+    runTestMethodNotAllowed(
+        LOCKSS_CRAWLER_ID, USER_ADMIN, HttpMethod.PUT, HttpStatus.METHOD_NOT_ALLOWED);
 
-    runTestMethodNotAllowed(WGET_CRAWLER_ID, CONTENT_ADMIN, HttpMethod.PATCH,
-	HttpStatus.METHOD_NOT_ALLOWED);
+    runTestMethodNotAllowed(
+        WGET_CRAWLER_ID, CONTENT_ADMIN, HttpMethod.PATCH, HttpStatus.METHOD_NOT_ALLOWED);
 
     log.debug2("Done");
   }
 
   /**
    * Performs an operation using a method that is not allowed.
-   * 
-   * @param crawler
-   *          A String with the identifier of the crawler.
-   * @param credentials
-   *          A Credentials with the request credentials.
-   * @param method
-   *          An HttpMethod with the request method.
-   * @param expectedStatus
-   *          An HttpStatus with the HTTP status of the result.
+   *
+   * @param crawler A String with the identifier of the crawler.
+   * @param credentials A Credentials with the request credentials.
+   * @param method An HttpMethod with the request method.
+   * @param expectedStatus An HttpStatus with the HTTP status of the result.
    */
-  private void runTestMethodNotAllowed(String crawler, Credentials credentials,
-      HttpMethod method, HttpStatus expectedStatus) {
+  private void runTestMethodNotAllowed(
+      String crawler, Credentials credentials, HttpMethod method, HttpStatus expectedStatus) {
     log.debug2("crawler = {}", crawler);
     log.debug2("credentials = {}", credentials);
     log.debug2("method = {}", method);
@@ -347,11 +316,13 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
     String template = getTestUrlTemplate("/crawlers/{crawler}");
 
     // Create the URI of the request to the REST service.
-    UriComponents uriComponents = UriComponentsBuilder.fromUriString(template)
-	.build().expand(Collections.singletonMap("crawler", crawler));
+    UriComponents uriComponents =
+        UriComponentsBuilder.fromUriString(template)
+            .build()
+            .expand(Collections.singletonMap("crawler", crawler));
 
-    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
-	.build().encode().toUri();
+    URI uri =
+        UriComponentsBuilder.newInstance().uriComponents(uriComponents).build().encode().toUri();
     log.trace("uri = {}", uri);
 
     // Initialize the request to the REST service.
@@ -377,7 +348,7 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
 
       // Set up the authentication credentials, if necessary.
       if (credentials != null) {
-	credentials.setUpBasicAuthentication(headers);
+        credentials.setUpBasicAuthentication(headers);
       }
 
       log.trace("requestHeaders = {}", () -> headers.toSingleValueMap());
@@ -386,9 +357,9 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
       requestEntity = new HttpEntity<String>(null, headers);
     }
 
-    // Make the request and get the response. 
-    ResponseEntity<String> response = new TestRestTemplate(restTemplate)
-	.exchange(uri, method, requestEntity, String.class);
+    // Make the request and get the response.
+    ResponseEntity<String> response =
+        new TestRestTemplate(restTemplate).exchange(uri, method, requestEntity, String.class);
 
     // Get the response status.
     HttpStatus statusCode = response.getStatusCode();
@@ -398,7 +369,7 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
 
   /**
    * Runs the getCrawlers()-related un-authenticated-specific tests.
-   * 
+   *
    * @throws Exception if there are problems.
    */
   private void getCrawlersUnAuthenticatedTest() throws Exception {
@@ -423,7 +394,7 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
 
   /**
    * Runs the getCrawlers()-related authenticated-specific tests.
-   * 
+   *
    * @throws Exception if there are problems.
    */
   private void getCrawlersAuthenticatedTest() throws Exception {
@@ -439,7 +410,7 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
 
   /**
    * Runs the getCrawlers()-related authentication-independent tests.
-   * 
+   *
    * @throws Exception if there are problems.
    */
   private void getCrawlersCommonTest() throws Exception {
@@ -462,17 +433,14 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
 
   /**
    * Performs a GET operation for the crawlers of the system.
-   * 
-   * @param credentials
-   *          A Credentials with the request credentials.
-   * @param expectedHttpStatus
-   *          An HttpStatus with the expected HTTP status of the result.
+   *
+   * @param credentials A Credentials with the request credentials.
+   * @param expectedHttpStatus An HttpStatus with the expected HTTP status of the result.
    * @return a CrawlerStatuses with the crawlers statuses.
-   * 
    * @throws Exception if there are problems.
    */
-  private CrawlerStatuses runTestGetCrawlers(Credentials credentials,
-      HttpStatus expectedHttpStatus) throws Exception {
+  private CrawlerStatuses runTestGetCrawlers(Credentials credentials, HttpStatus expectedHttpStatus)
+      throws Exception {
     log.debug2("credentials = {}", () -> credentials);
     log.debug2("expectedHttpStatus = {}", () -> expectedHttpStatus);
 
@@ -480,11 +448,10 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
     String template = getTestUrlTemplate("/crawlers");
 
     // Create the URI of the request to the REST service.
-    UriComponents uriComponents =
-	UriComponentsBuilder.fromUriString(template).build();
+    UriComponents uriComponents = UriComponentsBuilder.fromUriString(template).build();
 
-    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
-	.build().encode().toUri();
+    URI uri =
+        UriComponentsBuilder.newInstance().uriComponents(uriComponents).build().encode().toUri();
     log.trace("uri = {}", () -> uri);
 
     // Initialize the request to the REST service.
@@ -510,7 +477,7 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
 
       // Set up the authentication credentials, if necessary.
       if (credentials != null) {
-	credentials.setUpBasicAuthentication(headers);
+        credentials.setUpBasicAuthentication(headers);
       }
 
       log.trace("requestHeaders = {}", () -> headers.toSingleValueMap());
@@ -519,9 +486,10 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
       requestEntity = new HttpEntity<String>(null, headers);
     }
 
-    // Make the request and get the response. 
-    ResponseEntity<String> response = new TestRestTemplate(restTemplate)
-	.exchange(uri, HttpMethod.GET, requestEntity, String.class);
+    // Make the request and get the response.
+    ResponseEntity<String> response =
+        new TestRestTemplate(restTemplate)
+            .exchange(uri, HttpMethod.GET, requestEntity, String.class);
 
     // Get the response status.
     HttpStatus statusCode = response.getStatusCode();
@@ -530,8 +498,7 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
     CrawlerStatuses result = null;
 
     if (RestUtil.isSuccess(statusCode)) {
-      result = new ObjectMapper().readValue(response.getBody(),
-	  CrawlerStatuses.class);
+      result = new ObjectMapper().readValue(response.getBody(), CrawlerStatuses.class);
     }
 
     if (log.isDebug2Enabled()) log.debug2("result = {}", result);
@@ -540,14 +507,11 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
 
   /**
    * Runs the getCrawlerConfig()-related un-authenticated-specific tests.
-   * 
-   * @param enabled
-   *          A boolean indicating whether crawling is enabled.
-   * 
+   *
+   * @param enabled A boolean indicating whether crawling is enabled.
    * @throws Exception if there are problems.
    */
-  private void getCrawlerConfigUnAuthenticatedTest(boolean enabled)
-      throws Exception {
+  private void getCrawlerConfigUnAuthenticatedTest(boolean enabled) throws Exception {
     log.debug2("Invoked");
 
     // Missing crawler ID.
@@ -562,15 +526,13 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
     runTestGetCrawlerConfig(UNKNOWN_CRAWLER, null, HttpStatus.NOT_FOUND);
     runTestGetCrawlerConfig(UNKNOWN_CRAWLER, ANYBODY, HttpStatus.NOT_FOUND);
 
-    CrawlerConfig crawlerConfig =
-	runTestGetCrawlerConfig(LOCKSS_CRAWLER_ID, null, HttpStatus.OK);
-    log.trace("crawlerConfig = {}", crawlerConfig);
+    CrawlerConfig crawlerConfig = runTestGetCrawlerConfig(LOCKSS_CRAWLER_ID, null, HttpStatus.OK);
+    log.info("crawlerConfig = {}", crawlerConfig);
     assertNotNull(crawlerConfig);
-    assertTrue(Boolean.valueOf(crawlerConfig.getConfigMap()
-	.get("starterEnabled")));
-    assertEquals(enabled, Boolean.valueOf(crawlerConfig.getConfigMap()
-	.get("crawlerEnabled")));
-
+    Map<String, String> attributes = crawlerConfig.getAttributes();
+    assertTrue(Boolean.parseBoolean(attributes.get(CRAWL_STARTER_ENABLED)));
+    assertEquals(enabled, Boolean.parseBoolean(attributes.get(CRAWLING_ENABLED)));
+    assertTrue(Boolean.parseBoolean(attributes.get(LOCKSS_CRAWLER_ID+ENABLED)));
     getCrawlerConfigCommonTest(enabled);
 
     log.debug2("Done");
@@ -578,7 +540,7 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
 
   /**
    * Runs the getCrawlerConfig()-related authenticated-specific tests.
-   * 
+   *
    * @throws Exception if there are problems.
    */
   private void getCrawlerConfigAuthenticatedTest() throws Exception {
@@ -606,7 +568,7 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
 
   /**
    * Runs the getCrawlerConfig()-related authentication-independent tests.
-   * 
+   *
    * @throws Exception if there are problems.
    */
   private void getCrawlerConfigCommonTest(boolean enabled) throws Exception {
@@ -622,32 +584,27 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
     runTestGetCrawlerConfig(UNKNOWN_CRAWLER, ACCESS_CONTENT, HttpStatus.NOT_FOUND);
 
     CrawlerConfig crawlerConfig =
-	runTestGetCrawlerConfig(LOCKSS_CRAWLER_ID, USER_ADMIN, HttpStatus.OK);
-    log.trace("crawlerConfig = {}", crawlerConfig);
+        runTestGetCrawlerConfig(LOCKSS_CRAWLER_ID, USER_ADMIN, HttpStatus.OK);
+    log.info("crawlerConfig = {}", crawlerConfig);
     assertNotNull(crawlerConfig);
-    assertTrue(Boolean.valueOf(crawlerConfig.getConfigMap()
-	.get("starterEnabled")));
-    assertEquals(enabled, Boolean.valueOf(crawlerConfig.getConfigMap()
-	.get("crawlerEnabled")));
-
+    Map<String, String> attributes = crawlerConfig.getAttributes();
+    assertTrue(Boolean.parseBoolean(attributes.get(CRAWL_STARTER_ENABLED)));
+    assertEquals(enabled, Boolean.parseBoolean(attributes.get(CRAWLING_ENABLED)));
+    assertTrue(Boolean.parseBoolean(attributes.get(LOCKSS_CRAWLER_ID+ENABLED)));
     log.debug2("Done");
   }
 
   /**
    * Performs a GET operation for the configuration of a crawler.
-   * 
-   * @param crawlerId
-   *          A String with the identifier of the crawler.
-   * @param credentials
-   *          A Credentials with the request credentials.
-   * @param expectedHttpStatus
-   *          An HttpStatus with the expected HTTP status of the result.
+   *
+   * @param crawlerId A String with the identifier of the crawler.
+   * @param credentials A Credentials with the request credentials.
+   * @param expectedHttpStatus An HttpStatus with the expected HTTP status of the result.
    * @return a CrawlerStatuses with the crawlers statuses.
-   * 
    * @throws Exception if there are problems.
    */
-  private CrawlerConfig runTestGetCrawlerConfig(String crawlerId,
-      Credentials credentials, HttpStatus expectedHttpStatus) throws Exception {
+  private CrawlerConfig runTestGetCrawlerConfig(
+      String crawlerId, Credentials credentials, HttpStatus expectedHttpStatus) throws Exception {
     log.debug2("crawlerId = {}", crawlerId);
     log.debug2("credentials = {}", () -> credentials);
     log.debug2("expectedHttpStatus = {}", () -> expectedHttpStatus);
@@ -656,11 +613,13 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
     String template = getTestUrlTemplate("/crawlers/{crawlerId}");
 
     // Create the URI of the request to the REST service.
-    UriComponents uriComponents = UriComponentsBuilder.fromUriString(template)
-	.build().expand(Collections.singletonMap("crawlerId", crawlerId));
+    UriComponents uriComponents =
+        UriComponentsBuilder.fromUriString(template)
+            .build()
+            .expand(Collections.singletonMap("crawlerId", crawlerId));
 
-    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
-	.build().encode().toUri();
+    URI uri =
+        UriComponentsBuilder.newInstance().uriComponents(uriComponents).build().encode().toUri();
     log.trace("uri = {}", () -> uri);
 
     // Initialize the request to the REST service.
@@ -686,7 +645,7 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
 
       // Set up the authentication credentials, if necessary.
       if (credentials != null) {
-	credentials.setUpBasicAuthentication(headers);
+        credentials.setUpBasicAuthentication(headers);
       }
 
       log.trace("requestHeaders = {}", () -> headers.toSingleValueMap());
@@ -695,9 +654,10 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
       requestEntity = new HttpEntity<String>(null, headers);
     }
 
-    // Make the request and get the response. 
-    ResponseEntity<String> response = new TestRestTemplate(restTemplate)
-	.exchange(uri, HttpMethod.GET, requestEntity, String.class);
+    // Make the request and get the response.
+    ResponseEntity<String> response =
+        new TestRestTemplate(restTemplate)
+            .exchange(uri, HttpMethod.GET, requestEntity, String.class);
 
     // Get the response status.
     HttpStatus statusCode = response.getStatusCode();
@@ -706,8 +666,7 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
     CrawlerConfig result = null;
 
     if (RestUtil.isSuccess(statusCode)) {
-      result =
-	  new ObjectMapper().readValue(response.getBody(), CrawlerConfig.class);
+      result = new ObjectMapper().readValue(response.getBody(), CrawlerConfig.class);
     }
 
     if (log.isDebug2Enabled()) log.debug2("result = {}", result);
@@ -716,10 +675,9 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
 
   /**
    * Provides the URL template to be tested.
-   * 
-   * @param pathAndQueryParams
-   *          A String with the path and query parameters of the URL template to
-   *          be tested.
+   *
+   * @param pathAndQueryParams A String with the path and query parameters of the URL template to be
+   *     tested.
    * @return a String with the URL template to be tested.
    */
   private String getTestUrlTemplate(String pathAndQueryParams) {

@@ -63,7 +63,7 @@ POSSIBILITY OF SUCH DAMAGE.
     <build.docker.dockerBuild.uiPort>24661</build.docker.dockerBuild.uiPort>
 
     <!-- Needs lockss-legacy repository for lockss-plugins -->
-    <repository.enabled.lockss-legacy>true</repository.enabled.lockss-legacy>
+    <!--repository.enabled.lockss-legacy>true</repository.enabled.lockss-legacy -->
   </properties>
 
   <dependencies>
@@ -97,5 +97,12 @@ POSSIBILITY OF SUCH DAMAGE.
       <type>pom</type>
       <scope>test</scope>
     </dependency>
+
+    <dependency>
+      <groupId>com.fasterxml.jackson.datatype</groupId>
+      <artifactId>jackson-datatype-jsr310</artifactId>
+      <version>${version.group.jackson}</version>
+    </dependency>
+
   </dependencies>
 </project>

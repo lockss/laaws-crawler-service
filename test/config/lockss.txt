@@ -83,5 +83,8 @@ org.lockss.plugin.restartAusWithNewPlugin=true
 
 # Enable crawler
 org.lockss.crawler.enabled=true
+org.lockss.crawler.crawlers=lockss;wget
+org.lockss.crawler.lockss.enabled=true
+org.lockss.crawler.wget.enabled=true
 
 #org.lockss.restAuth.authenticationType=basic

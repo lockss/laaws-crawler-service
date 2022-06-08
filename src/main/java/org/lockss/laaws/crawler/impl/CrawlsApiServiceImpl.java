@@ -140,7 +140,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
       String crawler = crawlDesc.getCrawler();
 
       // Validate the specified crawler.
-      if (!CrawlersApiServiceImpl.getCrawlerIds().contains(crawler)) {
+      if (!getCrawlerIds().contains(crawler)) {
         String message = "Invalid crawler '" + crawler + "'";
         log.error(message);
         log.error("crawlDesc = {}", crawlDesc);
@@ -322,7 +322,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
   public ResponseEntity<CrawlStatus> deleteCrawlById(String jobId) {
     log.debug2("jobId = {}", jobId);
 
-    CrawlStatus crawlStatus = null;
+    CrawlStatus crawlStatus;
 
     try {
       // Check whether the service has not been fully initialized.
@@ -375,7 +375,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
   public ResponseEntity<CrawlStatus> getCrawlById(String jobId) {
     log.debug2("jobId = {}", jobId);
 
-    CrawlStatus crawlStatus = null;
+    CrawlStatus crawlStatus;
 
     try {
       // Check whether the service has not been fully initialized.
@@ -549,7 +549,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
       List<String> urls = status.getUrlsFetched();
       UrlPager pager = getUrlPager(status, urls, limit, continuationToken);
       log.debug2("pager = {}", pager);
-      return new ResponseEntity<UrlPager>(pager, HttpStatus.OK);
+      return new ResponseEntity<>(pager, HttpStatus.OK);
     } catch (NotFoundException nfe) {
       String message = "No crawl found for jobId '" + jobId + "'.";
       log.warn(message);
@@ -600,7 +600,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
       List<String> urls = status.getUrlsNotModified();
       UrlPager pager = getUrlPager(status, urls, limit, continuationToken);
       log.debug2("pager = {}", pager);
-      return new ResponseEntity<UrlPager>(pager, HttpStatus.OK);
+      return new ResponseEntity<>(pager, HttpStatus.OK);
     } catch (NotFoundException nfe) {
       String message = "No crawl found for jobId '" + jobId + "'.";
       log.warn(message);
@@ -651,7 +651,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
       List<String> urls = status.getUrlsParsed();
       UrlPager pager = getUrlPager(status, urls, limit, continuationToken);
       log.debug2("pager = {}", pager);
-      return new ResponseEntity<UrlPager>(pager, HttpStatus.OK);
+      return new ResponseEntity<>(pager, HttpStatus.OK);
     } catch (NotFoundException nfe) {
       String message = "No crawl found for jobId '" + jobId + "'.";
       log.warn(message);
@@ -755,7 +755,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
       List<String> urls = status.getUrlsOfMimeType(type);
       UrlPager pager = getUrlPager(status, urls, limit, continuationToken);
       log.debug2("pager = {}", pager);
-      return new ResponseEntity<UrlPager>(pager, HttpStatus.OK);
+      return new ResponseEntity<>(pager, HttpStatus.OK);
     } catch (NotFoundException nfe) {
       String message = "No crawl found for jobId '" + jobId + "'.";
       log.warn(message);
@@ -1602,6 +1602,11 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl
 
     cmi.startRepair(au, urls, null, null);
     return result = getRequestCrawlResult(auId, null, true, null, null);
+  }
+  List<String> getCrawlerIds() {
+    Configuration config = ConfigManager.getCurrentConfig();
+    return config.getList(CrawlersApiServiceImpl.CRAWLER_IDS,
+        CrawlersApiServiceImpl.defaultCrawlerIds);
   }
 
   /**

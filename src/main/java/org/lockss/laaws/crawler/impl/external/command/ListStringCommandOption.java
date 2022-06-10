@@ -29,73 +29,69 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
  */
-package org.lockss.laaws.crawler.wget.command;
+package org.lockss.laaws.crawler.impl.external.command;
 
 import java.util.List;
 import org.lockss.log.L4JLogger;
 
-/**
- * Representation of a wget command line option containing a list of strings.
- */
-public class ListStringWgetCommandOption extends WgetCommandOption {
+/** Representation of a command line option containing a list of strings. */
+public class ListStringCommandOption extends CommandOption {
   private static final L4JLogger log = L4JLogger.getLogger();
 
   /**
    * Constructor.
-   * 
-   * @param longKey A String with the long key of the wget command line option.
+   *
+   * @param longKey A String with the long key of the command line option.
    */
-  public ListStringWgetCommandOption(String longKey) {
+  public ListStringCommandOption(String longKey) {
     super(longKey);
   }
 
   /**
-   * Processes a wget command line option containing a list of strings.
-   * 
-   * @param optionKey  A String with the key of the option.
-   * @param jsonObject An object with the JSON object that represents the value
-   *                   of the command line option.
-   * @param command    A List<String> where to add this command line option, if
-   *                   appropriate.
-   * @return a BooleanWgetCommandOption with this object.
+   * Processes a command line option containing a list of strings.
+   *
+   * @param optionKey A String with the key of the option.
+   * @param jsonObject An object with the JSON object that represents the value of the command line
+   *     option.
+   * @param command A List<String> where to add this command line option, if appropriate.
+   * @return a BooleanCommandOption with this object.
    */
-  public static ListStringWgetCommandOption process(String optionKey,
-      Object jsonObject, List<String> command) {
+  public static ListStringCommandOption process(
+      String optionKey, Object jsonObject, List<String> command) {
     log.debug2("optionKey = {}", optionKey);
     log.debug2("jsonObject = {}", jsonObject);
     log.debug2("command = {}", command);
 
     // Create the object to be returned.
-    ListStringWgetCommandOption option =
-	new ListStringWgetCommandOption(optionKey);
+    ListStringCommandOption option = new ListStringCommandOption(optionKey);
 
     List<String> interpretedValue = null;
 
     // Check whether this option was specified at all.
     if (jsonObject != null) {
       // Yes: Interpret it as a list of strings.
-      interpretedValue = (List<String>)jsonObject;
+      interpretedValue = (List<String>) jsonObject;
       log.trace("interpretedValue = {}", interpretedValue);
 
       // Check whether it is an empty list.
       if (interpretedValue.isEmpty()) {
-	// Yes: Add it to the command line.
-	command.add(option.getLongKey() + "=''");
+        // Yes: Add it to the command line.
+        command.add(option.getLongKey() + "=''");
       } else {
-	// No: Turn it into a comma-separated string.
-	String optionValue = String.join(",", interpretedValue);
-	log.trace("optionValue = {}", optionValue);
+        // No: Turn it into a comma-separated string.
+        String optionValue = String.join(",", interpretedValue);
+        log.trace("optionValue = {}", optionValue);
 
-	// Check whether a non-empty list was created.
-	if (optionValue != null && !optionValue.isEmpty()) {
-	  // Yes.
-	  command.add(option.getLongKey() + "=" + optionValue);
-	} else {
-	  // No.
-	  command.add(option.getLongKey() + "=''");
-	}
+        // Check whether a non-empty list was created.
+        if (optionValue != null && !optionValue.isEmpty()) {
+          // Yes.
+          command.add(option.getLongKey() + "=" + optionValue);
+        } else {
+          // No.
+          command.add(option.getLongKey() + "=''");
+        }
 
-	log.trace("command = {}", command);
+        log.trace("command = {}", command);
       }
     }
 

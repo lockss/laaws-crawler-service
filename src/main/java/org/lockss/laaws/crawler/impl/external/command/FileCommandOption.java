@@ -29,7 +29,7 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
  */
-package org.lockss.laaws.crawler.wget.command;
+package org.lockss.laaws.crawler.impl.external.command;
 
 import java.io.File;
 import java.io.IOException;
@@ -38,77 +38,69 @@ import java.nio.file.Files;
 import java.util.List;
 import org.lockss.log.L4JLogger;
 
-/**
- * Representation of a wget file command line option.
- */
-public class FileWgetCommandOption extends WgetCommandOption {
+/** Representation of a file command line option. */
+public class FileCommandOption extends CommandOption {
   private static final L4JLogger log = L4JLogger.getLogger();
 
   /**
    * Constructor.
-   * 
-   * @param longKey A String with the long key of the wget boolean command line
-   *                option.
+   *
+   * @param longKey A String with the long key of the file command line option.
    */
-  public FileWgetCommandOption(String longKey) {
+  public FileCommandOption(String longKey) {
     super(longKey);
   }
 
   /**
-   * Processes a wget file command line option.
-   * 
-   * @param optionKey  A String with the key of the option.
-   * @param jsonObject An object with the JSON object that represents the value
-   *                   of the command line option.
-   * @param tmpDir     A File with the temporary directory where to create files
-   *                   referenced by this command line option.
-   * @param command    A List<String> where to add this command line option, if
-   *                   appropriate.
-   * @return a BooleanWgetCommandOption with this object.
-   * @throws IOException if there are problems processing this wget command
-   *                     line.
+   * Processes a file command line option.
+   *
+   * @param optionKey A String with the key of the option.
+   * @param jsonObject An object with the JSON object that represents the value of the command line
+   * option.
+   * @param tmpDir A File with the temporary directory where to create files referenced by this
+   * command line option.
+   * @param command A List<String> where to add this command line option, if appropriate.
+   * @throws IOException if there are problems processing this command line.
    */
-  public static FileWgetCommandOption process(String optionKey,
-      Object jsonObject, File tmpDir, List<String> command) throws IOException {
+  public static void process(
+      String optionKey, Object jsonObject, File tmpDir, List<String> command) throws IOException {
     log.debug2("optionKey = {}", optionKey);
     log.debug2("jsonObject = {}", jsonObject);
     log.debug2("tmpDir = {}", tmpDir);
     log.debug2("command = {}", command);
 
     // Create the object to be returned.
-    FileWgetCommandOption option = new FileWgetCommandOption(optionKey);
+    FileCommandOption option = new FileCommandOption(optionKey);
 
     List<String> interpretedValue = null;
 
     // Check whether this option was specified at all.
     if (jsonObject != null) {
       // Yes: Interpret it as a list of strings with the content of a file.
-      interpretedValue = (List<String>)jsonObject;
+      interpretedValue = (List<String>) jsonObject;
       log.trace("interpretedValue = {}", interpretedValue);
 
       // Check whether it is not an empty list.
       if (!interpretedValue.isEmpty()) {
-	// Yes: Create a file in the temporary directory to store the passed
-	// Contents.
-	File tmpFile = new File(tmpDir, optionKey.substring(2));
-	log.trace("tmpFile = {}", tmpFile);
+        // Yes: Create a file in the temporary directory to store the passed
+        // Contents.
+        File tmpFile = new File(tmpDir, optionKey.substring(2));
+        log.trace("tmpFile = {}", tmpFile);
 
-	// Populate the file.
-	Files.write(tmpFile.toPath(), interpretedValue, StandardCharsets.UTF_8);
+        // Populate the file.
+        Files.write(tmpFile.toPath(), interpretedValue, StandardCharsets.UTF_8);
 
-	// The absolute path of the file is the value of the option.
-	String optionValue = option.setValue(tmpFile.getAbsolutePath());
-	log.trace("optionValue = {}", optionValue);
+        // The absolute path of the file is the value of the option.
+        String optionValue = option.setValue(tmpFile.getAbsolutePath());
+        log.trace("optionValue = {}", optionValue);
 
-	// Add it to the command line.
-	if (optionValue != null && !optionValue.isEmpty()) {
-	  command.add(option.getLongKey() + "=" + optionValue);
-	  log.trace("command = {}", command);
-	}
+        // Add it to the command line.
+        if (optionValue != null && !optionValue.isEmpty()) {
+          command.add(option.getLongKey() + "=" + optionValue);
+          log.trace("command = {}", command);
+        }
       }
     }
-
     log.debug2("option = {}", option);
-    return option;
   }
 }

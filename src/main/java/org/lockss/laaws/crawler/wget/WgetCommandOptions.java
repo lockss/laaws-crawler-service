@@ -29,7 +29,7 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
  */
-package org.lockss.laaws.crawler.wget.command;
+package org.lockss.laaws.crawler.wget;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -37,7 +37,7 @@ import java.util.List;
 /**
  * Representation of wget command line options.
  */
-public abstract class WgetCommandOption {
+public class WgetCommandOptions {
   public static final String ACCEPT_REGEX_KEY = "--accept-regex";
   public static final String DELETE_AFTER_KEY = "--delete-after";
   public static final String DOMAINS_KEY = "--domains";
@@ -88,51 +88,4 @@ public abstract class WgetCommandOption {
     add(WARC_HEADER_KEY);
     add(WARC_MAX_SIZE_KEY);
   }};
-
-  private String longKey;
-  private String value;
-
-  /**
-   * Constructor.
-   * 
-   * @param longKey A String with the long key of the wget command line option.
-   */
-  public WgetCommandOption(String longKey) {
-    super();
-    this.longKey = longKey;
-  }
-
-  /**
-   * Provides the long key of the wget command line option.
-   * 
-   * @return a String with the long key of the wget command line option.
-   */
-  public String getLongKey() {
-    return longKey;
-  }
-
-  /**
-   * Provides the value of the wget command line option.
-   * 
-   * @return a String with the value of the wget command line option.
-   */
-  public String getValue() {
-    return value;
-  }
-
-  /**
-   * Saves the value of the wget command line option.
-   * 
-   * @param value A String with the value of the wget command line option.
-   * @return a String with the value of the wget command line option.
-   */
-  public String setValue(String value) {
-    this.value = value;
-    return value;
-  }
-
-  @Override
-  public String toString() {
-    return "[WgetCommandOption longKey=" + longKey + ", value=" + value + "]";
-  }
 }

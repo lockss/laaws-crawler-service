@@ -29,45 +29,52 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
  */
-package org.lockss.laaws.crawler.wget;
+package org.lockss.laaws.crawler.impl.external.command;
 
-import java.util.Collection;
-import org.lockss.crawler.CrawlerStatus;
-import org.lockss.plugin.ArchivalUnit;
+import java.util.List;
+import org.lockss.log.L4JLogger;
 
-/**
- * Status of a wget crawler.
- */
-public class WgetCrawlerStatus extends CrawlerStatus {
+/** Representation of a string command line option. */
+public class StringCommandOption extends CommandOption {
+  private static final L4JLogger log = L4JLogger.getLogger();
+
   /**
    * Constructor.
-   * 
-   * @param auId      A String with the Archival Unit identifier.
-   * @param startUrls A Collection<String> with the crawl starting URLs.
-   * @param type      A String with the crawl type.
+   *
+   * @param longKey A String with the long key of the string command line option.
    */
-  public WgetCrawlerStatus(String auId, Collection<String> startUrls,
-      String type) {
-    this.auid = auId;
-    this.startUrls = startUrls;
-    this.type = type;
-    key = nextIdx();
-    auName = "WgetCrawl " + auId;
-    initCounters();
+  public StringCommandOption(String longKey) {
+    super(longKey);
   }
 
   /**
-   * Provides the Archival Unit.
-   * 
-   * @return an ArchivalUnit with the Archival Unit.
+   * Processes a string command line option.
+   *
+   * @param optionKey A String with the key of the option.
+   * @param jsonObject An object with the JSON object that represents the value of the command line
+   *     option.
+   * @param command A List<String> where to add this command line option, if appropriate.
+   * @return a BooleanCommandOption with this object.
    */
-  @Override
-  public ArchivalUnit getAu() {
-    return null;
-  }
+  public static StringCommandOption process(
+      String optionKey, Object jsonObject, List<String> command) {
+    log.debug2("optionKey = {}", optionKey);
+    log.debug2("jsonObject = {}", jsonObject);
+    log.debug2("command = {}", command);
 
-  @Override
-  public String toString() {
-    return "[WgetCrawlerStatus " + key + "]";
+    StringCommandOption option = new StringCommandOption(optionKey);
+
+    if (jsonObject != null) {
+      String optionValue = option.setValue((String) jsonObject);
+      log.trace("optionValue = {}", optionValue);
+
+      if (optionValue != null && !optionValue.isEmpty()) {
+        command.add(option.getLongKey() + "=" + optionValue);
+        log.trace("command = {}", command);
+      }
+    }
+
+    log.debug2("option = {}", option);
+    return option;
   }
 }

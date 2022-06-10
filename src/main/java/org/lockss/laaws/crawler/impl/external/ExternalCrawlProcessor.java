@@ -29,7 +29,7 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
  */
-package org.lockss.laaws.crawler.wget;
+package org.lockss.laaws.crawler.impl.external;
 
 import java.io.File;
 import java.io.IOException;
@@ -41,10 +41,8 @@ import org.lockss.daemon.LockssRunnable;
 import org.lockss.log.L4JLogger;
 import org.lockss.util.io.FileUtil;
 
-/**
- * The processor of a wget crawl.
- */
-public class WgetCrawlProcessor {
+/** The processor of a crawl. */
+public class ExternalCrawlProcessor {
   private static final L4JLogger log = L4JLogger.getLogger();
 
   private CrawlManagerImpl crawlManagerImpl = null;
@@ -52,44 +50,47 @@ public class WgetCrawlProcessor {
 
   /**
    * Constructor.
-   * 
+   *
    * @param crawlManagerImpl A CrawlManagerImpl with the crawl manager.
    */
-  public WgetCrawlProcessor(CrawlManagerImpl crawlManagerImpl) {
+  public ExternalCrawlProcessor(CrawlManagerImpl crawlManagerImpl) {
     this.crawlManagerImpl = crawlManagerImpl;
   }
 
   /**
-   * Starts a new content wget crawl.
-   * 
+   * Starts a new content crawl.
+   *
    * @param req A CrawlReq with the crawl request information.
    * @return a CrawlerStatus with the status of the crawl.
    */
-  public CrawlerStatus startNewContentCrawl(WgetCrawlReq req) {
+  public CrawlerStatus startNewContentCrawl(ExternalCrawlReq req) {
     log.debug2("req = {}", req);
 
-    WgetCrawler crawler = null;
-    WgetRunner runner = null;
+    ExternalCrawler crawler = null;
+    ExternalRunner runner = null;
 
     try {
-      crawler = new WgetCrawler();
+      crawler = new ExternalCrawler();
       crawler.setType(Crawler.Type.NEW_CONTENT);
       req.getCrawlerStatus().setType(crawler.getType().toString());
       crawler.setCrawlerStatus(req.getCrawlerStatus());
       crawlerStatus = crawler.getCrawlerStatus();
 
-      runner = new WgetRunner(req);
+      runner = new ExternalRunner(req);
       log.trace("{} set to start", runner);
 
       crawlManagerImpl.getStatus().addCrawlStatus(crawlerStatus);
       new Thread(runner).start();
-    } catch (RuntimeException e) {
-      String crawlerRunner = "no crawler" + " " +
-              (runner == null ? "no runner" : runner.toString());
-      log.error("Unexpected error attempting to start/schedule " +
-	  req.getAuId() + " crawl " + crawlerRunner, e);
-      req.getCrawlerStatus().setCrawlStatus(Crawler.STATUS_ERROR,
-	  "Unexpected error");
+    } catch (RuntimeException ex) {
+      String crawlerRunner =
+          "no crawler" + " " + (runner == null ? "no runner" : runner.toString());
+      log.error(
+          "Unexpected error attempting to start/schedule "
+              + req.getAuId()
+              + " crawl "
+              + crawlerRunner,
+          ex);
+      req.getCrawlerStatus().setCrawlStatus(Crawler.STATUS_ERROR, "Unexpected error");
 
       crawlerStatus = req.getCrawlerStatus();
     }
@@ -99,25 +100,22 @@ public class WgetCrawlProcessor {
     return crawlerStatus;
   }
 
-  static String makeThreadName(WgetCrawlReq req) {
-    return req.getCrawlerStatus().getType() + " WgetCrawl "
-	+ req.getCrawlerStatus().getKey();
+  static String makeThreadName(ExternalCrawlReq req) {
+    return req.getCrawlerStatus().getType() + " WgetCrawl " + req.getCrawlerStatus().getKey();
   }
 
-  /**
-   * A separate-thread runner of a wget command.
-   */
-  public class WgetRunner extends LockssRunnable {
-    private WgetCrawlReq req = null;
+  /** A separate-thread runner of a command. */
+  public class ExternalRunner extends LockssRunnable {
+    private ExternalCrawlReq req = null;
     private List<String> command = null;
     private File tmpDir = null;
 
     /**
      * Constructor.
-     * 
-     * @param req A WgetCrawlReq with the crawl request information.
+     *
+     * @param req A ExternalCrawlReq with the crawl request information.
      */
-    public WgetRunner(WgetCrawlReq req) {
+    public ExternalRunner(ExternalCrawlReq req) {
       super(makeThreadName(req));
       this.req = req;
       command = req.getCommand();
@@ -126,37 +124,35 @@ public class WgetCrawlProcessor {
 
     @Override
     public String toString() {
-      return "[WgetRunner" + req.getCrawlerStatus().getKey() + "]";
+      return "[ExternalRunner" + req.getCrawlerStatus().getKey() + "]";
     }
 
-    /**
-     * Code that runs in a separate thread.
-     */
+    /** Code that runs in a separate thread. */
     public void lockssRun() {
       log.debug2("{} started", this);
 
       try {
-	nowRunning();
+        nowRunning();
 
-	ProcessBuilder builder = new ProcessBuilder();
-	builder.command(command);
-	builder.inheritIO();
+        ProcessBuilder builder = new ProcessBuilder();
+        builder.command(command);
+        builder.inheritIO();
 
-	log.trace("wget process started");
-	Process process = builder.start();
-	crawlerStatus.signalCrawlStarted();
+        log.trace("external crawl process started");
+        Process process = builder.start();
+        crawlerStatus.signalCrawlStarted();
 
-	int exitCode = process.waitFor();
-	log.trace("wget process finished: exitCode = {}", exitCode);
+        int exitCode = process.waitFor();
+        log.trace("external crawl process finished: exitCode = {}", exitCode);
 
-	if (exitCode == 0) {
-	  crawlerStatus.setCrawlStatus(Crawler.STATUS_SUCCESSFUL);
-	} else {
-	  crawlerStatus.setCrawlStatus(Crawler.STATUS_ERROR,
-	      "wget exit code: " + exitCode);
-	}
+        if (exitCode == 0) {
+          crawlerStatus.setCrawlStatus(Crawler.STATUS_SUCCESSFUL);
+        } else {
+          crawlerStatus.setCrawlStatus(
+              Crawler.STATUS_ERROR, "external crawl exit code: " + exitCode);
+        }
       } catch (IOException ioe) {
-        log.error("Exception caught running wget process", ioe);
+        log.error("Exception caught running process", ioe);
       } catch (InterruptedException ignore) {
         // no action
       } finally {
@@ -165,11 +161,10 @@ public class WgetCrawlProcessor {
 
         log.trace("Deleting tree at {}", tmpDir);
         boolean isDeleted = FileUtil.delTree(tmpDir);
-	log.trace("isDeleted = {}", isDeleted);
+        log.trace("isDeleted = {}", isDeleted);
 
-	if (!isDeleted) {
-          log.warn("Temporary directory {} cannot be deleted after processing",
-              tmpDir);
+        if (!isDeleted) {
+          log.warn("Temporary directory {} cannot be deleted after processing", tmpDir);
         }
 
         log.debug2("{} terminating", this);

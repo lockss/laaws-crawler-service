@@ -29,51 +29,49 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
  */
-package org.lockss.laaws.crawler.wget;
+package org.lockss.laaws.crawler.impl.external;
 
+import java.util.Collection;
 import org.lockss.crawler.CrawlerStatus;
-import org.lockss.daemon.Crawler;
+import org.lockss.plugin.ArchivalUnit;
 
 /**
- * The wget crawler.
+ * Status of an individual external crawl, including start, stop times, bytes fetched, and URL
+ * counters/sets A config param (PARAM_RECORD_URLS) controls whether the sets/maps of URLs are
+ * recorded and displayed in the UI, or merely counted.
  */
-public class WgetCrawler {
-  private CrawlerStatus crawlStatus;
-  private Crawler.Type type;
-
+public class ExternalCrawlerStatus extends CrawlerStatus {
   /**
-   * Provides the type of crawler.
-   * 
-   * @return a Crawler.Type with the type of crawler.
+   * Constructor.
+   *
+   * @param auId A String with the Archival Unit identifier.
+   * @param startUrls A Collection<String> with the crawl starting URLs.
+   * @param type A String with the crawl type.
    */
-  public Crawler.Type getType() {
-    return type;
-  }
-
-  /**
-   * Saves the type of crawler.
-   * 
-   * @param type A Crawler.Type with the type of crawler.
-   */
-  protected void setType(Crawler.Type type) {
+  public ExternalCrawlerStatus(String crawlerId, String auId, Collection<String> startUrls, String type) {
+    // todo: - turn auid into a AU and call the superclass.
+    // todo: - we want to pass in all of the information.
+    this.auid = auId;
+    this.startUrls = startUrls;
     this.type = type;
+    this.crawlerId = crawlerId;
+    key = nextIdx();
+    auName = "ExternalCrawl " + auId;
+    initCounters();
   }
 
   /**
-   * Provides the crawler status.
-   * 
-   * @return a CrawlerStatus with the crawler status.
+   * Provides the Archival Unit.
+   *
+   * @return an ArchivalUnit with the Archival Unit.
    */
-  public CrawlerStatus getCrawlerStatus() {
-    return crawlStatus;
+  @Override
+  public ArchivalUnit getAu() {
+    return null;
   }
 
-  /**
-   * Saves the crawler status.
-   * 
-   * @param crawlerStatus A CrawlerStatus with the crawler status.
-   */
-  protected void setCrawlerStatus(CrawlerStatus crawlerStatus) {
-    crawlStatus = crawlerStatus;
+  @Override
+  public String toString() {
+    return "[ExteranalCrawlerStatus " + key + "]";
   }
 }

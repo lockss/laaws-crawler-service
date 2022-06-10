@@ -29,9 +29,9 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
  */
-package org.lockss.laaws.crawler.wget.command;
+package org.lockss.laaws.crawler.wget;
 
-import static org.lockss.laaws.crawler.wget.command.WgetCommandOption.*;
+import static org.lockss.laaws.crawler.wget.WgetCommandOptions.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.File;
 import java.io.IOException;
@@ -39,6 +39,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.junit.Test;
+import org.lockss.laaws.crawler.wget.WgetCommandLineBuilder;
 import org.lockss.log.L4JLogger;
 import org.lockss.test.LockssTestCase4;
 import org.lockss.util.ListUtil;

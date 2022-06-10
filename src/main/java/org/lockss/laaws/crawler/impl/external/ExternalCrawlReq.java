@@ -29,47 +29,42 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
  */
-package org.lockss.laaws.crawler.wget;
+package org.lockss.laaws.crawler.impl.external;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import org.lockss.crawler.CrawlReq;
 import org.lockss.crawler.CrawlerStatus;
-import org.lockss.laaws.crawler.wget.command.WgetCommandLineBuilder;
+import org.lockss.laaws.crawler.wget.WgetCommandLineBuilder;
 import org.lockss.util.io.FileUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
 
-/**
- * A wget crawl request.
- */
-public class WgetCrawlReq extends CrawlReq {
+/** An external crawl request. */
+public class ExternalCrawlReq extends CrawlReq {
   private CrawlDesc crawlDesc = null;
   private File tmpDir = null;
   private List<String> command = null;
 
   /**
    * Constructor.
-   * 
-   * @param crawlDesc     A CrawlDesc with the crawl description.
-   * @param crawlerStatus A WgetCrawlerStatus with the crawl status.
+   *
+   * @param crawlDesc A CrawlDesc with the crawl description.
+   * @param crawlerStatus A ExteranalCrawlerStatus with the crawl status.
    * @throws IOException if there are problems
    */
-  public WgetCrawlReq(CrawlDesc crawlDesc, CrawlerStatus crawlerStatus)
-      throws IOException {
+  public ExternalCrawlReq(CrawlDesc crawlDesc, CrawlerStatus crawlerStatus) throws IOException {
     this.crawlDesc = crawlDesc;
     this.crawlerStatus = crawlerStatus;
     auid = crawlDesc.getAuId();
-    tmpDir = FileUtil.createTempDir("laaws-crawler-wget", "");
+    tmpDir = FileUtil.createTempDir("laaws-external-crawler", "");
     command = new WgetCommandLineBuilder().buildCommandLine(crawlDesc, tmpDir);
   }
 
   /**
-   * Provides the temporary directory where files related to wget options are
-   * stored.
-   * 
-   * @return a File with the temporary directory where files related to wget
-   *         options are stored.
+   * Provides the temporary directory where files related to wget options are stored.
+   *
+   * @return a File with the temporary directory where files related to wget options are stored.
    */
   public File getTmpDir() {
     return tmpDir;
@@ -77,7 +72,7 @@ public class WgetCrawlReq extends CrawlReq {
 
   /**
    * Provides the wget command line.
-   * 
+   *
    * @return a List<String> with the wget command line.
    */
   public List<String> getCommand() {
@@ -87,7 +82,7 @@ public class WgetCrawlReq extends CrawlReq {
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    sb.append("[WgetCrawlReq");
+    sb.append("[ExternalCrawlReq");
     sb.append("(I): ");
     sb.append(auid);
     sb.append(", pri: ");

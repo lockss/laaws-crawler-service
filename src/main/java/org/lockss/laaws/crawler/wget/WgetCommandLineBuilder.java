@@ -29,9 +29,9 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
  */
-package org.lockss.laaws.crawler.wget.command;
+package org.lockss.laaws.crawler.wget;
 
-import static org.lockss.laaws.crawler.wget.command.WgetCommandOption.*;
+import static org.lockss.laaws.crawler.wget.WgetCommandOptions.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.File;
 import java.io.IOException;
@@ -39,6 +39,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.lockss.laaws.crawler.impl.external.command.BooleanCommandOption;
+import org.lockss.laaws.crawler.impl.external.command.FileCommandOption;
+import org.lockss.laaws.crawler.impl.external.command.ListStringCommandOption;
+import org.lockss.laaws.crawler.impl.external.command.StringCommandOption;
 import org.lockss.log.L4JLogger;
 import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.status.ApiStatus;
@@ -70,7 +74,7 @@ public class WgetCommandLineBuilder {
     log.trace("crawlDepth = {}", crawlDepth);
 
     if (crawlDepth != null) {
-      StringWgetCommandOption.process(LEVEL_KEY, crawlDepth.toString(),
+      StringCommandOption.process(LEVEL_KEY, crawlDepth.toString(),
 	  command);
     }
 
@@ -97,13 +101,13 @@ public class WgetCommandLineBuilder {
 	  case SPAN_HOSTS_KEY:
 	  case SPIDER_KEY:
 	  case WARC_CDX_KEY:
-	    BooleanWgetCommandOption.process(optionKey, extraCrawlerOptionData,
+	    BooleanCommandOption.process(optionKey, extraCrawlerOptionData,
 		command);
 	    break;
 	  case DOMAINS_KEY:
 	  case EXCLUDE_DIRECTORIES_KEY:
 	  case INCLUDE_DIRECTORIES_KEY:
-	    ListStringWgetCommandOption.process(optionKey,
+	    ListStringCommandOption.process(optionKey,
 		extraCrawlerOptionData, command);
 	    break;
 	  case ACCEPT_REGEX_KEY:
@@ -112,12 +116,12 @@ public class WgetCommandLineBuilder {
 	  case WAIT_KEY:
 	  case WARC_FILE_KEY:
 	  case WARC_MAX_SIZE_KEY:
-	    StringWgetCommandOption.process(optionKey, extraCrawlerOptionData,
+	    StringCommandOption.process(optionKey, extraCrawlerOptionData,
 		command);
 	    break;
 	  case USER_AGENT_KEY:
-	    StringWgetCommandOption userAgentOption =
-	    StringWgetCommandOption.process(optionKey, extraCrawlerOptionData,
+	    StringCommandOption userAgentOption =
+	    StringCommandOption.process(optionKey, extraCrawlerOptionData,
 		command);
 	
 	    if (userAgentOption.getValue() == null) {
@@ -128,7 +132,7 @@ public class WgetCommandLineBuilder {
 		  + apiStatus.getComponentVersion();
 	      log.trace("userAgent = {}", userAgent);
 
-	      StringWgetCommandOption.process(optionKey, userAgent, command);
+	      StringCommandOption.process(optionKey, userAgent, command);
 	    }
 
 	    break;
@@ -146,7 +150,7 @@ public class WgetCommandLineBuilder {
 		for (String header : headers) {
 		  log.trace("header = {}", header);
 
-		  StringWgetCommandOption.process(optionKey, header, command);
+		  StringCommandOption.process(optionKey, header, command);
 		}
 	      }
 	    }
@@ -154,7 +158,7 @@ public class WgetCommandLineBuilder {
 	    break;
 	  case INPUT_FILE_KEY:
 	  case WARC_DEDUP_KEY:
-	    FileWgetCommandOption.process(optionKey, extraCrawlerOptionData,
+	    FileCommandOption.process(optionKey, extraCrawlerOptionData,
 		tmpDir, command);
 	    break;
 	  default:

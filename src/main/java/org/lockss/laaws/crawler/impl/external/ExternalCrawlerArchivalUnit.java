@@ -9,10 +9,10 @@ import org.lockss.daemon.ConfigParamDescr;
 import org.lockss.daemon.CrawlRule;
 import org.lockss.daemon.LoginPageChecker;
 import org.lockss.daemon.PermissionChecker;
-import org.lockss.plugin.base.BaseArchivalUnit;
+import org.lockss.plugin.definable.DefinableArchivalUnit;
 import org.lockss.util.Logger;
 
-public class ExternalCrawlerArchivalUnit extends BaseArchivalUnit {
+public class ExternalCrawlerArchivalUnit extends DefinableArchivalUnit {
 
   private static final Logger log = Logger.getLogger();
   private String auDescr = null;

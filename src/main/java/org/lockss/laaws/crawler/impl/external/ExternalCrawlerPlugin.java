@@ -6,12 +6,12 @@ import org.lockss.config.Configuration;
 import org.lockss.daemon.ConfigParamDescr;
 import org.lockss.plugin.ArchivalUnit;
 import org.lockss.plugin.ContentValidationException;
-import org.lockss.plugin.base.BasePlugin;
+import org.lockss.plugin.definable.DefinablePlugin;
 import org.lockss.util.Logger;
 import org.lockss.util.urlconn.CacheSuccess;
 import org.lockss.util.urlconn.HttpResultMap;
 
-public class ExternalCrawlerPlugin extends BasePlugin {
+public class ExternalCrawlerPlugin extends DefinablePlugin {
 
   /** The key of the ExternalCrawler plugin */
   static final String PLUGIN_ID = "org.lockss.plugin.ExternalCrawlerPlugin";

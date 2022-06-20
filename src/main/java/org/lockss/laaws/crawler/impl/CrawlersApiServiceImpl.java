@@ -79,12 +79,14 @@ public class CrawlersApiServiceImpl extends BaseSpringApiServiceImpl
 
   public static final String CRAWLER_ENABLED = CrawlManagerImpl.PARAM_CRAWLER_ENABLED;
   public static final String STARTER_ENABLED = CrawlManagerImpl.PARAM_CRAWL_STARTER_ENABLED;
+  private static final String CRAWLER = "crawler";
 
   private List<String> crawlerIds = defaultCrawlerIds;
 
   private Map<String, CrawlerConfig> crawlerConfigMap;
   private boolean crawlerEnabled;
   private boolean crawlStarterEnabled;
+
 
   @Override
   public void setConfig(Configuration newConfig, Configuration prevConfig,
@@ -212,7 +214,12 @@ public class CrawlersApiServiceImpl extends BaseSpringApiServiceImpl
       boolean isEnabled = config.getBoolean(crawlerConfigRoot+ CRAWLER_ENABLED, true);
       crawlerMap.put(crawlerId+ENABLED, String.valueOf(isEnabled));
       crawlerMap.put(CAN_CRAWL, String.valueOf(isEnabled && crawlerEnabled));
+      String crawler = config.get(crawlerConfigRoot + CRAWLER);
+      if(crawler != null) {
+        crawlerMap.put(CRAWLER, crawler);
+      }
       //todo: add more later.
+
       // update our crawler config and add it to the map
       crawlerConfig.setCrawlerId(crawlerId);
       crawlerConfig.setAttributes(crawlerMap);

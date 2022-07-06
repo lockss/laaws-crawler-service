@@ -13,7 +13,7 @@
 #
 # 3. Neither the name of the copyright holder nor the names of its contributors
 # may be used to endorse or promote products derived from this software without
-# specific prior written permission. 
+# specific prior written permission.
 #
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 # AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
@@ -46,6 +46,8 @@ tags:
     description: 'requests related to crawls'
   - name: crawlers
     description: 'requests related to crawlers'
+  - name: ws
+    description: 'legacy SOAP endpoint'
 schemes:
   - https
 produces:
@@ -68,7 +70,7 @@ paths:
             $ref: '#/definitions/crawlerStatuses'
         '404':
           description: No Such Crawler
-  '/crawlers/{crawler}':
+  '/crawlers/{crawlerId}':
     get:
       tags:
         - crawlers
@@ -76,7 +78,7 @@ paths:
       description: Get information related to a installed crawler.
       operationId: getCrawlerConfig
       parameters:
-        - name: crawler
+        - name: crawlerId
           in: path
           description: Identifier for the crawler
           required: true
@@ -96,8 +98,8 @@ paths:
     get:
       tags:
         - crawls
-      summary: Get a list of active crawls.
-      description: Get a list of all currently active crawls or a pageful of\
+      summary: Get the list of crawls.
+      description: Get a list of crawls or a pageful of\
         \ the list defined by the continuation token and size
       operationId: getCrawls
       parameters:
@@ -473,13 +475,39 @@ paths:
           description: "Not Found"
         '500':
           description: "Internal Server Error"
+  '/ws/crawls':
+    get:
+      tags:
+        - ws
+      summary: Query for list of crawls based on subset defined by query string
+      description: Query for crawls that meet a set of specified conditions
+      operationId: getWsCrawls
+      produces:
+        - application/json
+      parameters:
+        - name: 'crawlQuery'
+          in: query
+          description: The query that specifies the crawls to be returned
+          required: true
+          type: string
+      responses:
+        '200':
+          description: Information about the requested crawls
+          schema:
+            $ref: '#/definitions/crawlWsResult'
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal Server Error
 securityDefinitions:
   basicAuth:
     description: "HTTP Basic Authentication. Works over `HTTP` and `HTTPS`"
     type: "basic"
 definitions:
   crawlerStatuses:
-    type: "object"
+    type: object
     properties:
       crawlerMap:
         type: object
@@ -531,31 +559,48 @@ definitions:
       nextLink:
         description: The link to the next page.
         type: string
-  status:
+  jobStatus:
     description: A status which includes a code and a message.
     required:
-    - code
-    - msg
+    - statusCode
     type: object
     properties:
-      code:
-        format: int32
+      statusCode:
         description: The numeric value for this status.
-        type: integer
+        type: string
+        enum:
+          - STATUS_UNKNOWN
+          - STATUS_QUEUED
+          - STATUS_ACTIVE
+          - STATUS_SUCCESSFUL
+          - STATUS_ERROR
+          - STATUS_ABORTED
+          - STATUS_WINDOW_CLOSED
+          - STATUS_FETCH_ERROR
+          - STATUS_NO_PUB_PERMISSION
+          - STATUS_PLUGIN_ERROR
+          - STATUS_REPO_ERR
+          - STATUS_RUNNING_AT_CRASH
+          - STATUS_EXTRACTOR_ERROR
+          - STATUS_CRAWL_TEST_SUCCESSFUL
+          - STATUS_CRAWL_TEST_FAIL
+          - STATUS_INELIGIBLE
+          - STATUS_INACTIVE_REQUEST
+          - STATUS_INTERRUPTED
       msg:
         description: A text message explaining this status.
         type: string
   apiStatus:
-    type: "object"
+    type: object
     required:
-    - "version"
-    - "ready"
+    - version
+    - ready
     properties:
       version:
-        type: "string"
+        type: string
         description: "The version of the service"
       ready:
-        type: "boolean"
+        type: boolean
         description: "The indication of whether the service is available"
     description: "The status information of the service"
   counter:
@@ -576,25 +621,15 @@ definitions:
     description: A descriptor for a crawl.
     required:
       - auId
-      - crawlKind
     type: object
     properties:
       auId:
         description: The identifier of the archival unit to be crawled.
         type: string
-      crawlKind:
-        description: The kind of crawl being performed. For now, this is either\
-          \ 'newContent' or 'repair'.
-        $ref: "#/definitions/crawlKind"
-      crawler:
+      crawlerId:
         description: The crawler to be used for this crawl.
         type: string
         default: lockss
-      repairList:
-        description: The repair URLs in a repair crawl.
-        type: array
-        items:
-          type: string
       forceCrawl:
         description: An indication of whether the crawl is to be forced,\
           \ suppressing conditions that might otherwise prevent the crawl from\
@@ -611,58 +646,55 @@ definitions:
         type: integer
         format: int32
       crawlList:
-        type: "array"
+        type: array
         description: The list of URLs to crawl.
         items:
-          type: "string"
+          type: string
       crawlDepth:
-        type: "integer"
-        description: The depth of the crawl.
+        type: integer
+        format: int32
+        description: The depth to which the links should be followed. 0 means\
+          \ do not follow links.
       extraCrawlerData:
-        type: string
-        description: A JSON object with content required by the crawler.
-  crawlKind:
-    type: "string"
-    description: The kind of crawl being performed. For now this is either\
-      \ 'newContent' or 'repair'.
-    enum:
-    - "newContent"
-    - "repair"
+        type: object
+        description: A map of additional properties for a crawl on a given crawler.
+        additionalProperties:
+          type: string
   crawlJob:
     description: The job resulting from a request to perform a crawl.
     required:
     - crawlDesc
-    - "creationDate"
-    - "jobId"
-    - "status"
+    - requestDate
+    - jobId
+    - jobStatus
     type: object
     properties:
       crawlDesc:
         description: The descriptor of the crawl.
         $ref: '#/definitions/crawlDesc'
-      creationDate:
-        type: "string"
+      requestDate:
+        type: string
         format: "date-time"
         description: The timestamp when the crawl was requested.
         example: "yyyy-MM-ddTHH:mm:ss.SSSZ"
       jobId:
         description: Identifier of the job performing the crawl.
-        type: "string"
-      status:
+        type: string
+      jobStatus:
         description: The status of the crawl operation.
-        $ref: "#/definitions/status"
+        $ref: "#/definitions/jobStatus"
       startDate:
-        type: "string"
+        type: string
         format: "date-time"
         description: The timestamp when the crawl began.
         example: "yyyy-MM-ddTHH:mm:ss.SSSZ"
       endDate:
-        type: "string"
+        type: string
         format: "date-time"
         description: The timestamp when the crawl ended.
         example: "yyyy-MM-ddTHH:mm:ss.SSSZ"
       result:
-        type: "string"
+        type: string
         description: A URI which can be used to retrieve the crawl data.
   crawlerStatus:
     description: Status about a specific crawler.
@@ -677,8 +709,8 @@ definitions:
       isRunning:
         description: Is the crawl starter running
         type: boolean
-      errStatus:
-        $ref: '#/definitions/status'
+      errMessage:
+        type: string
   crawlerConfig:
     description: Configuration information about a specific crawler.
     required:
@@ -688,7 +720,7 @@ definitions:
     properties:
       crawlerId:
         description: The identifier for this crawler
-        type: "string"
+        type: string
         example: "lockss"
       attributes:
         description: key value pairs specific providing attributes\
@@ -706,7 +738,7 @@ definitions:
       - type
       - startTime
       - endTime
-      - status
+      - jobStatus
       - priority
     type: object
     properties:
@@ -755,10 +787,10 @@ definitions:
         format: int64
         description: The timestamp for the end of the crawl.
         type: integer
-      status:
-        $ref: '#/definitions/status'
+      jobStatus:
+        $ref: '#/definitions/jobStatus'
       isWaiting:
-        description: True if the crawl wating to start.
+        description: True if the crawl waiting to start.
         type: boolean
       isActive:
         description: True if the crawl is active.
@@ -847,3 +879,104 @@ definitions:
           - Warning
           - Error
           - Fatal
+  crawlWsResult:
+    type: object
+    required:
+    - auId
+    - auName
+    properties:
+      auId:
+        type: string
+      auName:
+        type: string
+      priority:
+        type: integer
+        format: int32
+      crawlKey:
+        type: string
+      crawlType:
+        type: string
+      startTime:
+        type: integer
+        format: int32
+      duration:
+        type: integer
+        format: int32
+      crawlStatus:
+        type: string
+      bytesFetchedCount:
+        type: integer
+        format: int32
+      pagesFetchedCount:
+        type: integer
+        format: int32
+      pagesFetched:
+        type: array
+        items:
+          type: string
+      pagesParsedCount:
+        type: integer
+        format: int32
+      pagesParsed:
+        type: array
+        items:
+          type: string
+      pagesPendingCount:
+        type: integer
+        format: int32
+      pagesPending:
+        type: array
+        items:
+          type: string
+      pagesExcludedCount:
+        type: integer
+        format: int32
+      pagesExcluded:
+        type: array
+        items:
+          type: string
+      offSiteUrlsExcludedCount:
+        type: integer
+        format: int32
+      pagesNotModifiedCount:
+        type: integer
+        format: int32
+      pagesNotModified:
+        type: array
+        items:
+          type: string
+      pagesWithErrorsCount:
+        type: integer
+        format: int32
+      pagesWithErrors:
+        type: array
+        items:
+          type: object
+          properties:
+            url:
+              type: string
+            severity:
+              type: string
+            message:
+              type: string
+      mimeTypeCount:
+        type: integer
+        format: int32
+      mimeTypes:
+        type: array
+        items:
+          type: string
+      sources:
+        type: array
+        items:
+          type: string
+      startingUrls:
+        type: array
+        items:
+          type: string
+      refetchDepth:
+        type: integer
+        format: int32
+      linkDepth:
+        type: integer
+        format: int32

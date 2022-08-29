@@ -1,6 +1,8 @@
-package org.lockss.laaws.crawler.impl.external.command;
+package org.lockss.laaws.crawler.impl.pluggable.command;
 
-/** Base class for all command line options */
+/**
+ * Base class for all command line options
+ */
 public class CommandOption {
   String longKey;
   private String value;

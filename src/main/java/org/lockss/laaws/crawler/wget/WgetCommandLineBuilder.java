@@ -31,39 +31,39 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 package org.lockss.laaws.crawler.wget;
 
-import static org.lockss.laaws.crawler.wget.WgetCommandOptions.*;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import org.lockss.laaws.crawler.impl.external.command.BooleanCommandOption;
-import org.lockss.laaws.crawler.impl.external.command.FileCommandOption;
-import org.lockss.laaws.crawler.impl.external.command.ListStringCommandOption;
-import org.lockss.laaws.crawler.impl.external.command.StringCommandOption;
+import org.lockss.laaws.crawler.impl.pluggable.CmdLineCrawler;
+import org.lockss.laaws.crawler.impl.pluggable.command.BooleanCommandOption;
+import org.lockss.laaws.crawler.impl.pluggable.command.FileCommandOption;
+import org.lockss.laaws.crawler.impl.pluggable.command.ListStringCommandOption;
+import org.lockss.laaws.crawler.impl.pluggable.command.StringCommandOption;
 import org.lockss.log.L4JLogger;
 import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.status.ApiStatus;
 
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+import static org.lockss.laaws.crawler.wget.WgetCommandOptions.*;
+
 /**
  * The builder of a wget command line.
  */
-public class WgetCommandLineBuilder {
+public class WgetCommandLineBuilder implements CmdLineCrawler.CommandLineBuilder {
   private static final L4JLogger log = L4JLogger.getLogger();
 
   /**
    * Builds the wget command line.
-   * 
+   *
    * @param crawlDesc A CrawlDesc with the description of the crawl.
-   * @param tmpDir    A File with the temporary directory where to create files
-   *                  referenced by command line option.
+   * @param tmpDir    A File with the temporary directory where to create files referenced by command
+   *                  line option.
    * @return a List<String> with the wget command line.
    * @throws IOException if there are problems building the wget command line.
    */
-  public List<String> buildCommandLine(CrawlDesc crawlDesc, File tmpDir)
-      throws IOException {
+  public List<String> buildCommandLine(CrawlDesc crawlDesc, File tmpDir) throws IOException {
     log.debug2("crawlDesc = {}", crawlDesc);
     log.debug2("tmpDir = {}", tmpDir);
 
@@ -74,96 +74,82 @@ public class WgetCommandLineBuilder {
     log.trace("crawlDepth = {}", crawlDepth);
 
     if (crawlDepth != null) {
-      StringCommandOption.process(LEVEL_KEY, crawlDepth.toString(),
-	  command);
+      StringCommandOption.process(LEVEL_KEY, crawlDepth.toString(), command);
     }
 
-    String extraCrawlerData = crawlDesc.getExtraCrawlerData();
-    log.trace("extraCrawlerData = {}", extraCrawlerData);
-
-    if (extraCrawlerData != null) {
-      Map<String, Object> extraCrawlerDataMap =
-	  new ObjectMapper().readValue(extraCrawlerData, HashMap.class);
+    Map<String, Object> extraCrawlerDataMap = crawlDesc.getExtraCrawlerData();
+    if (extraCrawlerDataMap != null) {
       log.trace("extraCrawlerDataMap = {}", extraCrawlerDataMap);
-
       for (String optionKey : ALL_KEYS) {
-	log.trace("optionKey = {}", optionKey);
+        log.trace("optionKey = {}", optionKey);
 
-	Object extraCrawlerOptionData =
-	    extraCrawlerDataMap.get(optionKey.substring(2));
-	log.trace("extraCrawlerOptionData = {}", extraCrawlerOptionData);
+        Object extraCrawlerOptionData = extraCrawlerDataMap.get(optionKey.substring(2));
+        log.trace("extraCrawlerOptionData = {}", extraCrawlerOptionData);
 
-	switch (optionKey) {
-	  case DELETE_AFTER_KEY:
-	  case NO_DIRECTORIES_KEY:
-	  case PAGE_REQUISITES_KEY:
-	  case RECURSIVE_KEY:
-	  case SPAN_HOSTS_KEY:
-	  case SPIDER_KEY:
-	  case WARC_CDX_KEY:
-	    BooleanCommandOption.process(optionKey, extraCrawlerOptionData,
-		command);
-	    break;
-	  case DOMAINS_KEY:
-	  case EXCLUDE_DIRECTORIES_KEY:
-	  case INCLUDE_DIRECTORIES_KEY:
-	    ListStringCommandOption.process(optionKey,
-		extraCrawlerOptionData, command);
-	    break;
-	  case ACCEPT_REGEX_KEY:
-	  case LEVEL_KEY:
-	  case REJECT_REGEX_KEY:
-	  case WAIT_KEY:
-	  case WARC_FILE_KEY:
-	  case WARC_MAX_SIZE_KEY:
-	    StringCommandOption.process(optionKey, extraCrawlerOptionData,
-		command);
-	    break;
-	  case USER_AGENT_KEY:
-	    StringCommandOption userAgentOption =
-	    StringCommandOption.process(optionKey, extraCrawlerOptionData,
-		command);
-	
-	    if (userAgentOption.getValue() == null) {
-	      ApiStatus apiStatus = new ApiStatus("swagger/swagger.yaml");
-	      log.trace("apiStatus = {}", apiStatus);
+        switch (optionKey) {
+          case DELETE_AFTER_KEY:
+          case NO_DIRECTORIES_KEY:
+          case PAGE_REQUISITES_KEY:
+          case RECURSIVE_KEY:
+          case SPAN_HOSTS_KEY:
+          case SPIDER_KEY:
+          case WARC_CDX_KEY:
+            BooleanCommandOption.process(optionKey, extraCrawlerOptionData, command);
+            break;
+          case DOMAINS_KEY:
+          case EXCLUDE_DIRECTORIES_KEY:
+          case INCLUDE_DIRECTORIES_KEY:
+            ListStringCommandOption.process(optionKey, extraCrawlerOptionData, command);
+            break;
+          case ACCEPT_REGEX_KEY:
+          case LEVEL_KEY:
+          case REJECT_REGEX_KEY:
+          case WAIT_KEY:
+          case WARC_FILE_KEY:
+          case WARC_MAX_SIZE_KEY:
+            StringCommandOption.process(optionKey, extraCrawlerOptionData, command);
+            break;
+          case USER_AGENT_KEY:
+            StringCommandOption userAgentOption =
+              StringCommandOption.process(optionKey, extraCrawlerOptionData, command);
 
-	      String userAgent = apiStatus.getServiceName() + " "
-		  + apiStatus.getComponentVersion();
-	      log.trace("userAgent = {}", userAgent);
+            if (userAgentOption.getValue() == null) {
+              ApiStatus apiStatus = new ApiStatus("swagger/swagger.yaml");
+              log.trace("apiStatus = {}", apiStatus);
 
-	      StringCommandOption.process(optionKey, userAgent, command);
-	    }
+              String userAgent = apiStatus.getServiceName() + " " + apiStatus.getComponentVersion();
+              log.trace("userAgent = {}", userAgent);
 
-	    break;
-	  case HEADER_KEY:
-	  case WARC_HEADER_KEY:
-	    Object jsonObject =
-		extraCrawlerDataMap.get(optionKey.substring(2));
-	    log.trace("jsonObject = {}", jsonObject);
+              StringCommandOption.process(optionKey, userAgent, command);
+            }
 
-	    if (jsonObject != null) {
-	      List<String> headers = (List<String>)jsonObject;
-	      log.trace("headers = {}", headers);
+            break;
+          case HEADER_KEY:
+          case WARC_HEADER_KEY:
+            Object jsonObject = extraCrawlerDataMap.get(optionKey.substring(2));
+            log.trace("jsonObject = {}", jsonObject);
 
-	      if (!headers.isEmpty()) {
-		for (String header : headers) {
-		  log.trace("header = {}", header);
+            if (jsonObject != null) {
+              List<String> headers = (List<String>) jsonObject;
+              log.trace("headers = {}", headers);
 
-		  StringCommandOption.process(optionKey, header, command);
-		}
-	      }
-	    }
+              if (!headers.isEmpty()) {
+                for (String header : headers) {
+                  log.trace("header = {}", header);
 
-	    break;
-	  case INPUT_FILE_KEY:
-	  case WARC_DEDUP_KEY:
-	    FileCommandOption.process(optionKey, extraCrawlerOptionData,
-		tmpDir, command);
-	    break;
-	  default:
-	    log.warn("Ignored unexpected option '{}'", optionKey);
-	}
+                  StringCommandOption.process(optionKey, header, command);
+                }
+              }
+            }
+
+            break;
+          case INPUT_FILE_KEY:
+          case WARC_DEDUP_KEY:
+            FileCommandOption.process(optionKey, extraCrawlerOptionData, tmpDir, command);
+            break;
+          default:
+            log.warn("Ignored unexpected option '{}'", optionKey);
+        }
       }
     }
 
@@ -172,14 +158,15 @@ public class WgetCommandLineBuilder {
 
     if (crawlList != null && !crawlList.isEmpty()) {
       for (String crawlUrl : crawlList) {
-	log.trace("crawlUrl = {}", crawlUrl);
-	command.add(crawlUrl);
+        log.trace("crawlUrl = {}", crawlUrl);
+        command.add(crawlUrl);
       }
-    } else {
+    }
+    else {
       if (!command.contains(INPUT_FILE_KEY)) {
-	String message = "No URLs to crawl with wget were specified";
-	log.error(message);
-	throw new IllegalArgumentException(message);
+        String message = "No URLs to crawl with wget were specified";
+        log.error(message);
+        throw new IllegalArgumentException(message);
       }
     }
 

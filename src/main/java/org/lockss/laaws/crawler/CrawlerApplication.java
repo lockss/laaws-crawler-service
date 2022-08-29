@@ -26,13 +26,12 @@
 
 package org.lockss.laaws.crawler;
 
-import static org.lockss.app.LockssApp.PARAM_START_PLUGINS;
-import static org.lockss.app.ManagerDescs.*;
 import org.lockss.app.LockssApp;
 import org.lockss.app.LockssApp.AppSpec;
 import org.lockss.app.LockssApp.ManagerDesc;
 import org.lockss.app.LockssDaemon;
 import org.lockss.app.ServiceDescr;
+import org.lockss.laaws.crawler.impl.PluggableCrawlManager;
 import org.lockss.plugin.PluginManager;
 import org.lockss.spring.base.BaseSpringBootApplication;
 import org.slf4j.Logger;
@@ -43,35 +42,37 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.solr.SolrAutoConfiguration;
 import springfox.documentation.swagger2.annotations.EnableSwagger2;
 
+import static org.lockss.app.LockssApp.PARAM_START_PLUGINS;
+import static org.lockss.app.LockssApp.managerKey;
+import static org.lockss.app.ManagerDescs.*;
+
 /**
  * The Spring-Boot application.
  */
 @SpringBootApplication(exclude = {SolrAutoConfiguration.class})
 @EnableSwagger2
-public class CrawlerApplication extends BaseSpringBootApplication
-    implements CommandLineRunner {
+public class CrawlerApplication extends BaseSpringBootApplication implements CommandLineRunner {
 
-  private static final Logger logger =
-      LoggerFactory.getLogger(CrawlerApplication.class);
+  public static final String PLUGGABLE_CRAWL_MANAGER = managerKey(PluggableCrawlManager.class);
+  private static final Logger logger = LoggerFactory.getLogger(CrawlerApplication.class);
+  public static ManagerDesc PLUGGABLE_CRAWL_MANAGER_DESC =
+    new ManagerDesc(PLUGGABLE_CRAWL_MANAGER,
+      "org.lockss.crawler.impl.PluggableCrawlManager");
 
   // Manager descriptors.  The order of this table determines the order in
   // which managers are initialized and started.
   private static final ManagerDesc[] myManagerDescs = {
-      ACCOUNT_MANAGER_DESC,
-      CONFIG_DB_MANAGER_DESC,
-      // start plugin manager after generic services
-      PLUGIN_MANAGER_DESC,
-      STATE_MANAGER_DESC,
-      IDENTITY_MANAGER_DESC,
-      CRAWL_MANAGER_DESC,
-      REPOSITORY_MANAGER_DESC,
-      SERVLET_MANAGER_DESC,
-      ROUTER_MANAGER_DESC,
-      PROXY_MANAGER_DESC,
-      PLATFORM_CONFIG_STATUS_DESC,
-      CONFIG_STATUS_DESC,
-      ARCHIVAL_UNIT_STATUS_DESC,
-      OVERVIEW_STATUS_DESC
+    ACCOUNT_MANAGER_DESC,
+    // start plugin manager after generic services
+    PLUGIN_MANAGER_DESC,
+    STATE_MANAGER_DESC,
+    CRAWL_MANAGER_DESC,
+    PLUGGABLE_CRAWL_MANAGER_DESC,
+    REPOSITORY_MANAGER_DESC,
+    SERVLET_MANAGER_DESC,
+    CONFIG_STATUS_DESC,
+    ARCHIVAL_UNIT_STATUS_DESC,
+    OVERVIEW_STATUS_DESC
   };
 
   /**
@@ -99,12 +100,12 @@ public class CrawlerApplication extends BaseSpringBootApplication
       logger.info("Starting the LOCKSS Crawler Service");
 
       AppSpec spec = new AppSpec()
-	  .setService(ServiceDescr.SVC_CRAWLER)
-          .setArgs(args)
-          .addAppConfig(PARAM_START_PLUGINS, "true")
-          .addAppConfig(PluginManager.PARAM_START_ALL_AUS, "true")
-          .setSpringApplicatonContext(getApplicationContext())
-          .setAppManagers(myManagerDescs);
+        .setService(ServiceDescr.SVC_CRAWLER)
+        .setArgs(args)
+        .addAppConfig(PARAM_START_PLUGINS, "true")
+        .addAppConfig(PluginManager.PARAM_START_ALL_AUS, "true")
+        .setSpringApplicatonContext(getApplicationContext())
+        .setAppManagers(myManagerDescs);
       logger.info("Calling LockssApp.startStatic...");
       LockssApp.startStatic(LockssDaemon.class, spec);
     }

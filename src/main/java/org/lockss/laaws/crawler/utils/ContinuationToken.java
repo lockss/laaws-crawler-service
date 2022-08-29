@@ -26,10 +26,11 @@
 
 package org.lockss.laaws.crawler.utils;
 
+import org.lockss.log.L4JLogger;
+
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.lockss.log.L4JLogger;
 
 public class ContinuationToken {
 
@@ -38,8 +39,7 @@ public class ContinuationToken {
   private Long timestamp = null;
   private Long lastElement = null;
 
-  public ContinuationToken(String requestedToken)
-      throws IllegalArgumentException {
+  public ContinuationToken(String requestedToken) throws IllegalArgumentException {
     log.debug2("requestedToken = {}", requestedToken);
 
     String errMsg = "Invalid continuation token '" + requestedToken + "'";
@@ -52,7 +52,8 @@ public class ContinuationToken {
         timestamp = tokenItems.get(0);
         lastElement = tokenItems.get(1);
         log.trace("this = {}", this.toString());
-      } catch (Exception ex) {
+      }
+      catch (Exception ex) {
         log.warn(errMsg, ex);
         throw new IllegalArgumentException(errMsg, ex);
       }
@@ -71,8 +72,9 @@ public class ContinuationToken {
     String[] tokenArray = str.split("\\" + SEPARATOR);
     log.trace("tokenArray = {}", tokenArray);
 
-    return Stream.of(tokenArray).map(num -> Long.parseLong(num.trim()))
-        .collect(Collectors.toList());
+    return Stream.of(tokenArray)
+      .map(num -> Long.parseLong(num.trim()))
+      .collect(Collectors.toList());
   }
 
   public Long getTimestamp() {
@@ -84,19 +86,23 @@ public class ContinuationToken {
   }
 
   public String toToken() {
-    return this.timestamp != null && this.lastElement != null ? this.timestamp + SEPARATOR
-        + this.lastElement : null;
+    return this.timestamp != null && this.lastElement != null
+      ? this.timestamp + SEPARATOR + this.lastElement
+      : null;
   }
 
   public String toString() {
-    return "[ContinuationToken timestamp=" + this.timestamp + ", lastElement=" + this.lastElement
-        + "]";
+    return "[ContinuationToken timestamp="
+      + this.timestamp
+      + ", lastElement="
+      + this.lastElement
+      + "]";
   }
 
   private void validateMembers() {
     String errMsg;
-    if ((this.timestamp != null || this.lastElement == null) && (this.timestamp == null
-        || this.lastElement != null)) {
+    if ((this.timestamp != null || this.lastElement == null)
+      && (this.timestamp == null || this.lastElement != null)) {
       if (this.timestamp != null && this.timestamp < 0L) {
         errMsg = "Invalid member: timestamp = '" + this.timestamp + "'";
         log.warn(errMsg);
@@ -109,34 +115,36 @@ public class ContinuationToken {
       }
     }
     else {
-      errMsg = "Invalid member combination: timestamp = '" + this.timestamp + "', lastElement = '"
-          + this.lastElement + "'";
+      errMsg =
+        "Invalid member combination: timestamp = '"
+          + this.timestamp
+          + "', lastElement = '"
+          + this.lastElement
+          + "'";
       log.warn(errMsg);
       throw new IllegalArgumentException(errMsg);
     }
   }
-  /**
-   * Return a valid list of token elements.
-   */
+  /** Return a valid list of token elements. */
   /*
-  List<Long> getTokens(String tokenString) throws IllegalArgumentException {
-    List<Long> tokens = Collections.EMPTY_LIST;
-    String errMsg;
-    if (tokenString != null) {
-      try {
-        tokens = splitToken(tokenString, SEPARATOR);
+    List<Long> getTokens(String tokenString) throws IllegalArgumentException {
+      List<Long> tokens = Collections.EMPTY_LIST;
+      String errMsg;
+      if (tokenString != null) {
+        try {
+          tokens = splitToken(tokenString, SEPARATOR);
+        }
+        catch (Exception ex) {
+          errMsg = "Invalid token string: " + tokenString;
+          log.warn(errMsg);
+          throw new IllegalArgumentException(errMsg);
+        }
+        if (tokens.size() < 2) {
+          errMsg = "Invalid token elements: " + tokenString;
+          log.warn(errMsg);
+          throw new IllegalArgumentException(errMsg);
+        }
       }
-      catch (Exception ex) {
-        errMsg = "Invalid token string: " + tokenString;
-        log.warn(errMsg);
-        throw new IllegalArgumentException(errMsg);
-      }
-      if (tokens.size() < 2) {
-        errMsg = "Invalid token elements: " + tokenString;
-        log.warn(errMsg);
-        throw new IllegalArgumentException(errMsg);
-      }
-    }
-    return tokens;
-*/
+      return tokens;
+  */
 }

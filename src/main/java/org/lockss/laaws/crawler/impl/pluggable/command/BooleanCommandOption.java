@@ -29,52 +29,84 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
  */
-package org.lockss.laaws.crawler.impl.external.command;
+package org.lockss.laaws.crawler.impl.pluggable.command;
 
-import java.util.List;
 import org.lockss.log.L4JLogger;
 
-/** Representation of a string command line option. */
-public class StringCommandOption extends CommandOption {
+import java.util.List;
+
+/**
+ * Representation of a boolean command line option.
+ */
+public class BooleanCommandOption extends CommandOption {
   private static final L4JLogger log = L4JLogger.getLogger();
 
   /**
    * Constructor.
    *
-   * @param longKey A String with the long key of the string command line option.
+   * @param longKey A String with the long key of the boolean command line option.
    */
-  public StringCommandOption(String longKey) {
+  public BooleanCommandOption(String longKey) {
     super(longKey);
   }
 
   /**
-   * Processes a string command line option.
+   * Processes a boolean command line option.
    *
-   * @param optionKey A String with the key of the option.
+   * @param optionKey  A String with the key of the option.
    * @param jsonObject An object with the JSON object that represents the value of the command line
-   *     option.
-   * @param command A List<String> where to add this command line option, if appropriate.
+   *                   option.
+   * @param command    A List<String> where to add this command line option, if appropriate.
    * @return a BooleanCommandOption with this object.
    */
-  public static StringCommandOption process(
-      String optionKey, Object jsonObject, List<String> command) {
+  public static BooleanCommandOption process(
+    String optionKey, Object jsonObject, List<String> command) {
     log.debug2("optionKey = {}", optionKey);
     log.debug2("jsonObject = {}", jsonObject);
     log.debug2("command = {}", command);
 
-    StringCommandOption option = new StringCommandOption(optionKey);
+    // Create the object to be returned.
+    BooleanCommandOption option = new BooleanCommandOption(optionKey);
 
+    Boolean interpretedValue = null;
+
+    // Check whether this option was specified at all.
     if (jsonObject != null) {
-      String optionValue = option.setValue((String) jsonObject);
+      // Yes: Interpret it as a boolean.
+      interpretedValue = (Boolean) jsonObject;
+      log.trace("interpretedValue = {}", interpretedValue);
+
+      String optionValue = option.setValue(interpretedValue.toString());
       log.trace("optionValue = {}", optionValue);
 
-      if (optionValue != null && !optionValue.isEmpty()) {
-        command.add(option.getLongKey() + "=" + optionValue);
-        log.trace("command = {}", command);
+      // Check whether the option value is specified as true.
+      if (interpretedValue) {
+        // Yes: Add it to the command line.
+        command.add(option.getLongKey());
       }
+      else {
+        // No: Add the opposite option to the command line.
+        command.add(option.getOppositeLongKey());
+      }
+
+      log.trace("command = {}", command);
     }
 
     log.debug2("option = {}", option);
     return option;
+  }
+
+  /**
+   * Provides the long key of the boolean opposite option to this option.
+   *
+   * @return a String with the long key of the boolean opposite option to this option.
+   */
+  private String getOppositeLongKey() {
+    if (getLongKey().startsWith("--no-")) {
+      return "-" + getLongKey().substring(3);
+    }
+    else {
+      return "--no" + getLongKey().substring(1);
+    }
   }
 }

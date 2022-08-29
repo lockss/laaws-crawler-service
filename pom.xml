@@ -67,7 +67,6 @@ POSSIBILITY OF SUCH DAMAGE.
   </properties>
 
   <dependencies>
-
     <dependency>
       <groupId>org.lockss</groupId>
       <artifactId>lockss-junit4-bundle</artifactId>
@@ -99,8 +98,20 @@ POSSIBILITY OF SUCH DAMAGE.
     </dependency>
 
     <dependency>
+      <groupId>org.dizitart</groupId>
+      <artifactId>nitrite</artifactId>
+      <version>3.4.4</version>
+    </dependency>
+
+    <dependency>
       <groupId>com.fasterxml.jackson.datatype</groupId>
       <artifactId>jackson-datatype-jsr310</artifactId>
+      <version>${version.group.jackson}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.fasterxml.jackson.datatype</groupId>
+      <artifactId>jackson-datatype-jdk8</artifactId>
       <version>${version.group.jackson}</version>
     </dependency>
 

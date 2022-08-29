@@ -26,11 +26,10 @@
 
 package org.lockss.laaws.crawler.impl;
 
-import static org.lockss.laaws.crawler.impl.CrawlersApiServiceImpl.CRAWLING_ENABLED;
-import static org.lockss.laaws.crawler.impl.CrawlersApiServiceImpl.CRAWL_STARTER_ENABLED;
-import static org.lockss.laaws.crawler.impl.CrawlersApiServiceImpl.ENABLED;
+import static org.lockss.laaws.crawler.impl.PluggableCrawlManager.CRAWLING_ENABLED;
+import static org.lockss.laaws.crawler.impl.PluggableCrawlManager.CRAWL_STARTER_ENABLED;
+import static org.lockss.laaws.crawler.impl.PluggableCrawlManager.ENABLED;
 import static org.lockss.util.rest.crawler.CrawlDesc.LOCKSS_CRAWLER_ID;
-import static org.lockss.util.rest.crawler.CrawlDesc.WGET_CRAWLER_ID;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.File;
@@ -71,7 +70,7 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
 
   private static final String UI_PORT_CONFIGURATION_TEMPLATE = "UiPortConfigTemplate.txt";
   private static final String UI_PORT_CONFIGURATION_FILE = "UiPort.txt";
-
+  private static final String WGET_CRAWLER_ID = "wget";
   private static final String EMPTY_STRING = "";
 
   // The identifier of a crawler that does not exist in the test system.
@@ -532,7 +531,7 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
     Map<String, String> attributes = crawlerConfig.getAttributes();
     assertTrue(Boolean.parseBoolean(attributes.get(CRAWL_STARTER_ENABLED)));
     assertEquals(enabled, Boolean.parseBoolean(attributes.get(CRAWLING_ENABLED)));
-    assertTrue(Boolean.parseBoolean(attributes.get(LOCKSS_CRAWLER_ID+ENABLED)));
+    assertTrue(Boolean.parseBoolean(attributes.get(LOCKSS_CRAWLER_ID + ENABLED)));
     getCrawlerConfigCommonTest(enabled);
 
     log.debug2("Done");
@@ -590,7 +589,7 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
     Map<String, String> attributes = crawlerConfig.getAttributes();
     assertTrue(Boolean.parseBoolean(attributes.get(CRAWL_STARTER_ENABLED)));
     assertEquals(enabled, Boolean.parseBoolean(attributes.get(CRAWLING_ENABLED)));
-    assertTrue(Boolean.parseBoolean(attributes.get(LOCKSS_CRAWLER_ID+ENABLED)));
+    assertTrue(Boolean.parseBoolean(attributes.get(LOCKSS_CRAWLER_ID + ENABLED)));
     log.debug2("Done");
   }
 

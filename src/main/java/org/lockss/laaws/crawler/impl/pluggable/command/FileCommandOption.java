@@ -29,16 +29,19 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
  */
-package org.lockss.laaws.crawler.impl.external.command;
+package org.lockss.laaws.crawler.impl.pluggable.command;
+
+import org.lockss.log.L4JLogger;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.List;
-import org.lockss.log.L4JLogger;
 
-/** Representation of a file command line option. */
+/**
+ * Representation of a file command line option.
+ */
 public class FileCommandOption extends CommandOption {
   private static final L4JLogger log = L4JLogger.getLogger();
 
@@ -54,16 +57,16 @@ public class FileCommandOption extends CommandOption {
   /**
    * Processes a file command line option.
    *
-   * @param optionKey A String with the key of the option.
+   * @param optionKey  A String with the key of the option.
    * @param jsonObject An object with the JSON object that represents the value of the command line
-   * option.
-   * @param tmpDir A File with the temporary directory where to create files referenced by this
-   * command line option.
-   * @param command A List<String> where to add this command line option, if appropriate.
+   *                   option.
+   * @param tmpDir     A File with the temporary directory where to create files referenced by this
+   *                   command line option.
+   * @param command    A List<String> where to add this command line option, if appropriate.
    * @throws IOException if there are problems processing this command line.
    */
-  public static void process(
-      String optionKey, Object jsonObject, File tmpDir, List<String> command) throws IOException {
+  public static void process(String optionKey, Object jsonObject, File tmpDir, List<String> command)
+    throws IOException {
     log.debug2("optionKey = {}", optionKey);
     log.debug2("jsonObject = {}", jsonObject);
     log.debug2("tmpDir = {}", tmpDir);

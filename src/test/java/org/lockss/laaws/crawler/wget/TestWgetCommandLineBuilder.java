@@ -31,24 +31,22 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 package org.lockss.laaws.crawler.wget;
 
-import static org.lockss.laaws.crawler.wget.WgetCommandOptions.*;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import static org.lockss.laaws.crawler.wget.WgetCommandOptions.INPUT_FILE_KEY;
+import static org.lockss.laaws.crawler.wget.WgetCommandOptions.USER_AGENT_KEY;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.junit.Test;
-import org.lockss.laaws.crawler.wget.WgetCommandLineBuilder;
 import org.lockss.log.L4JLogger;
 import org.lockss.test.LockssTestCase4;
 import org.lockss.util.ListUtil;
 import org.lockss.util.StringUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
 
-/**
- * Test class for WgetCommandLineBuilder.
- */
+/** Test class for WgetCommandLineBuilder. */
 public class TestWgetCommandLineBuilder extends LockssTestCase4 {
   private static final L4JLogger log = L4JLogger.getLogger();
   private static final String userAgent =
@@ -70,7 +68,7 @@ public class TestWgetCommandLineBuilder extends LockssTestCase4 {
 
   /**
    * Tests the buildCommandLine() method.
-   * 
+   *
    * @throws Exception if there are input/output problems.
    */
   @Test
@@ -79,15 +77,13 @@ public class TestWgetCommandLineBuilder extends LockssTestCase4 {
     CrawlDesc crawlDesc = new CrawlDesc();
 
     try {
-      command =
-	  new WgetCommandLineBuilder().buildCommandLine(crawlDesc, tmpDir);
+      command = new WgetCommandLineBuilder().buildCommandLine(crawlDesc, tmpDir);
       fail("Should have thrown IllegalArgumentException");
     } catch (IllegalArgumentException iae) {
       // Expected
     }
 
-    List<String> crawlList =
-	ListUtil.list("http://url1", "https://Url2", "http://URL3");
+    List<String> crawlList = ListUtil.list("http://url1", "https://Url2", "http://URL3");
     crawlDesc.crawlList(crawlList);
 
     command = new WgetCommandLineBuilder().buildCommandLine(crawlDesc, tmpDir);
@@ -103,10 +99,8 @@ public class TestWgetCommandLineBuilder extends LockssTestCase4 {
     List<String> inputFileUrls = ListUtil.list("https://ip1", "http://IP2");
     Map<String, Object> extraCrawlerMap = new HashMap<>();
     extraCrawlerMap.put(INPUT_FILE_KEY.substring(2), inputFileUrls);
-    String extraCrawlerData =
-	new ObjectMapper().writeValueAsString(extraCrawlerMap);
-    log.info("extraCrawlerData = {}", extraCrawlerData);
-    crawlDesc.extraCrawlerData(extraCrawlerData);
+    log.info("extraCrawlerData = {}", extraCrawlerMap);
+    crawlDesc.extraCrawlerData(extraCrawlerMap);
 
     command = new WgetCommandLineBuilder().buildCommandLine(crawlDesc, tmpDir);
 
@@ -127,14 +121,14 @@ public class TestWgetCommandLineBuilder extends LockssTestCase4 {
 
   /**
    * Validates an option that involves a file.
-   * 
+   *
    * @param optionKey A String with the long key of the option.
    * @param fileLines A List<String> with the expected lines in the file.
-   * @param command   A List<String> with the command line.
+   * @param command A List<String> with the command line.
    * @throws IOException if there are input/output problems.
    */
-  private void validateFileOption(String optionKey, List<String> fileLines,
-      List<String> command) throws IOException {
+  private void validateFileOption(String optionKey, List<String> fileLines, List<String> command)
+      throws IOException {
     // Find the option in the command line.
     String commandOption = findOption(optionKey, command);
 
@@ -144,15 +138,16 @@ public class TestWgetCommandLineBuilder extends LockssTestCase4 {
     assertEquals(optionKey, inputFileTokens[0]);
 
     // Compare the expected contents with the actual contents from the file.
-    assertEquals(StringUtil.separatedString(fileLines, System.lineSeparator())
-	+ System.lineSeparator(), StringUtil.fromFile(inputFileTokens[1]));
+    assertEquals(
+        StringUtil.separatedString(fileLines, System.lineSeparator()) + System.lineSeparator(),
+        StringUtil.fromFile(inputFileTokens[1]));
   }
 
   /**
    * Provides an option in a command line.
-   * 
+   *
    * @param optionKey A String with the long key of the option.
-   * @param command   A List<String> with the command line.
+   * @param command A List<String> with the command line.
    * @return a String with the option.
    */
   private String findOption(String optionKey, List<String> command) {
@@ -162,9 +157,9 @@ public class TestWgetCommandLineBuilder extends LockssTestCase4 {
     for (String option : command) {
       // Check whether this element corresponds to the sought option.
       if (option.startsWith(optionKey)) {
-	// Yes: return it.
-	result = option;
-	break;
+        // Yes: return it.
+        result = option;
+        break;
       }
     }
 

@@ -32,8 +32,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 package org.lockss.laaws.crawler.impl;
 
 import org.lockss.laaws.crawler.api.StatusApiDelegate;
-import org.lockss.util.rest.status.ApiStatus;
 import org.lockss.spring.status.SpringLockssBaseApiController;
+import org.lockss.util.rest.status.ApiStatus;
 import org.springframework.stereotype.Service;
 
 /**
@@ -41,10 +41,10 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class StatusApiServiceImpl extends SpringLockssBaseApiController
-    implements StatusApiDelegate {
+  implements StatusApiDelegate {
   /**
    * Provides the status object.
-   * 
+   *
    * @return an ApiStatus with the status.
    */
   @Override

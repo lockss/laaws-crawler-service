@@ -53,7 +53,7 @@ public class WgetCommandOptions {
   public static final String REJECT_REGEX_KEY = "--reject-regex";
   public static final String SPAN_HOSTS_KEY = "--span-hosts";
   public static final String SPIDER_KEY = "--spider";
-  public static final String USER_AGENT_KEY ="--user-agent";
+  public static final String USER_AGENT_KEY = "--user-agent";
   public static final String WAIT_KEY = "--wait";
   public static final String WARC_CDX_KEY = "--warc-cdx";
   public static final String WARC_DEDUP_KEY = "--warc-dedup";
@@ -64,28 +64,31 @@ public class WgetCommandOptions {
   /**
    * The keys of all the supported wget command line options.
    */
-  public static final List<String> ALL_KEYS = new ArrayList<String>() {{
-    add(ACCEPT_REGEX_KEY);
-    add(DELETE_AFTER_KEY);
-    add(DOMAINS_KEY);
-    add(EXCLUDE_DIRECTORIES_KEY);
-    add(HEADER_KEY);
-    add(INCLUDE_DIRECTORIES_KEY);
-    add(INPUT_FILE_KEY);
-    add(LEVEL_KEY);
-    add(NO_DIRECTORIES_KEY);
-    add(NO_PARENT_KEY);
-    add(PAGE_REQUISITES_KEY);
-    add(RECURSIVE_KEY);
-    add(REJECT_REGEX_KEY);
-    add(SPAN_HOSTS_KEY);
-    add(SPIDER_KEY);
-    add(USER_AGENT_KEY);
-    add(WAIT_KEY);
-    add(WARC_CDX_KEY);
-    add(WARC_DEDUP_KEY);
-    add(WARC_FILE_KEY);
-    add(WARC_HEADER_KEY);
-    add(WARC_MAX_SIZE_KEY);
-  }};
+  public static final List<String> ALL_KEYS =
+    new ArrayList<String>() {
+      {
+        add(ACCEPT_REGEX_KEY);
+        add(DELETE_AFTER_KEY);
+        add(DOMAINS_KEY);
+        add(EXCLUDE_DIRECTORIES_KEY);
+        add(HEADER_KEY);
+        add(INCLUDE_DIRECTORIES_KEY);
+        add(INPUT_FILE_KEY);
+        add(LEVEL_KEY);
+        add(NO_DIRECTORIES_KEY);
+        add(NO_PARENT_KEY);
+        add(PAGE_REQUISITES_KEY);
+        add(RECURSIVE_KEY);
+        add(REJECT_REGEX_KEY);
+        add(SPAN_HOSTS_KEY);
+        add(SPIDER_KEY);
+        add(USER_AGENT_KEY);
+        add(WAIT_KEY);
+        add(WARC_CDX_KEY);
+        add(WARC_DEDUP_KEY);
+        add(WARC_FILE_KEY);
+        add(WARC_HEADER_KEY);
+        add(WARC_MAX_SIZE_KEY);
+      }
+    };
 }

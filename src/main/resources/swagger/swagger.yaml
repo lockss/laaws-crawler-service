@@ -621,11 +621,18 @@ definitions:
     description: A descriptor for a crawl.
     required:
       - auId
+      - crawlKind
     type: object
     properties:
       auId:
         description: The identifier of the archival unit to be crawled.
         type: string
+      crawlKind:
+        description: The kind of crawl being performed either 'newContent' or 'repair'.
+        type: string
+        enum:
+          - newContent
+          - repair
       crawlerId:
         description: The crawler to be used for this crawl.
         type: string
@@ -659,7 +666,7 @@ definitions:
         type: object
         description: A map of additional properties for a crawl on a given crawler.
         additionalProperties:
-          type: string
+          type: object
   crawlJob:
     description: The job resulting from a request to perform a crawl.
     required:
@@ -678,7 +685,7 @@ definitions:
         description: The timestamp when the crawl was requested.
         example: "yyyy-MM-ddTHH:mm:ss.SSSZ"
       jobId:
-        description: Identifier of the job performing the crawl.
+        description: Identifier of the crawl job.
         type: string
       jobStatus:
         description: The status of the crawl operation.
@@ -706,9 +713,25 @@ definitions:
       isEnabled:
         description: Is the crawler enabled
         type: boolean
-      isRunning:
-        description: Is the crawl starter running
+      isAutoCrawlEnabled:
+        description: Does crawler autocrawl AUs when needed.
         type: boolean
+      numJobsActive:
+        description: The number of jobs running.
+        format: int32
+        type: integer
+      numJobsFailed:
+        description: The number of jobs failed.
+        format: int32
+        type: integer
+      numJobsSuccessful:
+        description: The number of jobs succeeded
+        format: int32
+        type: integer
+      numJobsPending:
+        description: The number of active jobs
+        format: int32
+        type: integer
       errMessage:
         type: string
   crawlerConfig:
@@ -731,7 +754,7 @@ definitions:
   crawlStatus:
     description: The status of a single crawl.
     required:
-      - key
+      - jobId
       - auId
       - auName
       - startUrls
@@ -742,7 +765,7 @@ definitions:
       - priority
     type: object
     properties:
-      key:
+      jobId:
         description: The id for the crawl.
         type: string
       auId:
@@ -844,7 +867,7 @@ definitions:
         description: The jobs displayed in the page
         type: array
         items:
-          $ref: '#/definitions/crawlStatus'
+          $ref: '#/definitions/crawlJob'
       pageInfo:
         $ref: '#/definitions/pageInfo'
   urlInfo:

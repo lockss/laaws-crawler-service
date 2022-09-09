@@ -26,19 +26,7 @@
 
 package org.lockss.laaws.crawler.impl;
 
-import static org.lockss.laaws.crawler.impl.PluggableCrawlManager.CRAWLING_ENABLED;
-import static org.lockss.laaws.crawler.impl.PluggableCrawlManager.CRAWL_STARTER_ENABLED;
-import static org.lockss.laaws.crawler.impl.PluggableCrawlManager.ENABLED;
-import static org.lockss.util.rest.crawler.CrawlDesc.LOCKSS_CRAWLER_ID;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.io.File;
-import java.io.IOException;
-import java.net.URI;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -61,6 +49,17 @@ import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
+
+import java.io.File;
+import java.io.IOException;
+import java.net.URI;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+
+import static org.lockss.laaws.crawler.impl.PluggableCrawlManager.*;
+import static org.lockss.util.rest.crawler.CrawlDesc.LOCKSS_CRAWLER_ID;
 
 /** Test class for org.lockss.laaws.crawler.impl.CrawlersApiServiceImpl. */
 @RunWith(SpringRunner.class)
@@ -529,8 +528,8 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
     log.info("crawlerConfig = {}", crawlerConfig);
     assertNotNull(crawlerConfig);
     Map<String, String> attributes = crawlerConfig.getAttributes();
-    assertTrue(Boolean.parseBoolean(attributes.get(CRAWL_STARTER_ENABLED)));
-    assertEquals(enabled, Boolean.parseBoolean(attributes.get(CRAWLING_ENABLED)));
+    assertTrue(Boolean.parseBoolean(attributes.get(STARTER_ENABLED)));
+    assertEquals(enabled, Boolean.parseBoolean(attributes.get(ATTR_CRAWLING_ENABLED)));
     assertTrue(Boolean.parseBoolean(attributes.get(LOCKSS_CRAWLER_ID + ENABLED)));
     getCrawlerConfigCommonTest(enabled);
 
@@ -583,12 +582,12 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
     runTestGetCrawlerConfig(UNKNOWN_CRAWLER, ACCESS_CONTENT, HttpStatus.NOT_FOUND);
 
     CrawlerConfig crawlerConfig =
-        runTestGetCrawlerConfig(LOCKSS_CRAWLER_ID, USER_ADMIN, HttpStatus.OK);
+      runTestGetCrawlerConfig(LOCKSS_CRAWLER_ID, USER_ADMIN, HttpStatus.OK);
     log.info("crawlerConfig = {}", crawlerConfig);
     assertNotNull(crawlerConfig);
     Map<String, String> attributes = crawlerConfig.getAttributes();
-    assertTrue(Boolean.parseBoolean(attributes.get(CRAWL_STARTER_ENABLED)));
-    assertEquals(enabled, Boolean.parseBoolean(attributes.get(CRAWLING_ENABLED)));
+    assertTrue(Boolean.parseBoolean(attributes.get(STARTER_ENABLED)));
+    assertEquals(enabled, Boolean.parseBoolean(attributes.get(ATTR_CRAWLING_ENABLED)));
     assertTrue(Boolean.parseBoolean(attributes.get(LOCKSS_CRAWLER_ID + ENABLED)));
     log.debug2("Done");
   }

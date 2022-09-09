@@ -25,14 +25,13 @@
  */
 package org.lockss.laaws.crawler.impl.pluggable;
 
-import org.lockss.crawler.CrawlerStatus;
-import org.lockss.daemon.Crawler;
-import org.lockss.daemon.LockssRunnable;
-import org.lockss.laaws.crawler.impl.CrawlsApiServiceImpl;
-import org.lockss.laaws.crawler.model.CrawlStatus;
+import org.lockss.app.LockssApp;
+import org.lockss.config.Configuration;
+import org.lockss.config.CurrentConfig;
+import org.lockss.laaws.crawler.impl.PluggableCrawlManager;
 import org.lockss.laaws.crawler.model.CrawlerConfig;
 import org.lockss.log.L4JLogger;
-import org.lockss.util.io.FileUtil;
+import org.lockss.util.ClassUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.crawler.CrawlJob;
 import org.lockss.util.rest.crawler.JobStatus;
@@ -40,38 +39,94 @@ import org.lockss.util.rest.crawler.JobStatus.StatusCodeEnum;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.*;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.PriorityBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
+import static org.lockss.laaws.crawler.CrawlerApplication.PLUGGABLE_CRAWL_MANAGER;
+import static org.lockss.laaws.crawler.impl.PluggableCrawlManager.ATTR_CRAWLER_ID;
 import static org.lockss.laaws.crawler.impl.PluggableCrawlManager.ENABLED;
 
 /**
  * A Base implementation of a CmdLineCrawler.
  */
 public class CmdLineCrawler implements PluggableCrawler {
-
+  public static final String PREFIX = Configuration.PREFIX + "crawlerservice.";
+  public static final String PARAM_MAX_RUNNING_CRAWLS = PREFIX + "maxRunningCrawls";
+  public static final int DEFAULT_MAX_RUNNING_CRAWLS = 1;
+  public static final int DEFAULT_MAX_QUEUE_SIZE = 1000;
+  private static final String PARAM_MAX_QUEUE_SIZE = PREFIX + "maxQueueSize";
   private static final L4JLogger log = L4JLogger.getLogger();
 
   /**
-   * The Config.
+   * The Configuration for this crawler.
    */
-  CrawlerConfig config;
+  protected CrawlerConfig config;
 
   /**
    * The map of crawls for this crawler.
    */
-  HashMap<String, CmdLineCrawl> crawlMap = new HashMap<>();
+  protected HashMap<String, CmdLineCrawl> crawlMap = new HashMap<>();
+  protected CommandLineBuilder cmdLineBuilder;
+  protected PluggableCrawlManager pcManager;
+  private ExecutorService priorityJobPoolExecutor;
+  private ExecutorService priorityJobScheduler;
+  private final PriorityBlockingQueue<CrawlJob> crawlQueue;
+  /**
+   * The maximum number of crawls allowed for this crawler
+   */
+  private int maxRunningCrawls;
+  private final int maxQueueSize;
 
-  PriorityQueue<CrawlJob> crawlQueue = new PriorityQueue<>(new CrawlJobComparator());
 
   /**
    * Instantiates a new Cmd line crawler.
    */
   public CmdLineCrawler() {
+    pcManager = (PluggableCrawlManager) LockssApp.getManagerByKeyStatic(PLUGGABLE_CRAWL_MANAGER);
+    maxQueueSize = CurrentConfig.getCurrentConfig().getInt((PARAM_MAX_QUEUE_SIZE),
+      DEFAULT_MAX_QUEUE_SIZE);
+    crawlQueue = new PriorityBlockingQueue<>(maxQueueSize, new CrawlJobComparator());
+    //XXXX TODO - do we want to allow this to be changed after starting.
+    maxRunningCrawls = CurrentConfig.getCurrentConfig().getInt(PARAM_MAX_RUNNING_CRAWLS,
+      DEFAULT_MAX_RUNNING_CRAWLS);
+    initCrawlScheduler(maxRunningCrawls);
   }
+
+  public static Integer toInteger(String value, Integer defValue) {
+    try {
+      return Integer.parseInt(value);
+    }
+    catch (NumberFormatException nfe) {
+      return defValue;
+    }
+  }
+
 
   @Override
   public void updateCrawlerConfig(CrawlerConfig crawlerConfig) {
     this.config = crawlerConfig;
+    Map<String, String> attr = crawlerConfig.getAttributes();
+    String crawlerId = attr.get(ATTR_CRAWLER_ID);
+    // check to see if we have a defined Command Processor
+    String attrName = PREFIX + crawlerId + ".cmdLineBuilder";
+    String builderClassName = config.getAttributes().get(attrName);
+    if (builderClassName != null) {
+      try {
+        log.debug2("Instantiating " + builderClassName);
+        final Class<?> builderClass = Class.forName(builderClassName);
+        CommandLineBuilder clb = (CommandLineBuilder) ClassUtil.instantiate(builderClassName, builderClass);
+        setCommandLineBuilder(clb);
+      }
+      catch (Exception ex) {
+        log.error("Unable to instantiate CommandLineBuilder: {} for Crawler {} ", builderClassName, crawlerId);
+      }
+    }
   }
 
   @Override
@@ -81,8 +136,13 @@ public class CmdLineCrawler implements PluggableCrawler {
 
   @Override
   public PluggableCrawl requestCrawl(CrawlJob crawlJob, Callback callback) {
+    //check to see if we have already queued a job to crawl this au
+    if (pcManager.isEligibleForCrawl(crawlJob.getCrawlDesc().getAuId())) {
+      log.warn("Crawl request {} ignored! au is not eligible for crawl.", crawlJob);
+      return null;
+    }
     if (crawlQueue.offer(crawlJob)) {
-      CmdLineCrawl clCrawl = new CmdLineCrawl(config, crawlJob);
+      CmdLineCrawl clCrawl = new CmdLineCrawl(this, crawlJob);
       clCrawl.setCallback(callback);
       crawlMap.put(crawlJob.getJobId(), clCrawl);
       JobStatus status = crawlJob.getJobStatus();
@@ -96,29 +156,11 @@ public class CmdLineCrawler implements PluggableCrawler {
     }
   }
 
-
-  @Override
-  public PluggableCrawl startCrawl(CrawlJob crawlJob) {
-    PluggableCrawl pCrawl = crawlMap.get(crawlJob.getJobId());
-    if (pCrawl == null) {
-      log.error("Attempt to start unknown crawlJob {}", crawlJob);
-      return null;
-    }
-    pCrawl.startCrawl();
-    JobStatus status = crawlJob.getJobStatus();
-    status.setStatusCode(StatusCodeEnum.ACTIVE);
-    status.setMsg("Running.");
-    return pCrawl;
-  }
-
   @Override
   public PluggableCrawl stopCrawl(String crawlId) {
     CmdLineCrawl clCrawl = crawlMap.get(crawlId);
     if (clCrawl != null) {
       clCrawl.stopCrawl();
-      JobStatus status = clCrawl.getJobStatus();
-      status.setStatusCode(StatusCodeEnum.ABORTED);
-      status.setMsg("Crawl Aborted.");
     }
     return clCrawl;
   }
@@ -143,205 +185,60 @@ public class CmdLineCrawler implements PluggableCrawler {
     return Boolean.parseBoolean(attrs.get(config.getCrawlerId() + ENABLED));
   }
 
-  /**
-   * return the next CrawlJob in the queue
-   *
-   * @return the CrawlJob or null if queue is empty.
-   */
-  public CrawlJob getNextCrawl() {
-    return crawlQueue.poll();
+  @Override
+  public void shutdown() {
+    shutdownWithWait(priorityJobScheduler);
+    shutdownWithWait(priorityJobPoolExecutor);
   }
 
+  protected CommandLineBuilder getCommandLineBuilder() {
+    return cmdLineBuilder;
+  }
+
+  protected void setCommandLineBuilder(CommandLineBuilder cmdLineBuilder) {
+    this.cmdLineBuilder = cmdLineBuilder;
+  }
+
+  protected void initCrawlScheduler(int poolSize) {
+    priorityJobPoolExecutor = Executors.newFixedThreadPool(poolSize);
+    priorityJobScheduler = Executors.newSingleThreadExecutor();
+    priorityJobScheduler.execute(() -> {
+      while (true) {
+        try {
+          CrawlJob job = crawlQueue.take();
+          CmdLineCrawl cmdLineCrawl = new CmdLineCrawl(this, job);
+          priorityJobPoolExecutor.execute(cmdLineCrawl.getRunnable());
+        }
+        catch (InterruptedException e) {
+          // exception needs special handling
+          log.error("Job interrupted!");
+          break;
+        }
+      }
+    });
+  }
+
+  protected void shutdownWithWait(ExecutorService scheduler) {
+    scheduler.shutdown();
+    try {
+      if (!scheduler.awaitTermination(60, TimeUnit.SECONDS)) {
+        scheduler.shutdownNow(); // Cancel currently executing tasks
+        // Wait a while for tasks to respond to being cancelled
+        if (!scheduler.awaitTermination(60, TimeUnit.SECONDS)) {
+          log.error("Pool did not terminate");
+        }
+      }
+    }
+    catch (InterruptedException ie) {
+      // (Re-)Cancel if current thread also interrupted
+      scheduler.shutdownNow();
+      // Preserve interrupt status
+      Thread.currentThread().interrupt();
+    }
+  }
 
   public interface CommandLineBuilder {
     List<String> buildCommandLine(CrawlDesc crawlDesc, File tmpDir) throws IOException;
-  }
-
-  /**
-   * A class to wrap a single CommandLineCrawl
-   */
-  public static class CmdLineCrawl extends PluggableCrawl {
-    /*
-    The command line as a list to exexute.
-     */
-    private List<String> command = null;
-    /**
-     * The temp directory used to store any files.
-     */
-    private File tmpDir = null;
-
-    private CommandLineBuilder cmdLineBuilder;
-
-    /**
-     * Instantiates a new Cmd line crawl.
-     *
-     * @param crawlerConfig the crawler config
-     * @param crawlJob      the crawl job
-     */
-    public CmdLineCrawl(CrawlerConfig crawlerConfig, CrawlJob crawlJob) {
-      super(crawlerConfig, crawlJob);
-    }
-
-    @Override
-    public CrawlerStatus startCrawl() {
-      CrawlerStatus cs = getCrawlerStatus();
-      JobStatus js = getJobStatus();
-      try {
-        tmpDir = FileUtil.createTempDir("laaws-pluggable-crawler", "");
-        command = getCommandLineBuilder().buildCommandLine(getCrawlDesc(), tmpDir);
-      }
-      catch (IOException ioe) {
-        log.error("Unable to create output directory for crawl:", ioe);
-        js.setStatusCode(StatusCodeEnum.ERROR);
-      }
-      return cs;
-    }
-
-    @Override
-    public CrawlerStatus stopCrawl() {
-      return getCrawlerStatus();
-    }
-
-    /**
-     * Gets tmp dir.
-     *
-     * @return the tmp dir
-     */
-    public File getTmpDir() {
-      return tmpDir;
-    }
-
-    /**
-     * Gets command.
-     *
-     * @return the command
-     */
-    public List<String> getCommand() {
-      return command;
-    }
-
-    protected CommandLineBuilder getCommandLineBuilder() {
-      return cmdLineBuilder;
-    }
-
-    protected void setCommandLineBuilder(CommandLineBuilder cmdLineBuilder) {
-      this.cmdLineBuilder = cmdLineBuilder;
-    }
-
-    @Override
-    public String toString() {
-      StringBuilder sb = new StringBuilder();
-      sb.append("[");
-      sb.append("(I): ");
-      sb.append(getAuId());
-      sb.append(", pri: ");
-      sb.append(getCrawlDesc().getPriority());
-      if (getCrawlDesc().getRefetchDepth() >= 0) {
-        sb.append(", depth: ");
-        sb.append(getCrawlDesc().getRefetchDepth());
-      }
-      sb.append(", crawlDesc: ");
-      sb.append(getCrawlDesc());
-      sb.append(", tmpDir: ");
-      sb.append(tmpDir);
-      sb.append(", command: ");
-      sb.append(command);
-      sb.append(", crawlerStatus: ");
-      sb.append(getCrawlerStatus());
-      sb.append("]");
-      return sb.toString();
-    }
-  }
-
-  /**
-   * A separate-thread runner for a command.
-   */
-  public static class CrawlRunner extends LockssRunnable {
-    private final CrawlDesc crawlDesc;
-    private CmdLineCrawl req = null;
-    private List<String> command = null;
-    private File tmpDir = null;
-
-    /**
-     * Constructor.
-     *
-     * @param req A CmdLineCrawl with the crawl request information.
-     */
-    public CrawlRunner(CmdLineCrawl req) {
-      super(makeThreadName(req));
-      this.req = req;
-      command = req.getCommand();
-      tmpDir = req.getTmpDir();
-      crawlDesc = req.getCrawlDesc();
-    }
-
-    /**
-     * Make thread name string.
-     *
-     * @param req the req
-     * @return the string
-     */
-    static String makeThreadName(CmdLineCrawl req) {
-      return req.getCrawlKind() + " " + req.getCrawlerId() + " " + req.getCrawlKey();
-    }
-
-    @Override
-    public String toString() {
-      return "[CrawlRunner" + makeThreadName(req) + "]";
-    }
-
-    /**
-     * Code that runs in a separate thread.
-     */
-    public void lockssRun() {
-      log.debug2("{} started", this);
-      CrawlerStatus crawlerStatus = req.getCrawlerStatus();
-
-      try {
-        nowRunning();
-
-        ProcessBuilder builder = new ProcessBuilder();
-        builder.command(command);
-        builder.inheritIO();
-
-        log.trace("external crawl process started");
-        Process process = builder.start();
-        crawlerStatus.signalCrawlStarted();
-
-        int exitCode = process.waitFor();
-        log.trace("external crawl process finished: exitCode = {}", exitCode);
-        if (exitCode == 0) {
-          //Todo: Add a call to the repository to store this data.
-          crawlerStatus.setCrawlStatus(Crawler.STATUS_SUCCESSFUL);
-        }
-        else {
-          crawlerStatus.setCrawlStatus(
-            Crawler.STATUS_ERROR, "crawl exited with code: " + exitCode);
-        }
-        Callback callback = req.getCallback();
-        if (callback != null) {
-          CrawlStatus cs = CrawlsApiServiceImpl.getCrawlStatus(crawlerStatus);
-          callback.signalCrawlAttemptCompleted(exitCode == 0, cs);
-        }
-      }
-      catch (IOException ioe) {
-        log.error("Exception caught running process", ioe);
-      }
-      catch (InterruptedException ignore) {
-        // no action
-      }
-      finally {
-        crawlerStatus.signalCrawlEnded();
-        setThreadName(makeThreadName(req) + ": idle");
-        log.trace("Deleting tree at {}", tmpDir);
-        boolean isDeleted = FileUtil.delTree(tmpDir);
-        log.trace("isDeleted = {}", isDeleted);
-        if (!isDeleted) {
-          log.warn("Temporary directory {} cannot be deleted after processing", tmpDir);
-        }
-        log.debug2("{} terminating", this);
-      }
-    }
   }
 
   static class CrawlJobComparator implements Comparator<CrawlJob> {

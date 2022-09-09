@@ -46,21 +46,18 @@ public abstract class PluggableCrawl {
    */
   private final CrawlJob crawlJob;
   /**
-   * The current status of a crawl as understood by the internal LOCKSS crawler.
-   */
-  private CrawlerStatus crawlerStatus;
-
-  /**
    * Description of the crawl requested.
    */
   private final CrawlDesc crawlDesc;
-
   /**
    * The configuration of the crawler when this crawl began.  This is
    * stored so that a crawl will run with the parameters is was enqueued with.
    */
   private final CrawlerConfig crawlerConfig;
-
+  /**
+   * The current status of a crawl as understood by the internal LOCKSS crawler.
+   */
+  private CrawlerStatus crawlerStatus;
   /**
    * The callback to use when the crawl terminates with or without error.
    */
@@ -185,7 +182,7 @@ public abstract class PluggableCrawl {
   }
 
   /**
-   * Start crawl crawler status.
+   * Enqueue a crawl request.
    *
    * @return the crawler status
    */

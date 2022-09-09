@@ -1535,7 +1535,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
   }
 
   List<String> getCrawlerIds() {
-   return getPluggableCrawlManager().getCrawlerIds();
+    return getPluggableCrawlManager().getCrawlerIds();
   }
 
   private void logCrawlError(String message, CrawlJob crawlJob) {

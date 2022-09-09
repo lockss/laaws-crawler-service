@@ -26,15 +26,6 @@ public interface PluggableCrawler {
   PluggableCrawl requestCrawl(CrawlJob crawlJob, Callback callback);
 
   /**
-   * Start a new content or repair crawl using this crawler
-   *
-   * @param crawlJob the crawlJob to start.
-   * @param callback an optional callback to be called when the call attempt ends.
-   * @return A new Pluggable Crawl object for this crawl.
-   */
-  PluggableCrawl startCrawl(CrawlJob crawlJob);
-
-  /**
    * Stop a crawl a specific crawl
    *
    * @param crawlId The crawl id of the crawl to stop
@@ -61,6 +52,11 @@ public interface PluggableCrawler {
    * @return true if this crawler is set to enabled.
    */
   boolean isCrawlerEnabled();
+
+  /**
+   * Shutdown the crawler.
+    */
+  void shutdown();
 
 
   interface Callback {

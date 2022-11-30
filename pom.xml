@@ -100,7 +100,12 @@ POSSIBILITY OF SUCH DAMAGE.
       <groupId>org.dizitart</groupId>
       <artifactId>nitrite</artifactId>
       <version>3.4.4</version>
-    </dependency>
+      <exclusions>
+        <exclusion>
+          <groupId>com.fasterxml.jackson.core</groupId>
+          <artifactId>jackson-annotations</artifactId>
+        </exclusion>
+      </exclusions>    </dependency>
 
     <dependency>
       <groupId>com.fasterxml.jackson.datatype</groupId>

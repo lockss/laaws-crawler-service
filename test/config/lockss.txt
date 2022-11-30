@@ -82,9 +82,21 @@ org.lockss.baseau.minFetchDelay=3000
 org.lockss.plugin.restartAusWithNewPlugin=true
 
 # Enable crawler
+#if false this will turn off all crawling
 org.lockss.crawler.enabled=true
-org.lockss.crawler.crawlers=lockss;wget
-org.lockss.crawler.lockss.enabled=true
-org.lockss.crawler.wget.enabled=true
+
+# if false this will turn off all pluggable crawlers
+org.lockss.crawlerservice.pluggableEnabled=true
+
+# the path to our crawlQueueDatabase
+org.lockss.crawlerservice.dbPath=./crawlerDb
+# the crawlers we support
+org.lockss.crawlerservice.crawlers=lockss;wget
+# the lockss crawler spec
+org.lockss.crawlerservice.lockss.enabled=true
+# the wget crawler spec
+org.lockss.crawlerservice.wget.enabled=true
+org.lockss.crawlerservice.wget.crawler=org.lockss.laaws.crawler.wget.WgetCommandLineCrawler
+org.lockss.crawlerservice.wget.cmdLineBuilder=org.lockss.laaws.crawler.wget.WgetCommandLineBuilder
 
 #org.lockss.restAuth.authenticationType=basic

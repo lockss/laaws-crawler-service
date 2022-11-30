@@ -10,6 +10,12 @@ import org.lockss.util.rest.crawler.CrawlJob;
 public interface PluggableCrawler {
 
   /**
+   * Return the unique Id for this crawler.
+   * @return
+   */
+  String getCrawlerId();
+
+  /**
    * set the configuration parameters for this crawler
    *
    * @param crawlerConfig the configuration parameters to use
@@ -57,6 +63,14 @@ public interface PluggableCrawler {
    * Shutdown the crawler.
     */
   void shutdown();
+
+  /**
+   * disable this crawler clearing any queued crawls.
+   * if the crawler was running is now marked as disabled
+   * or is missing from the supported crawler ids in the configuration
+    * @param abortCrawling abort the currently running crawls.
+   */
+  void disable(boolean abortCrawling);
 
 
   interface Callback {

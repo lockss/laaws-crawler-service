@@ -34,7 +34,6 @@ import org.dizitart.no2.objects.Cursor;
 import org.dizitart.no2.objects.ObjectRepository;
 import org.lockss.app.BaseLockssDaemonManager;
 import org.lockss.app.ConfigurableManager;
-import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
 import org.lockss.config.Configuration.Differences;
 import org.lockss.crawler.CrawlManager;
@@ -42,16 +41,15 @@ import org.lockss.crawler.CrawlManagerImpl;
 import org.lockss.laaws.crawler.impl.pluggable.PluggableCrawler;
 import org.lockss.laaws.crawler.model.CrawlerConfig;
 import org.lockss.log.L4JLogger;
-import org.lockss.plugin.ArchivalUnit;
 import org.lockss.util.ClassUtil;
 import org.lockss.util.ListUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.crawler.CrawlJob;
-
 import java.io.File;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static org.dizitart.no2.objects.filters.ObjectFilters.eq;
 import static org.lockss.util.rest.crawler.CrawlDesc.LOCKSS_CRAWLER_ID;
@@ -64,6 +62,8 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
    * The constant PREFIX.
    */
   public static final String PREFIX = Configuration.PREFIX + "crawlerservice.";
+
+  public static final String CRAWLER_PREFIX = CrawlManagerImpl.PREFIX;
 
   /**
    * The constant PARAM_CRAWL_DB_PATH.
@@ -109,7 +109,7 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
   /**
    * The constant CRAWL_STARTER_ENABLED.
    */
-  public static final String STARTER_ENABLED = "starterEnabled";
+  public static final String ATTR_STARTER_ENABLED = "starterEnabled";
 
   /**
    * The constant ENABLED.
@@ -126,45 +126,36 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
    */
   ObjectRepository<CrawlJob> pluggableCrawls;
   private List<String> crawlerIds = defaultCrawlerIds;
-  private Map<String, CrawlerConfig> crawlerConfigMap;
+  private Map<String, CrawlerConfig> crawlerConfigMap = new HashMap<>();
   private boolean crawlerEnabled;
   private boolean crawlStarterEnabled;
-  private String crawlQueuePath;
   private Nitrite crawlServiceDb;
 
   private CrawlManagerImpl lockssCrawlMgr;
 
-  private ConfigManager lockssConfigMgr;
 
   public void startService() {
     super.startService();
-    lockssConfigMgr = getDaemon().getConfigManager();
-    File dbDir = lockssConfigMgr.findConfiguredDataDir(PARAM_CRAWL_DB_PATH,
-      DEFAULT_CRAWL_DB_PATH);
-    crawlQueuePath = new File(dbDir, DB_FILENAME).getAbsolutePath();
     //find configured data dir);
+    File dbDir = getDaemon().getConfigManager().findConfiguredDataDir(PARAM_CRAWL_DB_PATH,
+            DEFAULT_CRAWL_DB_PATH);
+    // initialize the database
     try {
-      crawlServiceDb = Nitrite.builder()
-        .registerModule(new Jdk8Module()) // add jackson support
-        .registerModule(new JavaTimeModule())
-        .filePath(crawlQueuePath)
-        .openOrCreate();
-      // create a repo for crawls with and index on key
-      pluggableCrawls = crawlServiceDb.getRepository(CrawlJob.class);
-      // create an index on 'jobId' and an index on 'auId'
-      pluggableCrawls.createIndex("jobId", IndexOptions.indexOptions(IndexType.Unique));
-      pluggableCrawls.createIndex("crawlDesc.auId", IndexOptions.indexOptions(IndexType.NonUnique));
-    }
-    catch (Exception e) {
+      initDb(new File(dbDir, DB_FILENAME));
+      log.info("crawl manager db inited!");
+   } catch (Exception e) {
       throw new RuntimeException(e);
     }
   }
 
+
   public void stopService() {
     shuttingDown = true;
+    // call shutdown on all pluggable crawlers.
     for (PluggableCrawler crawler : pluggableCrawlers.values()) {
       crawler.shutdown();
     }
+    // commit any unsaved changes and close the database.
     if (!crawlServiceDb.isClosed()) {
       if (crawlServiceDb.hasUnsavedChanges()) {
         crawlServiceDb.commit();
@@ -178,12 +169,27 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
   @Override
   public void setConfig(Configuration newConfig, Configuration prevConfig,
                         Differences changedKeys) {
-    if (changedKeys.contains(PREFIX)) {
-      crawlerIds = newConfig.getList(CRAWLER_IDS, defaultCrawlerIds);
+    if (changedKeys.contains(CRAWLER_PREFIX)) {
       crawlerEnabled =
         newConfig.getBoolean(CrawlManagerImpl.PARAM_CRAWLER_ENABLED, CrawlManagerImpl.DEFAULT_CRAWLER_ENABLED);
       crawlStarterEnabled =
         newConfig.getBoolean(CrawlManagerImpl.PARAM_CRAWL_STARTER_ENABLED, CrawlManagerImpl.DEFAULT_CRAWL_STARTER_ENABLED);
+
+    }
+    log.info("setConfig: crawlerEnabled:{} starterEnabled:{}",crawlerEnabled,crawlStarterEnabled);
+    if (changedKeys.contains(PREFIX)) {
+      crawlerIds = newConfig.getList(CRAWLER_IDS, defaultCrawlerIds);
+      log.info("setting config: {}", newConfig.toStringMap());
+      ListUtil.immutableListOfType(newConfig.getList(CRAWLER_IDS, defaultCrawlerIds), String.class);
+      crawlerIds = ListUtil.immutableListOfType(newConfig.getList(CRAWLER_IDS, defaultCrawlerIds), String.class);
+      // If we remove a crawler, we complete any active crawls and disable the crawler
+       List<String> removedCrawlers = pluggableCrawlers.keySet().stream()
+               .filter(key-> !crawlerIds.contains(key))
+               .collect(Collectors.toList());
+       // removed crawlers should be marked as disabled but crawls are allowed to complete
+      for (String key : removedCrawlers) {
+        pluggableCrawlers.get(key).disable(false);
+      }
       crawlerConfigMap = updateConfigMap(newConfig);
     }
   }
@@ -198,22 +204,13 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
   }
 
   /**
-   * Is eligible for crawl boolean.
+   * Is eligible Au elgible for crawl boolean.
    *
    * @param auId the au id
    * @return the boolean
    */
   public boolean isEligibleForCrawl(String auId) {
-    ArchivalUnit au = getDaemon().getPluginManager().getAuFromId(auId);
-    if (au != null) {
-      try {
-        getLockssCrawlManager().checkEligibleToQueueNewContentCrawl(au);
-        return true;
-      }
-      catch (CrawlManagerImpl.NotEligibleException e) {
-        return false;
-      }
-    }
+
     // We are a pluggable crawl so check each crawler
     Cursor<CrawlJob> jobCursor = getCrawlJobsWithAuId(auId);
     for (CrawlJob crawlJob : jobCursor) {
@@ -236,7 +233,7 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
   /**
    * is the crawl starter enabled
    *
-   * @return boolean boolean
+   * @return boolean are crawls allowed to start
    */
   public boolean isCrawlStarterEnabled() {
     return crawlStarterEnabled;
@@ -260,6 +257,7 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
    * @return the crawl jobs with au id
    */
   public Cursor<CrawlJob> getCrawlJobsWithAuId(String auId) {
+
     return pluggableCrawls.find(eq("crawlDesc.auId", auId));
   }
 
@@ -272,7 +270,7 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
   public void addCrawlJob(CrawlJob crawlJob) {
     String jobId = crawlJob.getJobId();
     Cursor<CrawlJob> cursor = pluggableCrawls.find(eq("jobId", jobId));
-    if (!cursor.idSet().isEmpty()) {
+    if (cursor.size() > 0) {
       throw new IllegalStateException("Attempt to add jobId " + jobId + "failed. It already exists in queue.");
     }
     pluggableCrawls.insert(crawlJob);
@@ -280,19 +278,19 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
   }
 
   /**
-   * Insert crawl Job into persistent store.
-   * throws if crawl job already exists.
+   * Update a  crawl Jobs status.
+   * throws if crawl job does not exist.
    *
    * @param crawlJob the crawl job.
    */
   public void updateCrawlJob(CrawlJob crawlJob) {
     String jobId = crawlJob.getJobId();
     Cursor<CrawlJob> cursor = pluggableCrawls.find(eq("jobId", jobId));
-    // remove any old CrawlStatus because we only allow one
-    if (cursor.idSet().isEmpty()) {
+    // If we don't have a matching object for jobId throw.
+    if (cursor.size() <= 0) {
       throw new IllegalStateException("Update to jobId " + jobId + " No such job exists.");
     }
-    pluggableCrawls.update(crawlJob);
+    pluggableCrawls.update((eq("jobId", jobId)),crawlJob);
     crawlServiceDb.commit();
   }
 
@@ -344,8 +342,12 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
       return crawler;
     }
     CrawlerConfig config = getCrawlerConfig(crawlerId);
+    if (config == null) return null;
     String crawlerClassName = config.getAttributes().get(CRAWLER);
-    if (crawlerClassName == null) {return null;}
+    if (crawlerClassName == null) {
+      log.error("Crawler does not have classname");
+      return null;
+    }
     try {
       log.debug2("Instantiating pluggable crawler class " + crawlerClassName);
       final Class<?> crawlerClass = Class.forName(crawlerClassName);
@@ -353,8 +355,7 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
       crawler.updateCrawlerConfig(config);
       pluggableCrawlers.put(crawlerId, crawler);
       return crawler;
-    }
-    catch (Exception ex) {
+    } catch (Exception ex) {
       log.error("Unable to instantiate Pluggable Crawler: {}", crawlerClassName);
     }
     return null;
@@ -392,11 +393,13 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
       HashMap<String, String> attrMap = new HashMap<>();
       // add the short id for the crawler.
       attrMap.put(ATTR_CRAWLER_ID, crawlerId);
+      attrMap.put(ATTR_STARTER_ENABLED, String.valueOf(crawlStarterEnabled));
+      attrMap.put(ATTR_CRAWLING_ENABLED, String.valueOf(crawlerEnabled));
       // add the long name of the crawler if given.
       String val = config.get(crawlerConfigRoot + ATTR_CRAWLER_NAME, crawlerId);
       attrMap.put(ATTR_CRAWLER_NAME, val);
       boolean isEnabled = config.getBoolean(crawlerConfigRoot + "enabled", true);
-      attrMap.put(ENABLED, String.valueOf(isEnabled));
+      attrMap.put(crawlerId+ENABLED, String.valueOf(isEnabled));
       Configuration crawlerTree = config.getConfigTree(crawlerConfigRoot);
       if (!crawlerTree.isEmpty()) {
         attrMap.putAll(crawlerTree.toStringMap());
@@ -410,11 +413,11 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
       crawlerConfig.setAttributes(attrMap);
       configMap.put(crawlerId, crawlerConfig);
       // update the crawlers with the most new config
-      PluggableCrawler crawler = getCrawler(crawlerId);
+      PluggableCrawler crawler = pluggableCrawlers.get(crawlerId);
       if (crawler != null) {
         crawler.updateCrawlerConfig(crawlerConfig);
       }
-    }
+     }
     return configMap;
   }
 
@@ -427,5 +430,23 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
     }
     return lockssCrawlMgr;
   }
+
+  void initDb(File dbDir) {
+    crawlServiceDb = Nitrite.builder()
+      .registerModule(new Jdk8Module()) // add jackson support
+      .registerModule(new JavaTimeModule())
+      .filePath(dbDir)
+      .openOrCreate();
+    // create a repo for crawls with and index on key
+    pluggableCrawls = crawlServiceDb.getRepository(CrawlJob.class);
+    // create an index on 'jobId' and an index on 'auId'
+    if(!pluggableCrawls.hasIndex("jobId"))
+      pluggableCrawls.createIndex("jobId", IndexOptions.indexOptions(IndexType.Unique));
+    if(!pluggableCrawls.hasIndex("crawlDesc.auId"))
+      pluggableCrawls.createIndex("crawlDesc.auId", IndexOptions.indexOptions(IndexType.NonUnique));
+  }
+
+  Nitrite getCrawlServiceDb() {return crawlServiceDb;}
+  ObjectRepository<CrawlJob> getPluggableCrawls() {return pluggableCrawls;}
 
 }

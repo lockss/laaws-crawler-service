@@ -19,7 +19,6 @@ import java.util.List;
  * A class to wrap a single CommandLineCrawl
  */
 public class CmdLineCrawl extends PluggableCrawl {
-
   private static final L4JLogger log = L4JLogger.getLogger();
   protected CmdLineCrawler crawler;
   protected CrawlJob crawlJob;
@@ -28,11 +27,11 @@ public class CmdLineCrawl extends PluggableCrawl {
   /*
   The command line as a list to execute.
    */
-  private List<String> command = null;
+  protected List<String> command = null;
   /**
    * The temp directory used to store any files.
    */
-  private File tmpDir = null;
+  protected File tmpDir = null;
 
   /**
    * Instantiates a new Cmd line crawl.
@@ -59,7 +58,7 @@ public class CmdLineCrawl extends PluggableCrawl {
       js.setStatusCode(JobStatus.StatusCodeEnum.ACTIVE);
       js.setMsg("Running.");
       tmpDir = FileUtil.createTempDir("laaws-pluggable-crawler", "");
-      command = crawler.getCommandLineBuilder().buildCommandLine(getCrawlDesc(), tmpDir);
+      command = crawler.getCmdLineBuilder().buildCommandLine(getCrawlDesc(), tmpDir);
     }
     catch (IOException ioe) {
       log.error("Unable to create output directory for crawl:", ioe);
@@ -83,6 +82,16 @@ public class CmdLineCrawl extends PluggableCrawl {
    */
   public File getTmpDir() {
     return tmpDir;
+  }
+
+  public List<String>  getWarcFiles() {
+    try {
+      List<String> files = FileUtil.listDirFilesWithExtension(tmpDir,"warc");
+      return files;
+    }
+    catch (IOException e) {
+      return null;
+    }
   }
 
   /**
@@ -115,7 +124,11 @@ public class CmdLineCrawl extends PluggableCrawl {
           int exitCode = process.waitFor();
           log.trace("external crawl process finished: exitCode = {}", exitCode);
           if (exitCode == 0) {
-            //Todo: Add a call to the repository to store this data.
+            List<String> warcFiles = getWarcFiles();
+            for (String warcName : warcFiles) {
+              File warcFile = new File(tmpDir,warcName);
+              crawler.storeInRepository(crawlerStatus.getAuId(), warcFile, false);
+            }
             crawlerStatus.setCrawlStatus(Crawler.STATUS_SUCCESSFUL);
           }
           else {
@@ -149,9 +162,6 @@ public class CmdLineCrawl extends PluggableCrawl {
     };
   }
 
-  /**
-   * Code that runs in a separate thread.
-   */
 
   @Override
   public String toString() {

@@ -39,7 +39,6 @@ import org.lockss.laaws.crawler.impl.pluggable.command.StringCommandOption;
 import org.lockss.log.L4JLogger;
 import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.status.ApiStatus;
-
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;

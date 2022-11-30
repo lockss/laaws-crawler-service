@@ -80,9 +80,17 @@ org.lockss.plugin.restartAusWithNewPlugin=true
 org.lockss.crawler.enabled=true
 
 # if false this will turn off all pluggable crawlers
-org.lockss.crawlerservice.pluggableEnabled=true;
+org.lockss.crawlerservice.pluggableEnabled=true
+# The path to the pluggable crawlmanager db
+org.lockss.crawlerservice.dbPath=crawlerDb
+
+# The list of supported crawlers
 org.lockss.crawlerservice.crawlers=lockss;wget
+
+# The lockss/default crawler
 org.lockss.crawlerservice.lockss.enabled=true
+
+# The wget crawler
 org.lockss.crawlerservice.wget.enabled=true
 
 # Disable the SOAP web services.

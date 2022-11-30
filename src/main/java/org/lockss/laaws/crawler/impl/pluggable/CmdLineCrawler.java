@@ -25,30 +25,29 @@
  */
 package org.lockss.laaws.crawler.impl.pluggable;
 
-import org.lockss.app.LockssApp;
 import org.lockss.config.Configuration;
-import org.lockss.config.CurrentConfig;
 import org.lockss.laaws.crawler.impl.PluggableCrawlManager;
 import org.lockss.laaws.crawler.model.CrawlerConfig;
+import org.lockss.laaws.crawler.utils.ExecutorUtils;
+import org.lockss.laaws.rs.core.LockssRepository;
 import org.lockss.log.L4JLogger;
 import org.lockss.util.ClassUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.crawler.CrawlJob;
 import org.lockss.util.rest.crawler.JobStatus;
 import org.lockss.util.rest.crawler.JobStatus.StatusCodeEnum;
-
+import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.IOException;
-import java.util.Comparator;
+import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.PriorityBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
-import static org.lockss.laaws.crawler.CrawlerApplication.PLUGGABLE_CRAWL_MANAGER;
 import static org.lockss.laaws.crawler.impl.PluggableCrawlManager.ATTR_CRAWLER_ID;
 import static org.lockss.laaws.crawler.impl.PluggableCrawlManager.ENABLED;
 
@@ -57,16 +56,15 @@ import static org.lockss.laaws.crawler.impl.PluggableCrawlManager.ENABLED;
  */
 public class CmdLineCrawler implements PluggableCrawler {
   public static final String PREFIX = Configuration.PREFIX + "crawlerservice.";
-  public static final String PARAM_MAX_RUNNING_CRAWLS = PREFIX + "maxRunningCrawls";
-  public static final int DEFAULT_MAX_RUNNING_CRAWLS = 1;
-  public static final int DEFAULT_MAX_QUEUE_SIZE = 1000;
-  private static final String PARAM_MAX_QUEUE_SIZE = PREFIX + "maxQueueSize";
+
   private static final L4JLogger log = L4JLogger.getLogger();
 
   /**
    * The Configuration for this crawler.
    */
   protected CrawlerConfig config;
+  public static final String DEFAULT_EXECUTOR_SPEC = "100;2";
+  private final ExecutorUtils.ExecSpec defExecSpec;
 
   /**
    * The map of crawls for this crawler.
@@ -74,39 +72,65 @@ public class CmdLineCrawler implements PluggableCrawler {
   protected HashMap<String, CmdLineCrawl> crawlMap = new HashMap<>();
   protected CommandLineBuilder cmdLineBuilder;
   protected PluggableCrawlManager pcManager;
-  private ExecutorService priorityJobPoolExecutor;
-  private ExecutorService priorityJobScheduler;
-  private final PriorityBlockingQueue<CrawlJob> crawlQueue;
-  /**
-   * The maximum number of crawls allowed for this crawler
-   */
-  private int maxRunningCrawls;
-  private final int maxQueueSize;
+  private PriorityBlockingQueue<Runnable> crawlQueue;
 
+  private LockssRepository v2Repo;
+  private ThreadPoolExecutor crawlQueueExecutor;
+
+  private String namespace;
 
   /**
    * Instantiates a new Cmd line crawler.
    */
   public CmdLineCrawler() {
-    pcManager = (PluggableCrawlManager) LockssApp.getManagerByKeyStatic(PLUGGABLE_CRAWL_MANAGER);
-    maxQueueSize = CurrentConfig.getCurrentConfig().getInt((PARAM_MAX_QUEUE_SIZE),
-      DEFAULT_MAX_QUEUE_SIZE);
-    crawlQueue = new PriorityBlockingQueue<>(maxQueueSize, new CrawlJobComparator());
-    //XXXX TODO - do we want to allow this to be changed after starting.
-    maxRunningCrawls = CurrentConfig.getCurrentConfig().getInt(PARAM_MAX_RUNNING_CRAWLS,
-      DEFAULT_MAX_RUNNING_CRAWLS);
-    initCrawlScheduler(maxRunningCrawls);
+    defExecSpec = ExecutorUtils.parsePoolSpecInto(DEFAULT_EXECUTOR_SPEC, new ExecutorUtils.ExecSpec());
   }
 
-  public static Integer toInteger(String value, Integer defValue) {
-    try {
-      return Integer.parseInt(value);
-    }
-    catch (NumberFormatException nfe) {
-      return defValue;
-    }
+/*---------------
+  Builder Methods
+  ---------------
+ */
+  public CmdLineCrawler setCrawlManager(PluggableCrawlManager pcManager) {
+    this.pcManager = pcManager;
+    return this;
   }
 
+  public CmdLineCrawler setV2Repo(LockssRepository v2Repo) {
+    this.v2Repo = v2Repo;
+    return this;
+  }
+
+  public CmdLineCrawler setNamespace(String namespace) {
+    this.namespace = namespace;
+    return this;
+  }
+
+  public CmdLineCrawler setConfig(CrawlerConfig config) {
+    this.config = config;
+    return this;
+  }
+
+  public CmdLineCrawler setCmdLineBuilder(CommandLineBuilder cmdLineBuilder) {
+    this.cmdLineBuilder = cmdLineBuilder;
+    return this;
+  }
+
+  public CrawlerConfig getConfig() {
+    return config;
+  }
+
+  protected CommandLineBuilder getCmdLineBuilder() {
+    return cmdLineBuilder;
+  }
+
+  protected String getNamespace() {
+    return namespace;
+  }
+
+  @Override
+  public String getCrawlerId() {
+    return config.getCrawlerId();
+  }
 
   @Override
   public void updateCrawlerConfig(CrawlerConfig crawlerConfig) {
@@ -121,12 +145,14 @@ public class CmdLineCrawler implements PluggableCrawler {
         log.debug2("Instantiating " + builderClassName);
         final Class<?> builderClass = Class.forName(builderClassName);
         CommandLineBuilder clb = (CommandLineBuilder) ClassUtil.instantiate(builderClassName, builderClass);
-        setCommandLineBuilder(clb);
+        setCmdLineBuilder(clb);
       }
       catch (Exception ex) {
         log.error("Unable to instantiate CommandLineBuilder: {} for Crawler {} ", builderClassName, crawlerId);
       }
     }
+    String qspec= attr.get(PREFIX+crawlerId+".executor.spec");
+    initCrawlScheduler(qspec);
   }
 
   @Override
@@ -137,14 +163,15 @@ public class CmdLineCrawler implements PluggableCrawler {
   @Override
   public PluggableCrawl requestCrawl(CrawlJob crawlJob, Callback callback) {
     //check to see if we have already queued a job to crawl this au
-    if (pcManager.isEligibleForCrawl(crawlJob.getCrawlDesc().getAuId())) {
+
+    if (!pcManager.isEligibleForCrawl(crawlJob.getCrawlDesc().getAuId())) {
       log.warn("Crawl request {} ignored! au is not eligible for crawl.", crawlJob);
       return null;
     }
-    if (crawlQueue.offer(crawlJob)) {
-      CmdLineCrawl clCrawl = new CmdLineCrawl(this, crawlJob);
-      clCrawl.setCallback(callback);
-      crawlMap.put(crawlJob.getJobId(), clCrawl);
+    CmdLineCrawl clCrawl = new CmdLineCrawl(this, crawlJob);
+    clCrawl.setCallback(callback);
+    crawlMap.put(crawlJob.getJobId(), clCrawl);
+    if (crawlQueue.offer(new RunnableCrawlJob(crawlJob,clCrawl))) {
       JobStatus status = crawlJob.getJobStatus();
       status.setStatusCode(StatusCodeEnum.QUEUED);
       status.setMsg("Queued.");
@@ -158,7 +185,7 @@ public class CmdLineCrawler implements PluggableCrawler {
 
   @Override
   public PluggableCrawl stopCrawl(String crawlId) {
-    CmdLineCrawl clCrawl = crawlMap.get(crawlId);
+    CmdLineCrawl clCrawl = crawlMap.remove(crawlId);
     if (clCrawl != null) {
       clCrawl.stopCrawl();
     }
@@ -175,7 +202,6 @@ public class CmdLineCrawler implements PluggableCrawler {
     for (String key : crawlMap.keySet()) {
       stopCrawl(key);
     }
-    crawlMap.clear();
     crawlQueue.clear();
   }
 
@@ -187,35 +213,7 @@ public class CmdLineCrawler implements PluggableCrawler {
 
   @Override
   public void shutdown() {
-    shutdownWithWait(priorityJobScheduler);
-    shutdownWithWait(priorityJobPoolExecutor);
-  }
-
-  protected CommandLineBuilder getCommandLineBuilder() {
-    return cmdLineBuilder;
-  }
-
-  protected void setCommandLineBuilder(CommandLineBuilder cmdLineBuilder) {
-    this.cmdLineBuilder = cmdLineBuilder;
-  }
-
-  protected void initCrawlScheduler(int poolSize) {
-    priorityJobPoolExecutor = Executors.newFixedThreadPool(poolSize);
-    priorityJobScheduler = Executors.newSingleThreadExecutor();
-    priorityJobScheduler.execute(() -> {
-      while (true) {
-        try {
-          CrawlJob job = crawlQueue.take();
-          CmdLineCrawl cmdLineCrawl = new CmdLineCrawl(this, job);
-          priorityJobPoolExecutor.execute(cmdLineCrawl.getRunnable());
-        }
-        catch (InterruptedException e) {
-          // exception needs special handling
-          log.error("Job interrupted!");
-          break;
-        }
-      }
-    });
+    shutdownWithWait(crawlQueueExecutor);
   }
 
   protected void shutdownWithWait(ExecutorService scheduler) {
@@ -237,21 +235,62 @@ public class CmdLineCrawler implements PluggableCrawler {
     }
   }
 
+  @Override
+  public void disable(boolean abortCrawling) {
+    // we need clear the queue
+    if(abortCrawling) {
+      shutdown();
+    }
+    crawlQueue.clear();
+  }
+
+  public void storeInRepository (String auId, File warcFile, boolean isCompressed) throws IOException {
+    BufferedInputStream bis = new BufferedInputStream(Files.newInputStream(warcFile.toPath()));
+    v2Repo.addArtifacts(namespace, auId, bis, LockssRepository.ArchiveType.WARC,isCompressed);
+  }
+
+  protected void initCrawlScheduler(String reqSpec) {
+    ExecutorUtils.ExecSpec crawlQSpec = ExecutorUtils.getCurrentSpec(reqSpec, defExecSpec);
+    if (crawlQueue == null) {
+      crawlQueue = new PriorityBlockingQueue<>(crawlQSpec.queueSize);
+   }
+    crawlQueueExecutor = ExecutorUtils.createOrReConfigureExecutor(crawlQueueExecutor,crawlQSpec,crawlQueue);
+  }
+
   public interface CommandLineBuilder {
     List<String> buildCommandLine(CrawlDesc crawlDesc, File tmpDir) throws IOException;
   }
 
-  static class CrawlJobComparator implements Comparator<CrawlJob> {
+  public static class RunnableCrawlJob implements Runnable, Comparable<RunnableCrawlJob> {
+    private final CmdLineCrawl cmdLineCrawl;
+    public final CrawlJob crawlJob;
+
+    public RunnableCrawlJob(CrawlJob crawlJob, CmdLineCrawl cmdLineCrawl) {
+      this.crawlJob = crawlJob;
+      this.cmdLineCrawl = cmdLineCrawl;
+    }
+    public int getPriority() {
+      return crawlJob.getCrawlDesc().getPriority();
+    }
+
+    public long getRequestDate() {
+      return crawlJob.getRequestDate();
+    }
+
     @Override
-    public int compare(CrawlJob o1, CrawlJob o2) {
-      {
-        int p1 = o1.getCrawlDesc().getPriority();
-        int p2 = o2.getCrawlDesc().getPriority();
+    public int compareTo(RunnableCrawlJob other) {
+        int p1 = getPriority();
+        int p2 = other.getPriority();
         if (p1 < p2) {return 1;}
         if (p1 > p2) {return -1;}
         // if they are equal return the one that was requested first.
-        return o1.getRequestDate().compareTo(o2.getRequestDate());
-      }
+        return Long.compare(getRequestDate(),other.getRequestDate());
+    }
+
+    @Override
+    public void run() {
+      cmdLineCrawl.getRunnable().run();
     }
   }
+
 }

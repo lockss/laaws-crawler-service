@@ -46,7 +46,6 @@ import org.lockss.laaws.crawler.model.UrlError.SeverityEnum;
 import org.lockss.laaws.crawler.utils.ContinuationToken;
 import org.lockss.log.L4JLogger;
 import org.lockss.plugin.ArchivalUnit;
-import org.lockss.plugin.PluginManager;
 import org.lockss.spring.base.BaseSpringApiServiceImpl;
 import org.lockss.util.ListUtil;
 import org.lockss.util.RateLimiter;
@@ -54,6 +53,7 @@ import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.crawler.CrawlJob;
 import org.lockss.util.rest.crawler.JobStatus;
 import org.lockss.util.rest.crawler.JobStatus.StatusCodeEnum;
+import org.lockss.util.time.TimeBase;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -61,9 +61,6 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import javax.ws.rs.NotFoundException;
-import java.time.Instant;
-import java.time.OffsetDateTime;
-import java.time.ZoneId;
 import java.util.*;
 
 import static org.lockss.daemon.Crawler.STATUS_QUEUED;
@@ -95,10 +92,10 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
   private static final L4JLogger log = L4JLogger.getLogger();
 
   /**
-   * @param kind
+   * @param kind the type of counter we will be returning
    * @param jobId    A String with the identifier assigned to the crawl when added.
-   * @param urlCount
-   * @return
+   * @param urlCount the number of urls
+   * @return an newly constructed Counter
    */
   static Counter getCounter(COUNTER_KIND kind, String jobId, CrawlerStatus.UrlCount urlCount) {
     // create path and map variables
@@ -120,14 +117,14 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
 
   /**
    * @param jobId    A String with the identifier assigned to the crawl when added.
-   * @param mimeType
-   * @param urlCount
-   * @return
+   * @param mimeType The mine type we are counting
+   * @param urlCount The number of urls
+   * @return A newly constructed MimeCounter of mimeType
    */
   static MimeCounter getMimeCounter(
     String jobId, String mimeType, CrawlerStatus.UrlCount urlCount) {
     // create path and map variables
-    final Map<String, Object> uriVariables = new HashMap<String, Object>();
+    final Map<String, Object> uriVariables = new HashMap<>();
 
     uriVariables.put("jobId", jobId);
     uriVariables.put("mimeType", mimeType);
@@ -184,6 +181,36 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
     }
 
     return crawlStatus;
+  }
+
+  private static CrawlJob getCrawlJob(CrawlerStatus cs) {
+    CrawlJob crawlJob = new CrawlJob()
+      .crawlDesc(getCrawlDesc(cs))
+      .requestDate(cs.getStartTime())
+      .jobId(cs.getKey())
+      .jobStatus(getJobStatus(cs))
+      .startDate(cs.getStartTime())
+      .endDate(cs.getEndTime());
+
+    return crawlJob;
+  }
+
+  private static CrawlDesc getCrawlDesc(CrawlerStatus cs) {
+    CrawlDesc desc = new CrawlDesc()
+      .auId(cs.getAuId())
+      .crawlDepth(cs.getDepth())
+      .crawlList(ListUtil.fromIterable(cs.getStartUrls()))
+      .crawlerId(LOCKSS_CRAWLER_ID)
+      .refetchDepth(cs.getRefetchDepth())
+      .priority(cs.getPriority());
+      String crawlType = cs.getType().toLowerCase();
+      log.debug2("Found crawl type string: {}", crawlType);
+      if(crawlType.startsWith("new"))
+        desc.setCrawlKind(CrawlDesc.CrawlKindEnum.NEWCONTENT);
+      else
+        desc.setCrawlKind(CrawlDesc.CrawlKindEnum.REPAIR);
+
+    return desc;
   }
 
   private static JobStatus getJobStatus(CrawlerStatus crawlerStatus) {
@@ -263,8 +290,8 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
   public ResponseEntity<CrawlStatus> deleteCrawlById(String jobId) {
     log.debug2("jobId = {}", jobId);
 
-    CrawlStatus crawlStatus = null;
-    JobStatus jobStatus = null;
+    CrawlStatus crawlStatus;
+    JobStatus jobStatus;
     try {
       // Check whether the service has not been fully initialized.
       if (!waitConfig()) {
@@ -341,7 +368,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
   @Override
   public ResponseEntity<CrawlJob> doCrawl(CrawlDesc crawlDesc) {
     log.debug2("crawlDesc = {}", crawlDesc);
-    HttpStatus httpStatus = null;
+    HttpStatus httpStatus;
     CrawlJob crawlJob = new CrawlJob().crawlDesc(crawlDesc);
 
     try {
@@ -1011,7 +1038,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
       req.setPriority(priority);
 
       if (depth != null) {
-        req.setRefetchDepth(depth.intValue());
+        req.setRefetchDepth(depth);
       }
     }
     catch (RuntimeException e) {
@@ -1020,7 +1047,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
       return HttpStatus.INTERNAL_SERVER_ERROR;
     }
 
-    crawlJob.requestDate(OffsetDateTime.now());
+    crawlJob.requestDate(TimeBase.nowMs());
 
     // Perform the crawl request.
     CrawlerStatus lockssCrawlStatus = cmi.startNewContentCrawl(req);
@@ -1041,14 +1068,14 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
     log.trace("startTimeInMs = {}", startTimeInMs);
 
     if (startTimeInMs >= 0) {
-      crawlJob.startDate(offsetDateTimeFromEpochMs(startTimeInMs));
+      crawlJob.startDate(TimeBase.nowMs());
     }
 
     long endTimeInMs = lockssCrawlStatus.getEndTime();
     log.trace("endTimeInMs = {}", endTimeInMs);
 
     if (endTimeInMs >= 0) {
-      crawlJob.endDate(offsetDateTimeFromEpochMs(endTimeInMs));
+      crawlJob.endDate(TimeBase.nowMs());
     }
 
     ServiceBinding crawlerServiceBinding =
@@ -1108,7 +1135,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
       logCrawlError(UNKNOWN_CRAWLER_MESSAGE + crawlerId, crawlJob);
       return HttpStatus.BAD_REQUEST;
     }
-    crawlJob.requestDate(OffsetDateTime.now());
+    crawlJob.requestDate(TimeBase.nowMs());
     try {
       // Start the requested crawlJob.
       PluggableCrawl crawl = crawler.requestCrawl(crawlJob, null);
@@ -1128,14 +1155,14 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
       log.trace("startTimeInMs = {}", startTimeInMs);
 
       if (startTimeInMs >= 0) {
-        crawlJob.startDate(offsetDateTimeFromEpochMs(startTimeInMs));
+        crawlJob.startDate(TimeBase.nowMs());
       }
 
       long endTimeInMs = crawlStatus.getEndTime();
       log.trace("endTimeInMs = {}", endTimeInMs);
 
       if (endTimeInMs >= 0) {
-        crawlJob.endDate(offsetDateTimeFromEpochMs(endTimeInMs));
+        crawlJob.endDate(TimeBase.nowMs());
       }
 
       ServiceBinding crawlerServiceBinding = LockssDaemon.getLockssDaemon()
@@ -1372,8 +1399,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
 
     // Get the collection of all jobs.
     // This needs to be replaced with a CrawlJob map for crawl manager jobs
-    List<CrawlerStatus> statuses = getCrawlManager().getStatus().getCrawlerStatusList();
-    List<CrawlJob> allJobs = makeCrawlJobsWithStatuses(statuses);
+    List<CrawlerStatus> allJobs = getCrawlManager().getStatus().getCrawlerStatusList();
     log.trace("allJobs = {}", allJobs);
 
     // Get the size of the collection of all jobs.
@@ -1416,11 +1442,10 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
         // Check whether this job does not need to be skipped.
         if (idx > lastJobToSkip) {
           // Yes: Get it.
-          CrawlJob crawlJob = allJobs.get(idx);
-          log.trace("crawlerStatus = {}", crawlJob);
-
+          CrawlerStatus crawlerStatus = allJobs.get(idx);
+          log.trace("crawlerStatus = {}", crawlerStatus);
           // Add it to the output collection.
-          outputJobs.add(crawlJob);
+          outputJobs.add(getCrawlJob(crawlerStatus));
 
           // Record that it is the last one so far.
           lastItem = (long) idx;
@@ -1441,10 +1466,6 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
     return pager;
   }
 
-  private List<CrawlJob> makeCrawlJobsWithStatuses(List<CrawlerStatus> statuses) {
-    List<CrawlJob> jobsList = new ArrayList<>(statuses.size());
-    return jobsList;
-  }
 
   /**
    * Provides the pagination information.
@@ -1490,8 +1511,8 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
 
   /**
    * @param jobId A String with the identifier assigned to the crawl when added.
-   * @return
-   * @throws NotFoundException
+   * @return The CrawlerStatus for thi if the s job
+   * @throws NotFoundException if there is no crawl status for this job
    */
   private CrawlerStatus getCrawlerStatus(String jobId) throws NotFoundException {
     CrawlerStatus cs = getCrawlManager().getStatus().getCrawlerStatus(jobId);
@@ -1521,15 +1542,6 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
     return crawlManager;
   }
 
-  /**
-   * Provides the plugin manager.
-   *
-   * @return the current Lockss PluginManager.
-   */
-  private PluginManager getPluginManager() {
-    return (PluginManager) LockssApp.getManagerByKeyStatic(LockssApp.PLUGIN_MANAGER);
-  }
-
   private PluggableCrawlManager getPluggableCrawlManager() {
     return (PluggableCrawlManager) LockssApp.getManagerByKeyStatic(PLUGGABLE_CRAWL_MANAGER);
   }
@@ -1546,15 +1558,6 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
     log.debug2("crawlJob = {}", crawlJob);
   }
 
-  /**
-   * Provides the local timestamp that corresponds to a number of milliseconds since the epoch.
-   *
-   * @param epochMs A long with the number of milliseconds since the epoch to be converted.
-   * @return a LocalDateTime with the result of the conversion.
-   */
-  private OffsetDateTime offsetDateTimeFromEpochMs(long epochMs) {
-    return Instant.ofEpochMilli(epochMs).atZone(ZoneId.of("UTC")).toOffsetDateTime();
-  }
 
   enum COUNTER_KIND {
     errors,

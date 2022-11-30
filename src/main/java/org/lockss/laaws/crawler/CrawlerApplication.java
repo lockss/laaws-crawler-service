@@ -57,12 +57,13 @@ public class CrawlerApplication extends BaseSpringBootApplication implements Com
   private static final Logger logger = LoggerFactory.getLogger(CrawlerApplication.class);
   public static ManagerDesc PLUGGABLE_CRAWL_MANAGER_DESC =
     new ManagerDesc(PLUGGABLE_CRAWL_MANAGER,
-      "org.lockss.crawler.impl.PluggableCrawlManager");
+      "org.lockss.laaws.crawler.impl.PluggableCrawlManager");
 
   // Manager descriptors.  The order of this table determines the order in
   // which managers are initialized and started.
   private static final ManagerDesc[] myManagerDescs = {
     ACCOUNT_MANAGER_DESC,
+      CONFIG_DB_MANAGER_DESC,
     // start plugin manager after generic services
     PLUGIN_MANAGER_DESC,
     STATE_MANAGER_DESC,

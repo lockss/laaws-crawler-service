@@ -31,7 +31,7 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.lockss.crawler.CrawlManagerImpl;
+import org.lockss.app.LockssDaemon;
 import org.lockss.laaws.crawler.model.CrawlerConfig;
 import org.lockss.laaws.crawler.model.CrawlerStatus;
 import org.lockss.laaws.crawler.model.CrawlerStatuses;
@@ -49,7 +49,6 @@ import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
-
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
@@ -90,11 +89,15 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
   // used for the tests.
   @Autowired private ApplicationContext appCtx;
 
-  private CrawlManagerImpl cmi;
+  private PluggableCrawlManager pcm;
+  private File tmpDir;
+
 
   /** Set up code to be run before all tests. */
   @BeforeClass
-  public static void setUpBeforeAllTests() {}
+  public static void setUpBeforeAllTests() {
+
+  }
 
   /**
    * Set up code to be run before each test.
@@ -114,6 +117,9 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
     log.debug2("Done");
   }
 
+  public void cleanUpAfterEachTest() throws Exception {
+  }
+
   /**
    * Runs the tests with authentication turned off.
    *
@@ -127,15 +133,17 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
     List<String> cmdLineArgs = getCommandLineArguments();
     cmdLineArgs.add("-p");
     cmdLineArgs.add("test/config/testAuthOff.txt");
-
     CommandLineRunner runner = appCtx.getBean(CommandLineRunner.class);
     runner.run(cmdLineArgs.toArray(new String[cmdLineArgs.size()]));
-
+    pcm = LockssDaemon.getLockssDaemon().getManagerByType(PluggableCrawlManager.class);
+    assertTrue(pcm.isInited());
+    assertTrue(pcm.isCrawlerEnabled());
+    assertTrue(pcm.isCrawlStarterEnabled());
     runGetSwaggerDocsTest(getTestUrlTemplate("/v2/api-docs"));
     runMethodsNotAllowedUnAuthenticatedTest();
     getCrawlersUnAuthenticatedTest();
-    getCrawlerConfigUnAuthenticatedTest(true);
 
+    getCrawlerConfigUnAuthenticatedTest(true);
     log.debug2("Done");
   }
 
@@ -155,7 +163,10 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
 
     CommandLineRunner runner = appCtx.getBean(CommandLineRunner.class);
     runner.run(cmdLineArgs.toArray(new String[cmdLineArgs.size()]));
-
+    pcm = LockssDaemon.getLockssDaemon().getManagerByType(PluggableCrawlManager.class);
+    assertTrue(pcm.isInited());
+    assertTrue(pcm.isCrawlerEnabled());
+    assertTrue(pcm.isCrawlStarterEnabled());
     runGetSwaggerDocsTest(getTestUrlTemplate("/v2/api-docs"));
     runMethodsNotAllowedAuthenticatedTest();
     getCrawlersAuthenticatedTest();
@@ -164,30 +175,34 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
     log.debug2("Done");
   }
 
-  /**
-   * Runs the tests with crawling disabled.
-   *
-   * @throws Exception if there are problems.
-   */
-  @Test
-  public void runDisabledTests() throws Exception {
-    log.debug2("Invoked");
-
-    // Specify the command line parameters to be used for the tests.
-    List<String> cmdLineArgs = getCommandLineArguments();
-    cmdLineArgs.add("-p");
-    cmdLineArgs.add("test/config/testDisabled.txt");
-
-    CommandLineRunner runner = appCtx.getBean(CommandLineRunner.class);
-    runner.run(cmdLineArgs.toArray(new String[cmdLineArgs.size()]));
-
-    runGetSwaggerDocsTest(getTestUrlTemplate("/v2/api-docs"));
-    runMethodsNotAllowedUnAuthenticatedTest();
-    getCrawlersUnAuthenticatedTest();
-    getCrawlerConfigUnAuthenticatedTest(false);
-
-    log.debug2("Done");
-  }
+//  /**
+//   * Runs the tests with crawling disabled.
+//   *
+//   * @throws Exception if there are problems.
+//   */
+//  @Test
+//  public void runDisabledTests() throws Exception {
+//    log.debug2("Invoked");
+//
+//    // Specify the command line parameters to be used for the tests.
+//    List<String> cmdLineArgs = getCommandLineArguments();
+//    cmdLineArgs.add("-p");
+//    cmdLineArgs.add("test/config/testDisabled.txt");
+//
+//    CommandLineRunner runner = appCtx.getBean(CommandLineRunner.class);
+//    runner.run(cmdLineArgs.toArray(new String[cmdLineArgs.size()]));
+//    pcm = LockssDaemon.getLockssDaemon().getManagerByType(PluggableCrawlManager.class);
+//    assertTrue(pcm.isInited());
+//    assertFalse(pcm.isCrawlerEnabled());
+//    assertTrue(pcm.isCrawlStarterEnabled());
+//
+//    runGetSwaggerDocsTest(getTestUrlTemplate("/v2/api-docs"));
+//    runMethodsNotAllowedUnAuthenticatedTest();
+//    getCrawlersUnAuthenticatedTest();
+//    getCrawlerConfigUnAuthenticatedTest(false);
+//
+//    log.debug2("Done");
+//  }
 
   /**
    * Provides the standard command line arguments to start the server.
@@ -204,8 +219,8 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
     cmdLineArgs.add("-p");
     cmdLineArgs.add("config/common.xml");
 
-    File folder = new File(new File(new File(getTempDirPath()), "tdbxml"), "prod");
-    log.trace("folder = {}", () -> folder);
+    File folder = new File(new File(new File(getTempDirPath()), "crawler"), "prod");
+    log.info("folder = {}", () -> folder);
 
     cmdLineArgs.add("-x");
     cmdLineArgs.add(folder.getAbsolutePath());
@@ -528,7 +543,7 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
     log.info("crawlerConfig = {}", crawlerConfig);
     assertNotNull(crawlerConfig);
     Map<String, String> attributes = crawlerConfig.getAttributes();
-    assertTrue(Boolean.parseBoolean(attributes.get(STARTER_ENABLED)));
+    assertTrue(Boolean.parseBoolean(attributes.get(ATTR_STARTER_ENABLED)));
     assertEquals(enabled, Boolean.parseBoolean(attributes.get(ATTR_CRAWLING_ENABLED)));
     assertTrue(Boolean.parseBoolean(attributes.get(LOCKSS_CRAWLER_ID + ENABLED)));
     getCrawlerConfigCommonTest(enabled);
@@ -586,7 +601,7 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
     log.info("crawlerConfig = {}", crawlerConfig);
     assertNotNull(crawlerConfig);
     Map<String, String> attributes = crawlerConfig.getAttributes();
-    assertTrue(Boolean.parseBoolean(attributes.get(STARTER_ENABLED)));
+    assertTrue(Boolean.parseBoolean(attributes.get(ATTR_STARTER_ENABLED)));
     assertEquals(enabled, Boolean.parseBoolean(attributes.get(ATTR_CRAWLING_ENABLED)));
     assertTrue(Boolean.parseBoolean(attributes.get(LOCKSS_CRAWLER_ID + ENABLED)));
     log.debug2("Done");
@@ -681,4 +696,5 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
   private String getTestUrlTemplate(String pathAndQueryParams) {
     return "http://localhost:" + port + pathAndQueryParams;
   }
-}
+
+ }

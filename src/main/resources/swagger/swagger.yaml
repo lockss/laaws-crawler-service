@@ -591,17 +591,39 @@ definitions:
         description: A text message explaining this status.
         type: string
   apiStatus:
-    type: object
+    type: "object"
     required:
-    - version
-    - ready
+      - "apiVersion"
+      - "ready"
     properties:
-      version:
-        type: string
-        description: "The version of the service"
+      apiVersion:
+        type: "string"
+        description: "The version of the API"
+      componentName:
+        type: "string"
+        description: "The name of the component"
+      componentVersion:
+        type: "string"
+        description: "The version of the component software"
+      lockssVersion:
+        type: "string"
+        description: "The version of the LOCKSS system"
       ready:
-        type: boolean
+        type: "boolean"
         description: "The indication of whether the service is available"
+      serviceName:
+        type: "string"
+        description: "The name of the service"
+      readyTime:
+        type: "integer"
+        format: "int64"
+        description: "The time the service last became ready."
+      reason:
+        type: "string"
+        description: "The reason the service isn't ready."
+      pluginsReady:
+        type: "boolean"
+        description: "An indication of whether the service has made the loadable plugin registries ready to load."
     description: "The status information of the service"
   counter:
     description: A counter for urls.
@@ -680,10 +702,9 @@ definitions:
         description: The descriptor of the crawl.
         $ref: '#/definitions/crawlDesc'
       requestDate:
-        type: string
-        format: "date-time"
+        format: int64
         description: The timestamp when the crawl was requested.
-        example: "yyyy-MM-ddTHH:mm:ss.SSSZ"
+        type: integer
       jobId:
         description: Identifier of the crawl job.
         type: string
@@ -691,15 +712,13 @@ definitions:
         description: The status of the crawl operation.
         $ref: "#/definitions/jobStatus"
       startDate:
-        type: string
-        format: "date-time"
+        format: int64
         description: The timestamp when the crawl began.
-        example: "yyyy-MM-ddTHH:mm:ss.SSSZ"
+        type: integer
       endDate:
-        type: string
-        format: "date-time"
+        format: int64
         description: The timestamp when the crawl ended.
-        example: "yyyy-MM-ddTHH:mm:ss.SSSZ"
+        type: integer
       result:
         type: string
         description: A URI which can be used to retrieve the crawl data.

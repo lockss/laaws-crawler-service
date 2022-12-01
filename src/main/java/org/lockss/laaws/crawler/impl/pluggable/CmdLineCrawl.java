@@ -1,5 +1,6 @@
 package org.lockss.laaws.crawler.impl.pluggable;
 
+import org.lockss.crawler.CrawlManager;
 import org.lockss.crawler.CrawlerStatus;
 import org.lockss.daemon.Crawler;
 import org.lockss.daemon.LockssRunnable;
@@ -21,8 +22,6 @@ import java.util.List;
 public class CmdLineCrawl extends PluggableCrawl {
   private static final L4JLogger log = L4JLogger.getLogger();
   protected CmdLineCrawler crawler;
-  protected CrawlJob crawlJob;
-  protected CrawlDesc crawlDesc;
   protected String threadName;
   /*
   The command line as a list to execute.
@@ -42,8 +41,6 @@ public class CmdLineCrawl extends PluggableCrawl {
   public CmdLineCrawl(CmdLineCrawler crawler, CrawlJob crawlJob) {
     super(crawler.getCrawlerConfig(), crawlJob);
     this.crawler = crawler;
-    this.crawlJob = crawlJob;
-    this.crawlDesc = crawlJob.getCrawlDesc();
     threadName = crawlDesc.getCrawlKind() + ":"
       + crawlDesc.getCrawlerId() +
       ":" + crawlJob.getJobId();
@@ -120,7 +117,6 @@ public class CmdLineCrawl extends PluggableCrawl {
           log.trace("external crawl process started");
           Process process = builder.start();
           crawlerStatus.signalCrawlStarted();
-
           int exitCode = process.waitFor();
           log.trace("external crawl process finished: exitCode = {}", exitCode);
           if (exitCode == 0) {
@@ -135,10 +131,10 @@ public class CmdLineCrawl extends PluggableCrawl {
             crawlerStatus.setCrawlStatus(
               Crawler.STATUS_ERROR, "crawl exited with code: " + exitCode);
           }
-          PluggableCrawler.Callback callback = getCallback();
+          CrawlManager.Callback callback = getCallback();
           if (callback != null) {
-            CrawlStatus cs = CrawlsApiServiceImpl.getCrawlStatus(crawlerStatus);
-            callback.signalCrawlAttemptCompleted(exitCode == 0, cs);
+            CrawlStatus cs = CrawlsApiServiceImpl.makeCrawlStatus(crawlerStatus);
+            callback.signalCrawlAttemptCompleted(!crawlerStatus.isCrawlError(), null, crawlerStatus);
           }
         }
         catch (IOException ioe) {

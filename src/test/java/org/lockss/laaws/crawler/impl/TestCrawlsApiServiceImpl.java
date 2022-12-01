@@ -666,7 +666,8 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     jobPager = runTestGetCrawls(ANYBODY, null, null, HttpStatus.OK);
     validateGetCrawlsResult(jobPager, null, 3);
 
-    doCrawlCommonTest();
+    doCrawlCommonTest("lockss");
+  //  doCrawlCommonTest(("wget"));
 
     log.debug2("Done");
   }
@@ -688,7 +689,8 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
 
     runTestDoCrawl(crawlDesc, null, HttpStatus.UNAUTHORIZED);
 
-    doCrawlCommonTest();
+    doCrawlCommonTest("lockss");
+   // doCrawlCommonTest(("wget"));
 
     log.debug2("Done");
   }
@@ -698,7 +700,7 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
    *
    * @throws Exception if there are problems.
    */
-  private void doCrawlCommonTest() throws Exception {
+  private void doCrawlCommonTest(String crawlerId) throws Exception {
     log.debug2("Invoked");
 
     runTestDoCrawl(null, USER_ADMIN, HttpStatus.BAD_REQUEST);
@@ -709,7 +711,10 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     JobPager jobPager = runTestGetCrawls(USER_ADMIN, null, null, HttpStatus.OK);
     int jobCount = validateGetCrawlsResult(jobPager, null, -1);
 
-    CrawlDesc crawlDesc = new CrawlDesc().auId(sau.getAuId()).crawlKind(CrawlDesc.CrawlKindEnum.NEWCONTENT);
+    CrawlDesc crawlDesc = new CrawlDesc()
+      .auId(sau.getAuId())
+      .crawlKind(CrawlDesc.CrawlKindEnum.NEWCONTENT)
+      .crawlerId(crawlerId);
 
     runTestDoCrawl(crawlDesc, USER_ADMIN, HttpStatus.BAD_REQUEST);
     crawlDesc.forceCrawl(true);
@@ -728,6 +733,7 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
 
     log.debug2("Done");
   }
+
 
   /**
    * Performs a POST operation to perform a crawl.

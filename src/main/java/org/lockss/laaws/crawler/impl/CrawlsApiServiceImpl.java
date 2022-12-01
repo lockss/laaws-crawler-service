@@ -91,6 +91,8 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
   // The logger for this class.
   private static final L4JLogger log = L4JLogger.getLogger();
 
+  private PluggableCrawlManager pluggableCrawlManager;
+
   /**
    * @param kind the type of counter we will be returning
    * @param jobId    A String with the identifier assigned to the crawl when added.
@@ -137,7 +139,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
     return ctr;
   }
 
-  public static CrawlStatus getCrawlStatus(CrawlerStatus cs) {
+  public static CrawlStatus makeCrawlStatus(CrawlerStatus cs) {
     String key = cs.getKey();
     CrawlStatus crawlStatus =
       new CrawlStatus()
@@ -147,7 +149,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
         .type(cs.getType())
         .startTime(cs.getStartTime())
         .endTime(cs.getEndTime())
-        .jobStatus(getJobStatus(cs))
+        .jobStatus(makeJobStatus(cs))
         .isWaiting(cs.isCrawlWaiting())
         .isActive(cs.isCrawlActive())
         .isError(cs.isCrawlError())
@@ -183,19 +185,23 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
     return crawlStatus;
   }
 
-  private static CrawlJob getCrawlJob(CrawlerStatus cs) {
-    CrawlJob crawlJob = new CrawlJob()
-      .crawlDesc(getCrawlDesc(cs))
-      .requestDate(cs.getStartTime())
-      .jobId(cs.getKey())
-      .jobStatus(getJobStatus(cs))
-      .startDate(cs.getStartTime())
-      .endDate(cs.getEndTime());
-
+  public static CrawlJob makeCrawlJob(CrawlerStatus cs) {
+    CrawlJob crawlJob = new CrawlJob();
+    updateCrawlJob(crawlJob, cs);
     return crawlJob;
   }
 
-  private static CrawlDesc getCrawlDesc(CrawlerStatus cs) {
+  static void updateCrawlJob(CrawlJob crawlJob, CrawlerStatus cs) {
+    if(crawlJob.getCrawlDesc() == null) {
+      crawlJob.setCrawlDesc(makeCrawlDesc(cs));
+    }
+    crawlJob.jobId(cs.getKey());
+    crawlJob.jobStatus(makeJobStatus(cs));
+    crawlJob.startDate(cs.getStartTime());
+    crawlJob.endDate(cs.getEndTime());
+  }
+
+  public static CrawlDesc makeCrawlDesc(CrawlerStatus cs) {
     CrawlDesc desc = new CrawlDesc()
       .auId(cs.getAuId())
       .crawlDepth(cs.getDepth())
@@ -213,13 +219,10 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
     return desc;
   }
 
-  private static JobStatus getJobStatus(CrawlerStatus crawlerStatus) {
+  public static JobStatus makeJobStatus(CrawlerStatus crawlerStatus) {
     JobStatus js = new JobStatus();
     StatusCodeEnum statusCode;
     switch (crawlerStatus.getCrawlStatus()) {
-      case org.lockss.daemon.Crawler.STATUS_UNKNOWN:
-        statusCode = StatusCodeEnum.UNKNOWN;
-        break;
       case STATUS_QUEUED:
         statusCode = StatusCodeEnum.QUEUED;
         break;
@@ -309,7 +312,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
       if (crawlerStatus.isCrawlWaiting() || crawlerStatus.isCrawlActive()) {
         getCrawlManager().deleteCrawl(crawlerStatus.getAu());
       }
-      return new ResponseEntity<>(getCrawlStatus(crawlerStatus), HttpStatus.OK);
+      return new ResponseEntity<>(makeCrawlStatus(crawlerStatus), HttpStatus.OK);
     }
     catch (NotFoundException nfe) {
       String message = "No crawl found for jobId '" + jobId + "'.";
@@ -916,7 +919,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
         .startUrls(ListUtil.fromIterable(cs.getStartUrls()))
         .startTime(cs.getStartTime())
         .endTime(cs.getEndTime())
-        .jobStatus(getJobStatus(cs))
+        .jobStatus(makeJobStatus(cs))
         .priority(cs.getPriority())
         .sources(ListUtil.immutableListOfType(cs.getSources(), String.class))
         .bytesFetched(cs.getContentBytesFetched())
@@ -976,7 +979,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
     return crawlStatus;
   }
 
-  private HttpStatus startLockssCrawl(ArchivalUnit au, CrawlJob crawlJob) throws InterruptedException {
+  private HttpStatus startLockssCrawl(ArchivalUnit au, CrawlJob crawlJob) {
     CrawlDesc crawlDesc = crawlJob.getCrawlDesc();
     Integer depth = crawlDesc.getCrawlDepth();
     Integer requestedPriority = crawlDesc.getPriority();
@@ -1017,7 +1020,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
     }
 
     // Get the crawl priority, specified or configured.
-    int priority = 0;
+    int priority;
 
     if (requestedPriority != null) {
       priority = requestedPriority;
@@ -1052,30 +1055,11 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
     // Perform the crawl request.
     CrawlerStatus lockssCrawlStatus = cmi.startNewContentCrawl(req);
     log.trace("crawlerStatus = {}", lockssCrawlStatus);
-
+    updateCrawlJob(crawlJob,lockssCrawlStatus);
     if (lockssCrawlStatus.isCrawlError()) {
       msg = "Can't perform crawl for " + au + ": " + lockssCrawlStatus.getCrawlErrorMsg();
       logCrawlError(msg, crawlJob);
-      crawlJob.jobStatus(getJobStatus(lockssCrawlStatus));
       return HttpStatus.INTERNAL_SERVER_ERROR;
-    }
-
-    String jobId = lockssCrawlStatus.getKey();
-    log.trace("jobId = {}", jobId);
-    crawlJob.jobId(jobId);
-
-    long startTimeInMs = lockssCrawlStatus.getStartTime();
-    log.trace("startTimeInMs = {}", startTimeInMs);
-
-    if (startTimeInMs >= 0) {
-      crawlJob.startDate(TimeBase.nowMs());
-    }
-
-    long endTimeInMs = lockssCrawlStatus.getEndTime();
-    log.trace("endTimeInMs = {}", endTimeInMs);
-
-    if (endTimeInMs >= 0) {
-      crawlJob.endDate(TimeBase.nowMs());
     }
 
     ServiceBinding crawlerServiceBinding =
@@ -1086,8 +1070,9 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
       String crawlerServiceUrl = crawlerServiceBinding.getRestStem();
       crawlJob.result(crawlerServiceUrl);
     }
-    crawlJob.jobStatus(getJobStatus(lockssCrawlStatus));
+    crawlJob.jobStatus(makeJobStatus(lockssCrawlStatus));
     log.debug2("result = {}", crawlJob);
+    getPluggableCrawlManager().addCrawlJob(crawlJob);
     return HttpStatus.ACCEPTED;
   }
 
@@ -1105,9 +1090,9 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
       return HttpStatus.BAD_REQUEST;
     }
 
-    CrawlerStatus status = cmi.startRepair(au, urls, null, null);
-    // repairs don't return CrawlerStatus objects and the callback is only called in  the event
-    // of an error.  We need to create a callback that supports the IllegalArgumentException which is thrown
+    CrawlerStatus status = cmi.startRepair(au, urls, new CrawlManagerCallback(), null);
+    updateCrawlJob(crawlJob,status);
+    getPluggableCrawlManager().addCrawlJob(crawlJob);
     return HttpStatus.ACCEPTED;
   }
 
@@ -1116,20 +1101,20 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
     log.debug2("crawlDesc = {}", crawlDesc);
     String msg;
     PluggableCrawlManager pcMgr = getPluggableCrawlManager();
-    if (crawlDesc.getAuId() == null) {
-      logCrawlError(NO_SUCH_AU_ERROR_MESSAGE, crawlJob);
-      return HttpStatus.BAD_REQUEST;
-    }
-    List<String> urls = crawlDesc.getCrawlList();
+    Collection<String> urls = crawlDesc.getCrawlList();
     if (urls == null || urls.isEmpty()) {
-      logCrawlError(NO_URLS, crawlJob);
-      return HttpStatus.BAD_REQUEST;
+      // try to get the urls from the au.
+      ArchivalUnit au = getPluginManager().getAuFromId(crawlDesc.getAuId());
+      if((au != null)) {
+        urls = au.getStartUrls();
+        crawlDesc.setCrawlList((List<String>) urls);
+      }
+      if(urls == null || urls.isEmpty() ){
+        logCrawlError(NO_URLS, crawlJob);
+        return HttpStatus.BAD_REQUEST;
+      }
     }
     String crawlerId = crawlDesc.getCrawlerId();
-    if (crawlerId == null) {
-      logCrawlError(UNKNOWN_CRAWLER_MESSAGE + crawlerId, crawlJob);
-      return HttpStatus.BAD_REQUEST;
-    }
     PluggableCrawler crawler = pcMgr.getCrawler(crawlerId);
     if (crawler == null) {
       logCrawlError(UNKNOWN_CRAWLER_MESSAGE + crawlerId, crawlJob);
@@ -1137,9 +1122,10 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
     }
     crawlJob.requestDate(TimeBase.nowMs());
     try {
-      // Start the requested crawlJob.
-      PluggableCrawl crawl = crawler.requestCrawl(crawlJob, null);
-      log.trace("crawlStatus = {}", crawl.getCrawlerStatus());
+      // add the requested crawlJob to the CrawlQueue for that crawler.
+      PluggableCrawl crawl = crawler.requestCrawl(crawlJob, new CrawlManagerCallback());
+      CrawlerStatus crawlerStatus = crawl.getCrawlerStatus();
+      updateCrawlJob(crawlJob, crawlerStatus);
       JobStatus jobStatus = crawl.getJobStatus();
       if (jobStatus.getStatusCode().equals(StatusCodeEnum.ERROR)) {
         msg = "Can't perform crawl for " + crawlDesc.getAuId()
@@ -1147,24 +1133,6 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
         logCrawlError(msg, crawlJob);
         return HttpStatus.INTERNAL_SERVER_ERROR;
       }
-      String jobId = crawl.getCrawlKey();
-      log.trace("jobId = {}", jobId);
-      crawlJob.jobId(jobId);
-      CrawlerStatus crawlStatus = crawl.getCrawlerStatus();
-      long startTimeInMs = crawlStatus.getStartTime();
-      log.trace("startTimeInMs = {}", startTimeInMs);
-
-      if (startTimeInMs >= 0) {
-        crawlJob.startDate(TimeBase.nowMs());
-      }
-
-      long endTimeInMs = crawlStatus.getEndTime();
-      log.trace("endTimeInMs = {}", endTimeInMs);
-
-      if (endTimeInMs >= 0) {
-        crawlJob.endDate(TimeBase.nowMs());
-      }
-
       ServiceBinding crawlerServiceBinding = LockssDaemon.getLockssDaemon()
         .getServiceBinding(ServiceDescr.SVC_CRAWLER);
       log.trace("crawlerServiceBinding = {}", crawlerServiceBinding);
@@ -1173,9 +1141,8 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
         String crawlerServiceUrl = crawlerServiceBinding.getRestStem();
         crawlJob.result(crawlerServiceUrl);
       }
-      crawlJob.jobStatus(getJobStatus(crawlStatus));
-
       log.debug2("result = {}", crawlJob);
+      pcMgr.addCrawlJob(crawlJob);
       return HttpStatus.ACCEPTED;
     }
     catch (IllegalArgumentException iae) {
@@ -1343,7 +1310,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
     return limit;
   }
 
-  UrlInfo makeUrlInfo(String url, CrawlerStatus status) {
+  public UrlInfo makeUrlInfo(String url, CrawlerStatus status) {
     UrlInfo uInfo = new UrlInfo();
     uInfo.url(url);
     UrlErrorInfo errInfo = status.getErrorInfoForUrl(url);
@@ -1445,7 +1412,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
           CrawlerStatus crawlerStatus = allJobs.get(idx);
           log.trace("crawlerStatus = {}", crawlerStatus);
           // Add it to the output collection.
-          outputJobs.add(getCrawlJob(crawlerStatus));
+          outputJobs.add(makeCrawlJob(crawlerStatus));
 
           // Record that it is the last one so far.
           lastItem = (long) idx;
@@ -1531,7 +1498,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
    *
    * @return a CrawlManagerImpl with the crawl manager implementation.
    */
-  private CrawlManagerImpl getCrawlManager() {
+  CrawlManagerImpl getCrawlManager() {
     CrawlManagerImpl crawlManager = null;
     CrawlManager cmgr = LockssApp.getManagerByTypeStatic(CrawlManager.class);
 
@@ -1542,8 +1509,11 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
     return crawlManager;
   }
 
-  private PluggableCrawlManager getPluggableCrawlManager() {
-    return (PluggableCrawlManager) LockssApp.getManagerByKeyStatic(PLUGGABLE_CRAWL_MANAGER);
+  PluggableCrawlManager getPluggableCrawlManager() {
+    if(pluggableCrawlManager == null) {
+      pluggableCrawlManager = (PluggableCrawlManager) LockssApp.getManagerByKeyStatic(PLUGGABLE_CRAWL_MANAGER);
+    }
+    return pluggableCrawlManager;
   }
 
   List<String> getCrawlerIds() {
@@ -1558,6 +1528,20 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
     log.debug2("crawlJob = {}", crawlJob);
   }
 
+  public class CrawlManagerCallback implements CrawlManager.Callback {
+
+    @Override
+    public void signalCrawlAttemptCompleted(boolean success, Object cookie, CrawlerStatus status) {
+      CrawlJob crawlJob = pluggableCrawlManager.getCrawlJob(status.getKey());
+      if(crawlJob != null) {
+        updateCrawlJob(crawlJob,status);
+        pluggableCrawlManager.updateCrawlJob(crawlJob);
+      }
+      else {
+        log.error("Received a callback without a crawl job for Crawler Status {}",status);
+      }
+    }
+  }
 
   enum COUNTER_KIND {
     errors,

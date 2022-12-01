@@ -1,5 +1,6 @@
 package org.lockss.laaws.crawler.impl.pluggable;
 
+import org.lockss.crawler.CrawlManager;
 import org.lockss.laaws.crawler.model.CrawlStatus;
 import org.lockss.laaws.crawler.model.CrawlerConfig;
 import org.lockss.util.rest.crawler.CrawlJob;
@@ -29,7 +30,7 @@ public interface PluggableCrawler {
    */
   CrawlerConfig getCrawlerConfig();
 
-  PluggableCrawl requestCrawl(CrawlJob crawlJob, Callback callback);
+  PluggableCrawl requestCrawl(CrawlJob crawlJob, CrawlManager.Callback callback);
 
   /**
    * Stop a crawl a specific crawl
@@ -71,16 +72,5 @@ public interface PluggableCrawler {
     * @param abortCrawling abort the currently running crawls.
    */
   void disable(boolean abortCrawling);
-
-
-  interface Callback {
-    /**
-     * Callback to call when a crawl attempt completes
-     *
-     * @param success whether the crawl was successful
-     * @param status  the CrawlStatus containting results.
-     */
-    void signalCrawlAttemptCompleted(boolean success, CrawlStatus status);
-  }
 
 }

@@ -25,6 +25,7 @@
  */
 package org.lockss.laaws.crawler.impl.pluggable;
 
+import org.lockss.crawler.CrawlManager;
 import org.lockss.crawler.CrawlerStatus;
 import org.lockss.laaws.crawler.impl.CrawlsApiServiceImpl;
 import org.lockss.laaws.crawler.model.CrawlStatus;
@@ -44,24 +45,24 @@ public abstract class PluggableCrawl {
   /**
    * The job for this crawl.
    */
-  private final CrawlJob crawlJob;
+  protected final CrawlJob crawlJob;
   /**
    * Description of the crawl requested.
    */
-  private final CrawlDesc crawlDesc;
+  protected final CrawlDesc crawlDesc;
   /**
    * The configuration of the crawler when this crawl began.  This is
    * stored so that a crawl will run with the parameters is was enqueued with.
    */
-  private final CrawlerConfig crawlerConfig;
+  protected final CrawlerConfig crawlerConfig;
   /**
    * The current status of a crawl as understood by the internal LOCKSS crawler.
    */
-  private CrawlerStatus crawlerStatus;
+  protected CrawlerStatus crawlerStatus;
   /**
    * The callback to use when the crawl terminates with or without error.
    */
-  private PluggableCrawler.Callback callback;
+  protected CrawlManager.Callback callback;
 
 
   /**
@@ -89,7 +90,7 @@ public abstract class PluggableCrawl {
    * @return the crawl status
    */
   public static CrawlStatus crawlStatusFromCrawlerStatus(CrawlerStatus cs) {
-    return CrawlsApiServiceImpl.getCrawlStatus(cs);
+    return CrawlsApiServiceImpl.makeCrawlStatus(cs);
   }
 
   /**
@@ -116,7 +117,7 @@ public abstract class PluggableCrawl {
    * @return the crawl status
    */
   public CrawlStatus getCrawlStatus() {
-    return CrawlsApiServiceImpl.getCrawlStatus(crawlerStatus);
+    return CrawlsApiServiceImpl.makeCrawlStatus(crawlerStatus);
   }
 
   /**
@@ -173,11 +174,11 @@ public abstract class PluggableCrawl {
     return crawlDesc.getCrawlKind().toString();
   }
 
-  public PluggableCrawler.Callback getCallback() {
+  public CrawlManager.Callback getCallback() {
     return callback;
   }
 
-  public void setCallback(PluggableCrawler.Callback callback) {
+  public void setCallback(CrawlManager.Callback callback) {
     this.callback = callback;
   }
 

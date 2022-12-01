@@ -26,6 +26,7 @@
 package org.lockss.laaws.crawler.impl.pluggable;
 
 import org.lockss.config.Configuration;
+import org.lockss.crawler.CrawlManager;
 import org.lockss.laaws.crawler.impl.PluggableCrawlManager;
 import org.lockss.laaws.crawler.model.CrawlerConfig;
 import org.lockss.laaws.crawler.utils.ExecutorUtils;
@@ -161,7 +162,7 @@ public class CmdLineCrawler implements PluggableCrawler {
   }
 
   @Override
-  public PluggableCrawl requestCrawl(CrawlJob crawlJob, Callback callback) {
+  public PluggableCrawl requestCrawl(CrawlJob crawlJob, CrawlManager.Callback callback) {
     //check to see if we have already queued a job to crawl this au
 
     if (!pcManager.isEligibleForCrawl(crawlJob.getCrawlDesc().getAuId())) {

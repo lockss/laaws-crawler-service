@@ -202,35 +202,4 @@ class TestCmdLineCrawler extends LockssTestCase5 {
       return Arrays.asList(TEST_CMD_LINE);
     }
   }
-
-  public static class TestCrawlerCallback  implements PluggableCrawler.Callback {
-      PluggableCrawl crawl;
-      CrawlStatus status;
-
-      boolean isComplete = false;
-      boolean isSuccess = false;
-      String errMsg;
-
-      public void signalCrawlAttemptCompleted(boolean success, CrawlStatus status) {
-        isSuccess=success;
-        isComplete=true;
-        this.status = status;
-      }
-
-      public void crawlCompleted(PluggableCrawl crawl) {
-        this.crawl = crawl;
-        isComplete=true;
-      }
-
-      public void crawlFailed(PluggableCrawl crawl, String message) {
-        this.crawl = crawl;
-        isSuccess = false;
-        errMsg = message;
-      }
-
-      public void crawlStatusChanged(PluggableCrawl crawl) {
-        this.crawl = crawl;
-      }
-
-  }
 }

@@ -72,7 +72,7 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
   /**
    * The constant DEFAULT_CRAWL_DB_PATH.
    */
-  public static final String DEFAULT_CRAWL_DB_PATH = "/data/db";
+  public static final String DEFAULT_CRAWL_DB_PATH = "data/db";
 
   /**
    * The constant DB_FILENAME.

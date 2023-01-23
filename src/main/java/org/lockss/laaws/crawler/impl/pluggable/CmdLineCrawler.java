@@ -27,6 +27,7 @@ package org.lockss.laaws.crawler.impl.pluggable;
 
 import org.lockss.config.Configuration;
 import org.lockss.crawler.CrawlManager;
+import org.lockss.laaws.crawler.impl.CrawlsApiServiceImpl;
 import org.lockss.laaws.crawler.impl.PluggableCrawlManager;
 import org.lockss.laaws.crawler.model.CrawlerConfig;
 import org.lockss.laaws.crawler.utils.ExecutorUtils;
@@ -243,6 +244,11 @@ public class CmdLineCrawler implements PluggableCrawler {
       shutdown();
     }
     crawlQueue.clear();
+  }
+
+  @Override
+  public void setPluggableCrawlManager(PluggableCrawlManager pluggableCrawlManager) {
+    pcManager = pluggableCrawlManager;
   }
 
   public void storeInRepository (String auId, File warcFile, boolean isCompressed) throws IOException {

@@ -4,7 +4,7 @@ import org.lockss.crawler.CrawlManager;
 import org.lockss.crawler.CrawlerStatus;
 import org.lockss.daemon.Crawler;
 import org.lockss.daemon.LockssRunnable;
-import org.lockss.laaws.crawler.impl.CrawlsApiServiceImpl;
+import org.lockss.laaws.crawler.impl.ApiUtils;
 import org.lockss.laaws.crawler.model.CrawlStatus;
 import org.lockss.log.L4JLogger;
 import org.lockss.util.io.FileUtil;
@@ -133,7 +133,7 @@ public class CmdLineCrawl extends PluggableCrawl {
           }
           CrawlManager.Callback callback = getCallback();
           if (callback != null) {
-            CrawlStatus cs = CrawlsApiServiceImpl.makeCrawlStatus(crawlerStatus);
+            CrawlStatus cs = ApiUtils.makeCrawlStatus(crawlerStatus);
             callback.signalCrawlAttemptCompleted(!crawlerStatus.isCrawlError(), null, crawlerStatus);
           }
         }

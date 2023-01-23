@@ -57,3 +57,15 @@ sed -i.backup "s/import org.lockss.laaws.crawler.model.JobStatus/import org.lock
 JOB_PAGER=src/generated/java/org/lockss/laaws/crawler/model/JobPager.java
 sed -i.backup "s/import org.lockss.laaws.crawler.model.CrawlJob/import org.lockss.util.rest.crawler.CrawlJob/" $JOB_PAGER && rm $JOB_PAGER.backup
 sed -i.backup "s/import org.lockss.laaws.crawler.model.JobStatus/import org.lockss.util.rest.crawler.JobStatus/" $JOB_PAGER && rm $JOB_PAGER.backup
+
+# Edit JobsApiDelegate.java.
+JOBS_API_DELEGATE=src/generated/java/org/lockss/laaws/crawler/api/JobsApiDelegate.java
+sed -i.backup "s/import org.lockss.laaws.crawler.model.CrawlDesc/import org.lockss.util.rest.crawler.CrawlDesc/" $JOBS_API_DELEGATE && rm $JOBS_API_DELEGATE.backup
+sed -i.backup "s/import org.lockss.laaws.crawler.model.CrawlJob/import org.lockss.util.rest.crawler.CrawlJob/" $JOBS_API_DELEGATE && rm $JOBS_API_DELEGATE.backup
+sed -i.backup "s/import org.lockss.laaws.crawler.model.JobStatus/import org.lockss.util.rest.crawler.JobStatus/" $JOBS_API_DELEGATE && rm $JOBS_API_DELEGATE.backup
+
+# Edit JobsApi.java.
+JOBS_API=src/generated/java/org/lockss/laaws/crawler/api/JobsApi.java
+sed -i.backup "s/import org.lockss.laaws.crawler.model.CrawlDesc/import org.lockss.util.rest.crawler.CrawlDesc/" $JOBS_API && rm $JOBS_API.backup
+sed -i.backup "s/import org.lockss.laaws.crawler.model.CrawlJob/import org.lockss.util.rest.crawler.CrawlJob/" $JOBS_API && rm $JOBS_API.backup
+sed -i.backup "s/import org.lockss.laaws.crawler.model.JobStatus/import org.lockss.util.rest.crawler.JobStatus/" $JOBS_API && rm $JOBS_API.backup

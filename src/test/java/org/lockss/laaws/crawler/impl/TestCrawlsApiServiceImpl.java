@@ -31,18 +31,19 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.util.*;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.lockss.app.LockssApp;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
+import org.lockss.crawler.CrawlManager;
+import org.lockss.crawler.CrawlManagerImpl;
 import org.lockss.crawler.FuncNewContentCrawler.MySimulatedArchivalUnit;
 import org.lockss.crawler.FuncNewContentCrawler.MySimulatedPlugin;
-import org.lockss.laaws.crawler.model.CrawlStatus;
-import org.lockss.laaws.crawler.model.JobPager;
-import org.lockss.laaws.crawler.model.PageInfo;
-import org.lockss.laaws.crawler.model.UrlPager;
+import org.lockss.laaws.crawler.model.*;
 import org.lockss.log.L4JLogger;
 import org.lockss.plugin.PluginTestUtil;
 import org.lockss.plugin.simulated.SimulatedContentGenerator;
@@ -59,14 +60,18 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.context.ApplicationContext;
 import org.springframework.http.*;
+import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.annotation.DirtiesContext.ClassMode;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
 
 /** Test class for org.lockss.laaws.crawler.impl.CrawlsApiServiceImpl. */
+
 @RunWith(SpringRunner.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@DirtiesContext(classMode = ClassMode.AFTER_EACH_TEST_METHOD)
 public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
   private static final L4JLogger log = L4JLogger.getLogger();
 
@@ -89,7 +94,8 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
 
   // The application Context used to specify the command line arguments to be
   // used for the tests.
-  @Autowired ApplicationContext appCtx;
+  @Autowired private ApplicationContext appCtx;
+  private CrawlManagerImpl cmi;
 
   private MySimulatedArchivalUnit sau;
 
@@ -123,6 +129,14 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     log.debug2("Done");
   }
 
+  @After
+  public void cleanupAfterEachTest() {
+    if(cmi != null) {
+      cmi.deleteAllCrawls();
+      cmi.stopService();
+    }
+  }
+
   // Can't be part of setUpBeforeEachTest as daemon hasn't been started yet
   private void startAllAusIfNecessary() {
     startAuIfNecessary(sau.getAuId());
@@ -141,22 +155,23 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     List<String> cmdLineArgs = getCommandLineArguments();
     cmdLineArgs.add("-p");
     cmdLineArgs.add("test/config/testAuthOff.txt");
-
     CommandLineRunner runner = appCtx.getBean(CommandLineRunner.class);
     runner.run(cmdLineArgs.toArray(new String[0]));
-
     startAllAusIfNecessary();
+
+    Configuration config = ConfigManager.getCurrentConfig();
+    assertTrue(config.getBoolean(CrawlManagerImpl.PARAM_CRAWLER_ENABLED));
+    cmi = (CrawlManagerImpl) LockssApp.getManagerByTypeStatic(CrawlManager.class);
+    assertTrue(cmi.isCrawlerEnabled());
 
     runGetSwaggerDocsTest(getTestUrlTemplate("/v2/api-docs"));
     runMethodsNotAllowedUnAuthenticatedTest();
     getCrawlsUnAuthenticatedTest();
     doCrawlUnAuthenticatedTest();
     getCrawlByIdUnAuthenticatedTest();
-    jobPaginationUnAuthenticatedTest();
+    crawlPaginationUnAuthenticatedTest();
     urlPaginationUnAuthenticatedTest();
     deleteCrawlByIdUnAuthenticatedTest();
-    deleteCrawlsUnAuthenticatedTest();
-
     log.debug2("Done");
   }
 
@@ -173,48 +188,53 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     List<String> cmdLineArgs = getCommandLineArguments();
     cmdLineArgs.add("-p");
     cmdLineArgs.add("test/config/testAuthOn.txt");
-
     CommandLineRunner runner = appCtx.getBean(CommandLineRunner.class);
     runner.run(cmdLineArgs.toArray(new String[0]));
-
     startAllAusIfNecessary();
+    Configuration config = ConfigManager.getCurrentConfig();
+    assertTrue(config.getBoolean(CrawlManagerImpl.PARAM_CRAWLER_ENABLED));
+   cmi = (CrawlManagerImpl) LockssApp.getManagerByTypeStatic(CrawlManager.class);
+
+    assertTrue(cmi.isCrawlerEnabled());
 
     runGetSwaggerDocsTest(getTestUrlTemplate("/v2/api-docs"));
     runMethodsNotAllowedAuthenticatedTest();
     getCrawlsAuthenticatedTest();
     doCrawlAuthenticatedTest();
     getCrawlByIdAuthenticatedTest();
-    jobPaginationAuthenticatedTest();
+    crawlPaginationAuthenticatedTest();
     urlPaginationAuthenticatedTest();
     deleteCrawlByIdAuthenticatedTest();
-    deleteCrawlsAuthenticatedTest();
-
     log.debug2("Done");
   }
 
-//  /**
-//   * Runs the tests with crawling disabled.
-//   *
-//   * @throws Exception if there are problems.
-//   */
-//  @Test
-//  public void runDisabledTests() throws Exception {
-//    log.debug2("Invoked");
-//
-//    // Specify the command line parameters to be used for the tests.
-//    List<String> cmdLineArgs = getCommandLineArguments();
-//    cmdLineArgs.add("-p");
-//    cmdLineArgs.add("test/config/testDisabled.txt");
-//
-//    CommandLineRunner runner = appCtx.getBean(CommandLineRunner.class);
-//    runner.run(cmdLineArgs.toArray(new String[cmdLineArgs.size()]));
-//
-//    runGetSwaggerDocsTest(getTestUrlTemplate("/v2/api-docs"));
-//    runMethodsNotAllowedUnAuthenticatedTest();
-//    getCrawlsDisabledTest();
-//
-//    log.debug2("Done");
-//  }
+  /**
+   * Runs the tests with crawling disabled.
+   *
+   * @throws Exception if there are problems.
+   */
+  @Test
+  public void runDisabledTests() throws Exception {
+    log.debug2("Invoked");
+
+    // Specify the command line parameters to be used for the tests.
+    List<String> cmdLineArgs = getCommandLineArguments();
+    cmdLineArgs.add("-p");
+    cmdLineArgs.add("test/config/testDisabled.txt");
+
+    CommandLineRunner runner = appCtx.getBean(CommandLineRunner.class);
+    runner.run(cmdLineArgs.toArray(new String[cmdLineArgs.size()]));
+    Configuration config = ConfigManager.getCurrentConfig();
+    assertFalse(config.getBoolean(CrawlManagerImpl.PARAM_CRAWLER_ENABLED));
+    cmi = ApiUtils.getLockssCrawlManager();
+    assertFalse(cmi.isCrawlerEnabled());
+
+    runGetSwaggerDocsTest(getTestUrlTemplate("/v2/api-docs"));
+    runMethodsNotAllowedUnAuthenticatedTest();
+    getCrawlsDisabledTest();
+
+    log.debug2("Done");
+  }
 
   /**
    * Provides the configuration of a simulated Archival Unit.
@@ -402,11 +422,8 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
   private void getCrawlsUnAuthenticatedTest() throws Exception {
     log.debug2("Invoked");
 
-    JobPager jobPager = runTestGetCrawls(null, null, null, HttpStatus.OK);
-    validateGetCrawlsResult(jobPager, null, 1);
-
-    jobPager = runTestGetCrawls(ANYBODY, null, null, HttpStatus.OK);
-    validateGetCrawlsResult(jobPager, null, 1);
+    runTestGetCrawls(null, null, null, HttpStatus.OK);
+    runTestGetCrawls(ANYBODY, null, null, HttpStatus.OK);
 
     getCrawlsCommonTest();
 
@@ -437,11 +454,11 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
   private void getCrawlsCommonTest() throws Exception {
     log.debug2("Invoked");
 
-    JobPager jobPager = runTestGetCrawls(USER_ADMIN, null, null, HttpStatus.OK);
-    validateGetCrawlsResult(jobPager, null, 1);
+    CrawlPager crawlPager = runTestGetCrawls(USER_ADMIN, null, null, HttpStatus.OK);
+    validateGetCrawlsResult(crawlPager, null, 1);
 
-    jobPager = runTestGetCrawls(CONTENT_ADMIN, null, null, HttpStatus.OK);
-    validateGetCrawlsResult(jobPager, null, 1);
+    crawlPager = runTestGetCrawls(CONTENT_ADMIN, null, null, HttpStatus.OK);
+    validateGetCrawlsResult(crawlPager, null, 1);
 
     log.debug2("Done");
   }
@@ -454,11 +471,11 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
   private void getCrawlsDisabledTest() throws Exception {
     log.debug2("Invoked");
 
-    JobPager jobPager = runTestGetCrawls(null, null, null, HttpStatus.OK);
-    validateGetCrawlsResult(jobPager, null, 0);
+    CrawlPager crawlPager = runTestGetCrawls(null, null, null, HttpStatus.OK);
+    validateGetCrawlsResult(crawlPager, null, 0);
 
-    jobPager = runTestGetCrawls(ANYBODY, null, null, HttpStatus.OK);
-    validateGetCrawlsResult(jobPager, null, 0);
+    crawlPager = runTestGetCrawls(ANYBODY, null, null, HttpStatus.OK);
+    validateGetCrawlsResult(crawlPager, null, 0);
 
     log.debug2("Done");
   }
@@ -471,10 +488,10 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
    * @param continuationToken A String with the continuation token of the next page of crawls to be
    *     returned.
    * @param expectedHttpStatus An HttpStatus with the expected HTTP status of the result.
-   * @return a JobPager with the crawls.
+   * @return a CrawlPager with the crawls.
    * @throws Exception if there are problems.
    */
-  private JobPager runTestGetCrawls(
+  private CrawlPager runTestGetCrawls(
       Credentials credentials,
       Integer limit,
       String continuationToken,
@@ -545,10 +562,10 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     HttpStatus statusCode = response.getStatusCode();
     assertEquals(expectedHttpStatus, statusCode);
 
-    JobPager result = null;
+    CrawlPager result = null;
 
     if (RestUtil.isSuccess(statusCode)) {
-      result = new ObjectMapper().readValue(response.getBody(), JobPager.class);
+      result = new ObjectMapper().readValue(response.getBody(), CrawlPager.class);
     }
 
     log.debug2("result = {}", result);
@@ -558,21 +575,21 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
   /**
    * Validates a list of crawls.
    *
-   * @param jobPager A JobPager with the list of crawls to be validated.
+   * @param crawlPager A CrawlPager with the list of crawls to be validated.
    * @param limit An Integer with the limit used for the query, or null if no limit was specified,
    * @param expectedCount An int with the expected count of crawls in the list, or a negative number
    *     to avoid validating the count of crawls.
    * @return an int with the count of crawls in the list.
    */
-  private int validateGetCrawlsResult(JobPager jobPager, Integer limit, int expectedCount) {
-    log.debug2("jobPager = {}", jobPager);
+  private int validateGetCrawlsResult(CrawlPager crawlPager, Integer limit, int expectedCount) {
+    log.debug2("crawlPager = {}", crawlPager);
     log.debug2("limit = {}", limit);
     log.debug2("expectedCount = {}", expectedCount);
 
     int actualLimit = limit == null ? 50 : limit;
 
     // Validate the pagination information.
-    PageInfo pageInfo = jobPager.getPageInfo();
+    PageInfo pageInfo = crawlPager.getPageInfo();
     assertEquals(actualLimit, pageInfo.getResultsPerPage().intValue());
 
     if (expectedCount >= 0) {
@@ -585,28 +602,28 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     }
 
     // Get the list of crawls.
-    List<CrawlJob> jobs = jobPager.getJobs();
-    int jobCount = jobs.size();
+    List<CrawlStatus> crawls = crawlPager.getCrawls();
+    int crawlCount = crawls.size();
 
     if (expectedCount >= 0) {
       if (limit == null) {
-        assertEquals(expectedCount, jobCount);
+        assertEquals(expectedCount, crawlCount);
       } else {
-        assertTrue(expectedCount >= jobCount);
+        assertTrue(expectedCount >= crawlCount);
       }
     }
 
     // Loop through all the crawls.
-    for (int index = 0; index < jobCount; index++) {
+    for (int index = 0; index < crawlCount; index++) {
       // Validate this crawl.
-      CrawlJob crawlJob = jobs.get(index);
-      assertEquals(sau.getAuId(), crawlJob.getCrawlDesc().getAuId());
-      JobStatus status = crawlJob.getJobStatus();
+      CrawlStatus crawlStatus = crawls.get(index);
+      assertEquals(sau.getAuId(), crawlStatus.getAuId());
+      JobStatus status = crawlStatus.getJobStatus();
       StatusCodeEnum code = status.getStatusCode();
 
       // Only the last crawl may be in an Active status, as they are all for the
       // same Archival Unit..
-      if (index < jobCount - 1) {
+      if (index < crawlCount - 1) {
         assertTrue(code == StatusCodeEnum.SUCCESSFUL || code == StatusCodeEnum.ABORTED);
         if (code == StatusCodeEnum.SUCCESSFUL) {
           assertTrue(
@@ -634,7 +651,7 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
       }
     }
 
-    return jobCount;
+    return crawlCount;
   }
 
   /**
@@ -657,14 +674,14 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     CrawlJob crawlJob = runTestDoCrawl(crawlDesc, null, HttpStatus.ACCEPTED);
     assertEquals(sau.getAuId(), crawlJob.getCrawlDesc().getAuId());
 
-    JobPager jobPager = runTestGetCrawls(null, null, null, HttpStatus.OK);
-    validateGetCrawlsResult(jobPager, null, 2);
+    CrawlPager crawlPager = runTestGetCrawls(null, null, null, HttpStatus.OK);
+    validateGetCrawlsResult(crawlPager, null, 2);
 
     crawlJob = runTestDoCrawl(crawlDesc, ANYBODY, HttpStatus.ACCEPTED);
     assertEquals(sau.getAuId(), crawlJob.getCrawlDesc().getAuId());
 
-    jobPager = runTestGetCrawls(ANYBODY, null, null, HttpStatus.OK);
-    validateGetCrawlsResult(jobPager, null, 3);
+    crawlPager = runTestGetCrawls(ANYBODY, null, null, HttpStatus.OK);
+    validateGetCrawlsResult(crawlPager, null, 3);
 
     doCrawlCommonTest("lockss");
   //  doCrawlCommonTest(("wget"));
@@ -708,8 +725,8 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     runTestDoCrawl(new CrawlDesc().auId(sau.getAuId()), USER_ADMIN, HttpStatus.BAD_REQUEST);
     runTestDoCrawl(new CrawlDesc(), CONTENT_ADMIN, HttpStatus.BAD_REQUEST);
 
-    JobPager jobPager = runTestGetCrawls(USER_ADMIN, null, null, HttpStatus.OK);
-    int jobCount = validateGetCrawlsResult(jobPager, null, -1);
+    CrawlPager crawlPager = runTestGetCrawls(USER_ADMIN, null, null, HttpStatus.OK);
+    int jobCount = validateGetCrawlsResult(crawlPager, null, -1);
 
     CrawlDesc crawlDesc = new CrawlDesc()
       .auId(sau.getAuId())
@@ -722,14 +739,14 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     CrawlJob crawlJob = runTestDoCrawl(crawlDesc, CONTENT_ADMIN, HttpStatus.ACCEPTED);
     assertEquals(sau.getAuId(), crawlJob.getCrawlDesc().getAuId());
 
-    jobPager = runTestGetCrawls(CONTENT_ADMIN, null, null, HttpStatus.OK);
-    validateGetCrawlsResult(jobPager, null, ++jobCount);
+    crawlPager = runTestGetCrawls(CONTENT_ADMIN, null, null, HttpStatus.OK);
+    validateGetCrawlsResult(crawlPager, null, ++jobCount);
 
     crawlJob = runTestDoCrawl(crawlDesc, USER_ADMIN, HttpStatus.ACCEPTED);
     assertEquals(sau.getAuId(), crawlJob.getCrawlDesc().getAuId());
 
-    jobPager = runTestGetCrawls(USER_ADMIN, null, null, HttpStatus.OK);
-    validateGetCrawlsResult(jobPager, null, ++jobCount);
+    crawlPager = runTestGetCrawls(USER_ADMIN, null, null, HttpStatus.OK);
+    validateGetCrawlsResult(crawlPager, null, ++jobCount);
 
     log.debug2("Done");
   }
@@ -741,7 +758,7 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
    * @param crawlDesc A CrawlDesc with the description of the crawl to be performed.
    * @param credentials A Credentials with the request credentials.
    * @param expectedHttpStatus An HttpStatus with the expected HTTP status of the result.
-   * @return a JobPager with the crawls.
+   * @return a CrawlJob for the crawl.
    * @throws Exception if there are problems.
    */
   private CrawlJob runTestDoCrawl(
@@ -773,7 +790,7 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
    *
    * @param crawlDesc A CrawlDesc with the description of the crawl to be performed.
    * @param credentials A Credentials with the request credentials.
-   * @return a JobPager with the crawls.
+   * @return a CrawlJob or error msg as string entity.
    * @throws Exception if there are problems.
    */
   private ResponseEntity<String> runTestDoCrawlWithWait(
@@ -782,7 +799,7 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     log.debug("credentials = {}", credentials);
 
     // Get the test URL template.
-    String template = getTestUrlTemplate("/crawls");
+    String template = getTestUrlTemplate("/jobs");
 
     // Create the URI of the request to the REST service.
     UriComponents uriComponents = UriComponentsBuilder.fromUriString(template).build();
@@ -860,8 +877,7 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
       // being crawled.
       if (result != null
           && result.getJobStatus() != null
-          && "Can't enqueue crawl: AU is crawling now."
-              .contentEquals(result.getJobStatus().getMsg())) {
+          && result.getJobStatus().getMsg().contains("AU is crawling now.")) {
         // Yes: Try again.
         try {
           Thread.sleep(500);
@@ -886,8 +902,8 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
   private void getCrawlByIdUnAuthenticatedTest() throws Exception {
     log.debug2("Invoked");
 
-    JobPager jobPager = runTestGetCrawls(null, null, null, HttpStatus.OK);
-    int jobCount = validateGetCrawlsResult(jobPager, null, -1);
+    CrawlPager crawlPager = runTestGetCrawls(null, null, null, HttpStatus.OK);
+    int jobCount = validateGetCrawlsResult(crawlPager, null, -1);
 
     for (int index = 0; index < jobCount; index++) {
       Credentials credentials = null;
@@ -896,7 +912,7 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
         credentials = ANYBODY;
       }
 
-      String jobId = jobPager.getJobs().get(index).getJobId();
+      String jobId = crawlPager.getCrawls().get(index).getJobId();
 
       CrawlStatus crawlStatus = runTestGetCrawlById(jobId, credentials, HttpStatus.OK);
 
@@ -934,17 +950,17 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
   private void getCrawlByIdCommonTest() throws Exception {
     log.debug2("Invoked");
 
-    JobPager jobPager = runTestGetCrawls(USER_ADMIN, null, null, HttpStatus.OK);
-    int jobCount = validateGetCrawlsResult(jobPager, null, -1);
+    CrawlPager crawlPager = runTestGetCrawls(USER_ADMIN, null, null, HttpStatus.OK);
+    int crawlCount = validateGetCrawlsResult(crawlPager, null, -1);
 
-    for (int index = 0; index < jobCount; index++) {
+    for (int index = 0; index < crawlCount; index++) {
       Credentials credentials = USER_ADMIN;
 
       if (index % 2 == 1) {
         credentials = CONTENT_ADMIN;
       }
 
-      String jobId = jobPager.getJobs().get(index).getJobId();
+      String jobId = crawlPager.getCrawls().get(index).getJobId();
 
       CrawlStatus crawlStatus = runTestGetCrawlById(jobId, credentials, HttpStatus.OK);
 
@@ -1064,57 +1080,57 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
    *
    * @throws Exception if there are problems.
    */
-  private void jobPaginationUnAuthenticatedTest() throws Exception {
+  private void crawlPaginationUnAuthenticatedTest() throws Exception {
     log.debug2("Invoked");
 
-    JobPager jobPager = runTestGetCrawls(null, null, null, HttpStatus.OK);
-    int jobCount = validateGetCrawlsResult(jobPager, null, -1);
-    assertEquals(5, jobCount);
+    CrawlPager crawlPager = runTestGetCrawls(null, null, null, HttpStatus.OK);
+    int crawlCount = validateGetCrawlsResult(crawlPager, null, -1);
+    assertEquals(5, crawlCount);
 
-    List<String> jobIds = new ArrayList<>(jobCount);
+    List<String> jobIds = new ArrayList<>(crawlCount);
 
-    for (int index = 0; index < jobCount; index++) {
-      jobIds.add(jobPager.getJobs().get(index).getJobId());
+    for (int index = 0; index < crawlCount; index++) {
+      jobIds.add(crawlPager.getCrawls().get(index).getJobId());
     }
 
     int pageSize = 2;
-    int remainingJobCount = jobCount;
+    int remainingCrawlCount = crawlCount;
 
-    jobPager = runTestGetCrawls(ANYBODY, pageSize, null, HttpStatus.OK);
-    validateGetCrawlsResult(jobPager, pageSize, jobCount);
+    crawlPager = runTestGetCrawls(ANYBODY, pageSize, null, HttpStatus.OK);
+    validateGetCrawlsResult(crawlPager, pageSize, crawlCount);
 
-    assertEquals(jobIds.get(0), jobPager.getJobs().get(0).getJobId());
-    assertEquals(jobIds.get(1), jobPager.getJobs().get(1).getJobId());
+    assertEquals(jobIds.get(0), crawlPager.getCrawls().get(0).getJobId());
+    assertEquals(jobIds.get(1), crawlPager.getCrawls().get(1).getJobId());
 
-    String continuationToken = jobPager.getPageInfo().getContinuationToken();
+    String continuationToken = crawlPager.getPageInfo().getContinuationToken();
     assertNotNull(continuationToken);
 
-    remainingJobCount = remainingJobCount - pageSize;
+    remainingCrawlCount = remainingCrawlCount - pageSize;
 
-    jobPager = runTestGetCrawls(null, pageSize, continuationToken, HttpStatus.OK);
-    validateGetCrawlsResult(jobPager, pageSize, jobCount);
+    crawlPager = runTestGetCrawls(null, pageSize, continuationToken, HttpStatus.OK);
+    validateGetCrawlsResult(crawlPager, pageSize, crawlCount);
 
-    assertEquals(jobIds.get(2), jobPager.getJobs().get(0).getJobId());
-    assertEquals(jobIds.get(3), jobPager.getJobs().get(1).getJobId());
+    assertEquals(jobIds.get(2), crawlPager.getCrawls().get(0).getJobId());
+    assertEquals(jobIds.get(3), crawlPager.getCrawls().get(1).getJobId());
 
-    continuationToken = jobPager.getPageInfo().getContinuationToken();
-    remainingJobCount = remainingJobCount - pageSize;
+    continuationToken = crawlPager.getPageInfo().getContinuationToken();
+    remainingCrawlCount = remainingCrawlCount - pageSize;
 
-    if (remainingJobCount == 0) {
+    if (remainingCrawlCount == 0) {
       assertNull(continuationToken);
     } else {
       assertNotNull(continuationToken);
 
-      jobPager = runTestGetCrawls(ANYBODY, pageSize, continuationToken, HttpStatus.OK);
-      validateGetCrawlsResult(jobPager, pageSize, jobCount);
+      crawlPager = runTestGetCrawls(ANYBODY, pageSize, continuationToken, HttpStatus.OK);
+      validateGetCrawlsResult(crawlPager, pageSize, crawlCount);
 
-      assertEquals(jobIds.get(4), jobPager.getJobs().get(0).getJobId());
+      assertEquals(jobIds.get(4), crawlPager.getCrawls().get(0).getJobId());
 
-      continuationToken = jobPager.getPageInfo().getContinuationToken();
+      continuationToken = crawlPager.getPageInfo().getContinuationToken();
       assertNull(continuationToken);
     }
 
-    jobPaginationCommonTest();
+    crawlPaginationCommonTest();
 
     log.debug2("Done");
   }
@@ -1124,10 +1140,10 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
    *
    * @throws Exception if there are problems.
    */
-  private void jobPaginationAuthenticatedTest() throws Exception {
+  private void crawlPaginationAuthenticatedTest() throws Exception {
     log.debug2("Invoked");
 
-    jobPaginationCommonTest();
+    crawlPaginationCommonTest();
 
     log.debug2("Done");
   }
@@ -1137,57 +1153,57 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
    *
    * @throws Exception if there are problems.
    */
-  private void jobPaginationCommonTest() throws Exception {
+  private void crawlPaginationCommonTest() throws Exception {
     log.debug2("Invoked");
 
-    JobPager jobPager = runTestGetCrawls(USER_ADMIN, null, null, HttpStatus.OK);
-    int jobCount = validateGetCrawlsResult(jobPager, null, -1);
+    CrawlPager crawlPager = runTestGetCrawls(USER_ADMIN, null, null, HttpStatus.OK);
+    int crawlCount = validateGetCrawlsResult(crawlPager, null, -1);
 
-    List<String> jobIds = new ArrayList<>(jobCount);
+    List<String> jobIds = new ArrayList<>(crawlCount);
 
-    for (int index = 0; index < jobCount; index++) {
-      jobIds.add(jobPager.getJobs().get(index).getJobId());
+    for (int index = 0; index < crawlCount; index++) {
+      jobIds.add(crawlPager.getCrawls().get(index).getJobId());
     }
 
     int pageSize = 2;
-    int remainingJobCount = jobCount;
+    int remainingCrawlCount = crawlCount;
 
-    jobPager = runTestGetCrawls(CONTENT_ADMIN, pageSize, null, HttpStatus.OK);
-    validateGetCrawlsResult(jobPager, pageSize, jobCount);
+    crawlPager = runTestGetCrawls(CONTENT_ADMIN, pageSize, null, HttpStatus.OK);
+    validateGetCrawlsResult(crawlPager, pageSize, crawlCount);
 
-    assertEquals(jobIds.get(0), jobPager.getJobs().get(0).getJobId());
-    assertEquals(jobIds.get(1), jobPager.getJobs().get(1).getJobId());
+    assertEquals(jobIds.get(0), crawlPager.getCrawls().get(0).getJobId());
+    assertEquals(jobIds.get(1), crawlPager.getCrawls().get(1).getJobId());
 
-    String continuationToken = jobPager.getPageInfo().getContinuationToken();
+    String continuationToken = crawlPager.getPageInfo().getContinuationToken();
     assertNotNull(continuationToken);
 
-    remainingJobCount = remainingJobCount - pageSize;
+    remainingCrawlCount = remainingCrawlCount - pageSize;
 
-    jobPager = runTestGetCrawls(USER_ADMIN, pageSize, continuationToken, HttpStatus.OK);
-    validateGetCrawlsResult(jobPager, pageSize, jobCount);
+    crawlPager = runTestGetCrawls(USER_ADMIN, pageSize, continuationToken, HttpStatus.OK);
+    validateGetCrawlsResult(crawlPager, pageSize, crawlCount);
 
-    assertEquals(jobIds.get(2), jobPager.getJobs().get(0).getJobId());
+    assertEquals(jobIds.get(2), crawlPager.getCrawls().get(0).getJobId());
 
-    if (remainingJobCount == 1) {
-      continuationToken = jobPager.getPageInfo().getContinuationToken();
+    if (remainingCrawlCount == 1) {
+      continuationToken = crawlPager.getPageInfo().getContinuationToken();
       assertNull(continuationToken);
     } else {
-      assertEquals(jobIds.get(3), jobPager.getJobs().get(1).getJobId());
+      assertEquals(jobIds.get(3), crawlPager.getCrawls().get(1).getJobId());
 
-      continuationToken = jobPager.getPageInfo().getContinuationToken();
-      remainingJobCount = remainingJobCount - pageSize;
+      continuationToken = crawlPager.getPageInfo().getContinuationToken();
+      remainingCrawlCount = remainingCrawlCount - pageSize;
 
-      if (remainingJobCount == 0) {
+      if (remainingCrawlCount == 0) {
         assertNull(continuationToken);
       } else {
         assertNotNull(continuationToken);
 
-        jobPager = runTestGetCrawls(CONTENT_ADMIN, pageSize, continuationToken, HttpStatus.OK);
-        validateGetCrawlsResult(jobPager, pageSize, jobCount);
+        crawlPager = runTestGetCrawls(CONTENT_ADMIN, pageSize, continuationToken, HttpStatus.OK);
+        validateGetCrawlsResult(crawlPager, pageSize, crawlCount);
 
-        assertEquals(jobIds.get(4), jobPager.getJobs().get(0).getJobId());
+        assertEquals(jobIds.get(4), crawlPager.getCrawls().get(0).getJobId());
 
-        continuationToken = jobPager.getPageInfo().getContinuationToken();
+        continuationToken = crawlPager.getPageInfo().getContinuationToken();
         assertNull(continuationToken);
       }
     }
@@ -1203,8 +1219,8 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
   private void urlPaginationUnAuthenticatedTest() throws Exception {
     log.debug2("Invoked");
 
-    JobPager jobPager = runTestGetCrawls(null, null, null, HttpStatus.OK);
-    String jobId = jobPager.getJobs().get(0).getJobId();
+    CrawlPager crawlPager = runTestGetCrawls(null, null, null, HttpStatus.OK);
+    String jobId = crawlPager.getCrawls().get(0).getJobId();
 
     UrlPager urlPager = runTestGetCrawlUrlKind(jobId, "parsed", null, null, null, HttpStatus.OK);
 
@@ -1237,7 +1253,7 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     assertEquals(urls.get(2), urlPager.getUrls().get(0).getUrl());
     assertEquals(urls.get(3), urlPager.getUrls().get(1).getUrl());
 
-    continuationToken = jobPager.getPageInfo().getContinuationToken();
+    continuationToken = crawlPager.getPageInfo().getContinuationToken();
     assertNull(continuationToken);
 
     remainingUrlCount = remainingUrlCount - pageSize;
@@ -1269,8 +1285,8 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
   private void urlPaginationCommonTest() throws Exception {
     log.debug2("Invoked");
 
-    JobPager jobPager = runTestGetCrawls(USER_ADMIN, null, null, HttpStatus.OK);
-    String jobId = jobPager.getJobs().get(0).getJobId();
+    CrawlPager crawlPager = runTestGetCrawls(USER_ADMIN, null, null, HttpStatus.OK);
+    String jobId = crawlPager.getCrawls().get(0).getJobId();
 
     UrlPager urlPager =
         runTestGetCrawlUrlKind(jobId, "parsed", USER_ADMIN, null, null, HttpStatus.OK);
@@ -1305,7 +1321,7 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     assertEquals(urls.get(2), urlPager.getUrls().get(0).getUrl());
     assertEquals(urls.get(3), urlPager.getUrls().get(1).getUrl());
 
-    continuationToken = jobPager.getPageInfo().getContinuationToken();
+    continuationToken = crawlPager.getPageInfo().getContinuationToken();
     assertNull(continuationToken);
 
     remainingUrlCount = remainingUrlCount - pageSize;
@@ -1573,56 +1589,6 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     return result;
   }
 
-  /**
-   * Runs the deleteCrawls()-related un-authenticated-specific tests.
-   *
-   * @throws Exception if there are problems.
-   */
-  private void deleteCrawlsUnAuthenticatedTest() throws Exception {
-    log.debug2("Invoked");
-
-    runTestDeleteCrawls(null, HttpStatus.OK);
-
-    deleteCrawlsCommonTest();
-
-    log.debug2("Done");
-  }
-
-  /**
-   * Runs the deleteCrawls()-related authenticated-specific tests.
-   *
-   * @throws Exception if there are problems.
-   */
-  private void deleteCrawlsAuthenticatedTest() throws Exception {
-    log.debug2("Invoked");
-
-    runTestDeleteCrawls(null, HttpStatus.UNAUTHORIZED);
-    runTestDeleteCrawls(ANYBODY, HttpStatus.UNAUTHORIZED);
-
-    deleteCrawlsCommonTest();
-
-    log.debug2("Done");
-  }
-
-  /**
-   * Runs the deleteCrawls()-related authentication-independent tests.
-   *
-   * @throws Exception if there are problems.
-   */
-  private void deleteCrawlsCommonTest() throws Exception {
-    log.debug2("Invoked");
-
-    runTestDeleteCrawls(USER_ADMIN, HttpStatus.OK);
-
-    CrawlDesc crawlDesc = new CrawlDesc().auId(sau.getAuId()).crawlKind(CrawlDesc.CrawlKindEnum.NEWCONTENT);
-    crawlDesc.forceCrawl(true);
-
-    runTestDoCrawl(crawlDesc, USER_ADMIN, HttpStatus.ACCEPTED);
-
-    runTestDeleteCrawls(CONTENT_ADMIN, HttpStatus.OK);
-
-    log.debug2("Done");
-  }
 
   /**
    * Performs a DELETE operation on all crawls.
@@ -1631,13 +1597,13 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
    * @param expectedHttpStatus An HttpStatus with the expected HTTP status of the result.
    * @throws Exception if there are problems.
    */
-  private void runTestDeleteCrawls(Credentials credentials, HttpStatus expectedHttpStatus)
+  private void deleteAllCrawls(Credentials credentials, HttpStatus expectedHttpStatus)
       throws Exception {
     log.debug2("credentials = {}", credentials);
     log.debug2("expectedHttpStatus = {}", expectedHttpStatus);
 
     // Get the test URL template.
-    String template = getTestUrlTemplate("/crawls");
+    String template = getTestUrlTemplate("/jobs");
 
     // Create the URI of the request to the REST service.
     UriComponents uriComponents = UriComponentsBuilder.fromUriString(template).build();

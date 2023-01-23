@@ -1,6 +1,7 @@
 package org.lockss.laaws.crawler.impl.pluggable;
 
 import org.lockss.crawler.CrawlManager;
+import org.lockss.laaws.crawler.impl.PluggableCrawlManager;
 import org.lockss.laaws.crawler.model.CrawlStatus;
 import org.lockss.laaws.crawler.model.CrawlerConfig;
 import org.lockss.util.rest.crawler.CrawlJob;
@@ -72,5 +73,11 @@ public interface PluggableCrawler {
     * @param abortCrawling abort the currently running crawls.
    */
   void disable(boolean abortCrawling);
+
+  /**
+   * Set the  Crawl Manager which created and maintains this crawler.
+   * @param pluggableCrawlManager
+   */
+  void setPluggableCrawlManager(PluggableCrawlManager pluggableCrawlManager);
 
 }

@@ -27,7 +27,7 @@ package org.lockss.laaws.crawler.impl.pluggable;
 
 import org.lockss.crawler.CrawlManager;
 import org.lockss.crawler.CrawlerStatus;
-import org.lockss.laaws.crawler.impl.CrawlsApiServiceImpl;
+import org.lockss.laaws.crawler.impl.ApiUtils;
 import org.lockss.laaws.crawler.model.CrawlStatus;
 import org.lockss.laaws.crawler.model.CrawlerConfig;
 import org.lockss.plugin.ArchivalUnit;
@@ -83,15 +83,6 @@ public abstract class PluggableCrawl {
     crawlerStatus = new PluggableCrawlerStatus(this);
   }
 
-  /**
-   * Crawl status from crawler status crawl status.
-   *
-   * @param cs the cs
-   * @return the crawl status
-   */
-  public static CrawlStatus crawlStatusFromCrawlerStatus(CrawlerStatus cs) {
-    return CrawlsApiServiceImpl.makeCrawlStatus(cs);
-  }
 
   /**
    * Provides the crawler status.
@@ -117,7 +108,7 @@ public abstract class PluggableCrawl {
    * @return the crawl status
    */
   public CrawlStatus getCrawlStatus() {
-    return CrawlsApiServiceImpl.makeCrawlStatus(crawlerStatus);
+    return ApiUtils.makeCrawlStatus(crawlerStatus);
   }
 
   /**
@@ -203,7 +194,7 @@ public abstract class PluggableCrawl {
    * @return the au name
    */
   public String getAuName(String crawlerId) {
-    return getCrawlerId() + ":" + getAuId();
+    return crawlerId + ":" + getAuId();
   }
 
   /**

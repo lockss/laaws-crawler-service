@@ -119,7 +119,7 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
    * The constant CRAWLER_ENABLED.
    */
   private static final L4JLogger log = L4JLogger.getLogger();
-  private static final String CRAWLER = "crawlerClass";
+  private static final String CRAWLER = "crawler";
   private final Map<String, PluggableCrawler> pluggableCrawlers = new HashMap<>();
   /**
    * The Pluggable crawls.
@@ -353,6 +353,7 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
       final Class<?> crawlerClass = Class.forName(crawlerClassName);
       crawler = (PluggableCrawler) ClassUtil.instantiate(crawlerClassName, crawlerClass);
       crawler.updateCrawlerConfig(config);
+      crawler.setPluggableCrawlManager(this);
       pluggableCrawlers.put(crawlerId, crawler);
       return crawler;
     } catch (Exception ex) {

@@ -32,6 +32,7 @@
 
 package org.lockss.laaws.crawler.impl;
 
+import java.util.Map;
 import org.lockss.app.LockssDaemon;
 import org.lockss.app.ServiceBinding;
 import org.lockss.app.ServiceDescr;
@@ -154,6 +155,7 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
    * perform the crawl.
    * @see JobsApi#queueJob
    */
+  @Override
   public ResponseEntity<CrawlJob> queueJob(CrawlDesc crawlDesc) {
     log.debug2("crawlDesc = {}", crawlDesc);
     HttpStatus httpStatus;
@@ -449,8 +451,8 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
       logCrawlError(NO_REPAIR_URLS, crawlJob);
       return HttpStatus.BAD_REQUEST;
     }
-
-    CrawlerStatus status = cmi.startRepair(au, urls, new CrawlManagerCallback(), null);
+    Map extraData = crawlJob.getCrawlDesc().getExtraCrawlerData();
+    CrawlerStatus status = cmi.startRepair(au, urls, new CrawlManagerCallback(), extraData);
     updateCrawlJob(crawlJob,status);
     getPluggableCrawlManager().addCrawlJob(crawlJob);
     return HttpStatus.ACCEPTED;

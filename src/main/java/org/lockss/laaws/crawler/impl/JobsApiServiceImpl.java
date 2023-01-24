@@ -451,7 +451,7 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
       logCrawlError(NO_REPAIR_URLS, crawlJob);
       return HttpStatus.BAD_REQUEST;
     }
-    Map extraData = crawlJob.getCrawlDesc().getExtraCrawlerData();
+    Map<String, Object> extraData = crawlJob.getCrawlDesc().getExtraCrawlerData();
     CrawlerStatus status = cmi.startRepair(au, urls, new CrawlManagerCallback(), extraData);
     updateCrawlJob(crawlJob,status);
     getPluggableCrawlManager().addCrawlJob(crawlJob);

@@ -17,7 +17,7 @@ import javax.ws.rs.NotFoundException;
 
 import static org.lockss.daemon.Crawler.STATUS_QUEUED;
 import static org.lockss.laaws.crawler.CrawlerApplication.PLUGGABLE_CRAWL_MANAGER;
-import static org.lockss.util.rest.crawler.CrawlDesc.LOCKSS_CRAWLER_ID;
+import static org.lockss.util.rest.crawler.CrawlDesc.CLASSIC_CRAWLER_ID;
 
 public class ApiUtils {
   private static final L4JLogger log = L4JLogger.getLogger();
@@ -112,7 +112,7 @@ public class ApiUtils {
       .auId(cs.getAuId())
       .crawlDepth(cs.getDepth())
       .crawlList((List<String>) cs.getStartUrls())
-      .crawlerId(LOCKSS_CRAWLER_ID)
+      .crawlerId(CLASSIC_CRAWLER_ID)
       .refetchDepth(cs.getRefetchDepth())
       .priority(cs.getPriority());
 
@@ -198,6 +198,7 @@ public class ApiUtils {
       .auId(cs.getAuId())
       .auName(cs.getAuName())
       .type(cs.getType())
+      .crawlerId(cs.getCrawlerId())
       .startTime(cs.getStartTime())
       .endTime(cs.getEndTime())
       .jobStatus(ApiUtils.makeJobStatus(cs))

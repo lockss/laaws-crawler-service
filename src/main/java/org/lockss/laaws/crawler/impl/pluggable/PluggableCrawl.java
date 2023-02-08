@@ -25,7 +25,6 @@
  */
 package org.lockss.laaws.crawler.impl.pluggable;
 
-import org.lockss.crawler.CrawlManager;
 import org.lockss.crawler.CrawlerStatus;
 import org.lockss.laaws.crawler.impl.ApiUtils;
 import org.lockss.laaws.crawler.model.CrawlStatus;
@@ -52,18 +51,13 @@ public abstract class PluggableCrawl {
   protected final CrawlDesc crawlDesc;
   /**
    * The configuration of the crawler when this crawl began.  This is
-   * stored so that a crawl will run with the parameters is was enqueued with.
+   * stored so that a crawl will run with the parameters it was enqueued with.
    */
   protected final CrawlerConfig crawlerConfig;
   /**
    * The current status of a crawl as understood by the internal LOCKSS crawler.
    */
   protected CrawlerStatus crawlerStatus;
-  /**
-   * The callback to use when the crawl terminates with or without error.
-   */
-  protected CrawlManager.Callback callback;
-
 
   /**
    * Instantiates a new Pluggable crawl.
@@ -165,14 +159,6 @@ public abstract class PluggableCrawl {
     return crawlDesc.getCrawlKind().toString();
   }
 
-  public CrawlManager.Callback getCallback() {
-    return callback;
-  }
-
-  public void setCallback(CrawlManager.Callback callback) {
-    this.callback = callback;
-  }
-
   /**
    * Enqueue a crawl request.
    *
@@ -234,9 +220,9 @@ public abstract class PluggableCrawl {
       this.crawlerId = desc.getCrawlerId();
       this.auName = crawl.getAuName(auid);
       this.key = crawl.getCrawlKey();
-      setPriority(desc.getPriority());
-      setDepth(desc.getCrawlDepth());
-      setRefetchDepth(desc.getRefetchDepth());
+      setPriority(desc.getPriority()==null? 0 : desc.getPriority());
+      setDepth(desc.getCrawlDepth() == null ? 1 : desc.getCrawlDepth());
+      setRefetchDepth(desc.getRefetchDepth()== null ? -1 : desc.getRefetchDepth());
       initCounters();
     }
 

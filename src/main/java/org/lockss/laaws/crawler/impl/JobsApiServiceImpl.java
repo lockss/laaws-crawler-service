@@ -32,13 +32,11 @@
 
 package org.lockss.laaws.crawler.impl;
 
-import java.util.Map;
 import org.lockss.app.LockssDaemon;
 import org.lockss.app.ServiceBinding;
 import org.lockss.app.ServiceDescr;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
-import org.lockss.crawler.CrawlManager;
 import org.lockss.crawler.CrawlManagerImpl;
 import org.lockss.crawler.CrawlReq;
 import org.lockss.crawler.CrawlerStatus;
@@ -60,14 +58,16 @@ import org.lockss.util.time.TimeBase;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 import static org.lockss.laaws.crawler.impl.ApiUtils.*;
 import static org.lockss.servlet.DebugPanel.DEFAULT_CRAWL_PRIORITY;
 import static org.lockss.servlet.DebugPanel.PARAM_CRAWL_PRIORITY;
-import static org.lockss.util.rest.crawler.CrawlDesc.LOCKSS_CRAWLER_ID;
+import static org.lockss.util.rest.crawler.CrawlDesc.CLASSIC_CRAWLER_ID;
 
 @Service
 public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements JobsApiDelegate {
@@ -157,13 +157,19 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
    */
   @Override
   public ResponseEntity<CrawlJob> queueJob(CrawlDesc crawlDesc) {
-    log.debug2("crawlDesc = {}", crawlDesc);
+    log.debug("crawlDesc = {}", crawlDesc);
     HttpStatus httpStatus;
     CrawlJob crawlJob = new CrawlJob().crawlDesc(crawlDesc);
     String crawlerId = crawlDesc.getCrawlerId();
     CrawlDesc.CrawlKindEnum crawlKind = crawlDesc.getCrawlKind();
-    ArchivalUnit au = getPluginManager().getAuFromId(crawlDesc.getAuId());
 
+    ArchivalUnit au = getPluginManager().getAuFromId(crawlDesc.getAuId());
+    // Get the Archival Unit to be crawled.
+    // Handle a missing Archival Unit.
+    if (au == null) {
+      logCrawlError(NO_SUCH_AU_ERROR_MESSAGE, crawlJob);
+      return new ResponseEntity<>(crawlJob, HttpStatus.NOT_FOUND);
+    }
     try {
       // Check whether the service has not been fully initialized.
       if (!waitConfig()) {
@@ -178,20 +184,14 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
         return new ResponseEntity<>(crawlJob, HttpStatus.BAD_REQUEST);
       }
       // Determine which crawler to use.
-      if (crawlerId.equals(LOCKSS_CRAWLER_ID)) {
-        // Get the Archival Unit to be crawled.
-        // Handle a missing Archival Unit.
-        if (au == null) {
-          logCrawlError(NO_SUCH_AU_ERROR_MESSAGE, crawlJob);
-          return new ResponseEntity<>(crawlJob, HttpStatus.NOT_FOUND);
-        }
+      if (crawlerId.equals(CLASSIC_CRAWLER_ID)) {
         // Determine which kind of crawl is being requested.
         switch (crawlKind) {
           case NEWCONTENT:
-            httpStatus = startLockssCrawl(au, crawlJob);
+            httpStatus = startClassicCrawl(au, crawlJob);
             break;
           case REPAIR:
-            httpStatus = startLockssRepair(au, crawlJob);
+            httpStatus = startClassicRepair(au, crawlJob);
             break;
           default:
             httpStatus = HttpStatus.BAD_REQUEST;
@@ -331,7 +331,7 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
     return pager;
   }
 
-  HttpStatus startLockssCrawl(ArchivalUnit au, CrawlJob crawlJob) {
+  HttpStatus startClassicCrawl(ArchivalUnit au, CrawlJob crawlJob) {
     CrawlDesc crawlDesc = crawlJob.getCrawlDesc();
     Integer depth = crawlDesc.getCrawlDepth();
     Integer requestedPriority = crawlDesc.getPriority();
@@ -373,7 +373,7 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
       logCrawlError(msg, crawlJob);
       return HttpStatus.BAD_REQUEST;
     }
-    String delayReason = null;
+    String delayReason;
 
     try {
       cmi.checkEligibleForNewContentCrawl(au);
@@ -382,7 +382,7 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
       crawlJob.getJobStatus().msg(delayReason);
     }
     // Get the crawl priority, specified or configured.
-    int priority;
+    int priority =0;
 
     if (requestedPriority != null) {
       priority = requestedPriority;
@@ -438,7 +438,7 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
     return HttpStatus.ACCEPTED;
   }
 
-  HttpStatus startLockssRepair(ArchivalUnit au, CrawlJob crawlJob) {
+  HttpStatus startClassicRepair(ArchivalUnit au, CrawlJob crawlJob) {
     CrawlManagerImpl cmi = ApiUtils.getLockssCrawlManager();
     List<String> urls = crawlJob.getCrawlDesc().getCrawlList();
     // Handle a missing Archival Unit.
@@ -452,7 +452,7 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
       return HttpStatus.BAD_REQUEST;
     }
     Map<String, Object> extraData = crawlJob.getCrawlDesc().getExtraCrawlerData();
-    CrawlerStatus status = cmi.startRepair(au, urls, new CrawlManagerCallback(), extraData);
+    CrawlerStatus status = cmi.startRepair(au, urls, extraData);
     updateCrawlJob(crawlJob,status);
     getPluggableCrawlManager().addCrawlJob(crawlJob);
     return HttpStatus.ACCEPTED;
@@ -462,8 +462,14 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
     CrawlDesc crawlDesc = crawlJob.getCrawlDesc();
     log.debug2("crawlDesc = {}", crawlDesc);
     String msg;
+    String auId = crawlDesc.getAuId();
     PluggableCrawlManager pcMgr = getPluggableCrawlManager();
     Collection<String> urls = crawlDesc.getCrawlList();
+    if(!pcMgr.isEligibleForCrawl(auId)) {
+      msg = "AU has active crawl or queued crawl";
+      logCrawlError(msg, crawlJob);
+      return HttpStatus.BAD_REQUEST;
+    }
     if (urls == null || urls.isEmpty()) {
       // try to get the urls from the au.
       ArchivalUnit au = getPluginManager().getAuFromId(crawlDesc.getAuId());
@@ -485,7 +491,7 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
     crawlJob.requestDate(TimeBase.nowMs());
     try {
       // add the requested crawlJob to the CrawlQueue for that crawler.
-      PluggableCrawl crawl = crawler.requestCrawl(crawlJob, new CrawlManagerCallback());
+      PluggableCrawl crawl = crawler.requestCrawl(crawlJob);
       CrawlerStatus crawlerStatus = crawl.getCrawlerStatus();
       updateCrawlJob(crawlJob, crawlerStatus);
       JobStatus jobStatus = crawl.getJobStatus();
@@ -505,6 +511,7 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
       }
       log.debug2("result = {}", crawlJob);
       pcMgr.addCrawlJob(crawlJob);
+//      getLockssCrawlManager().getStatus().addCrawlStatus(crawlerStatus);
       return HttpStatus.ACCEPTED;
     }
     catch (IllegalArgumentException iae) {
@@ -536,22 +543,6 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
     crawlJob.endDate(cs.getEndTime());
   }
 
-
-
-  public static class CrawlManagerCallback implements CrawlManager.Callback {
-
-    @Override
-    public void signalCrawlAttemptCompleted(boolean success, Object cookie, CrawlerStatus status) {
-      CrawlJob crawlJob = ApiUtils.getPluggableCrawlManager().getCrawlJob(status.getKey());
-      if(crawlJob != null) {
-        updateCrawlJob(crawlJob,status);
-        ApiUtils.getPluggableCrawlManager().updateCrawlJob(crawlJob);
-      }
-      else {
-        log.error("Received a callback without a crawl job for Crawler Status {}",status);
-      }
-    }
-  }
 
   private void logCrawlError(String message, CrawlJob crawlJob) {
     // Yes: Report the problem.

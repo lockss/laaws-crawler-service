@@ -47,9 +47,14 @@ import org.lockss.laaws.crawler.model.*;
 import org.lockss.log.L4JLogger;
 import org.lockss.plugin.PluginTestUtil;
 import org.lockss.plugin.simulated.SimulatedContentGenerator;
+import org.lockss.poller.PollTestPlugin;
+import org.lockss.repository.RepositoryManager;
 import org.lockss.spring.test.SpringLockssTestCase4;
+import org.lockss.test.ConfigurationUtil;
+import org.lockss.test.MockPlugin;
 import org.lockss.util.rest.RestUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
+import org.lockss.util.rest.crawler.CrawlDesc.CrawlKindEnum;
 import org.lockss.util.rest.crawler.CrawlJob;
 import org.lockss.util.rest.crawler.JobStatus;
 import org.lockss.util.rest.crawler.JobStatus.StatusCodeEnum;
@@ -68,6 +73,8 @@ import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
 
 /** Test class for org.lockss.laaws.crawler.impl.CrawlsApiServiceImpl. */
+import static org.lockss.laaws.crawler.impl.PluggableCrawlManager.CRAWLER_IDS;
+import static org.lockss.util.rest.crawler.CrawlDesc.CLASSIC_CRAWLER_ID;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -77,6 +84,7 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
 
   private static final String UI_PORT_CONFIGURATION_TEMPLATE = "UiPortConfigTemplate.txt";
   private static final String UI_PORT_CONFIGURATION_FILE = "UiPort.txt";
+  private static final String WGET_CRAWLER_ID = "wget";
 
   private static final String EMPTY_STRING = "";
   private static final String BOGUS_ID = "bogus";
@@ -99,6 +107,8 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
 
   private MySimulatedArchivalUnit sau;
 
+  private PluggableCrawlManager pcm;
+
   /** Set up code to be run before all tests. */
   @BeforeClass
   public static void setUpBeforeAllTests() {}
@@ -114,6 +124,14 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
 
     // Set up the temporary directory where the test data will reside.
     setUpTempDirectory(TestCrawlsApiServiceImpl.class.getCanonicalName());
+    // Set up the Repository
+    //setUpRepositoryConfig(REPO_CONFIGURATION_TEMPLATE, REPO_CONFIGURATION_FILE);
+
+    //File repositoryStateDir = new File(getTempDirPath(), "testRepo");
+    //log.trace("repositoryStateDir = {}", () -> repositoryStateDir.getAbsolutePath());
+
+    //File repositoryDir = new File(getTempDirPath(), "testRepo");
+    //log.trace("repositoryDir = {}", () -> repositoryDir.getAbsolutePath());
 
     // Set up the UI port.
     setUpUiPort(UI_PORT_CONFIGURATION_TEMPLATE, UI_PORT_CONFIGURATION_FILE);
@@ -163,7 +181,8 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     assertTrue(config.getBoolean(CrawlManagerImpl.PARAM_CRAWLER_ENABLED));
     cmi = (CrawlManagerImpl) LockssApp.getManagerByTypeStatic(CrawlManager.class);
     assertTrue(cmi.isCrawlerEnabled());
-
+    pcm = LockssApp.getManagerByTypeStatic(PluggableCrawlManager.class);
+    assertTrue(config.getList(CRAWLER_IDS).contains(WGET_CRAWLER_ID));
     runGetSwaggerDocsTest(getTestUrlTemplate("/v2/api-docs"));
     runMethodsNotAllowedUnAuthenticatedTest();
     getCrawlsUnAuthenticatedTest();
@@ -172,6 +191,8 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     crawlPaginationUnAuthenticatedTest();
     urlPaginationUnAuthenticatedTest();
     deleteCrawlByIdUnAuthenticatedTest();
+    deleteCrawlsUnAuthenticatedTest();
+
     log.debug2("Done");
   }
 
@@ -193,7 +214,7 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     startAllAusIfNecessary();
     Configuration config = ConfigManager.getCurrentConfig();
     assertTrue(config.getBoolean(CrawlManagerImpl.PARAM_CRAWLER_ENABLED));
-   cmi = (CrawlManagerImpl) LockssApp.getManagerByTypeStatic(CrawlManager.class);
+    cmi = (CrawlManagerImpl) LockssApp.getManagerByTypeStatic(CrawlManager.class);
 
     assertTrue(cmi.isCrawlerEnabled());
 
@@ -205,6 +226,8 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     crawlPaginationAuthenticatedTest();
     urlPaginationAuthenticatedTest();
     deleteCrawlByIdAuthenticatedTest();
+    deleteCrawlsAuthenticatedTest();
+
     log.debug2("Done");
   }
 
@@ -279,6 +302,8 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     cmdLineArgs.add(getUiPortConfigFile().getAbsolutePath());
     cmdLineArgs.add("-p");
     cmdLineArgs.add("test/config/lockss.opt");
+//    cmdLineArgs.add("-p");
+//    cmdLineArgs.add(getRepositoryConfigFile().getAbsolutePath());
 
     log.debug2("cmdLineArgs = {}", cmdLineArgs);
     return cmdLineArgs;
@@ -627,12 +652,12 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
         assertTrue(code == StatusCodeEnum.SUCCESSFUL || code == StatusCodeEnum.ABORTED);
         if (code == StatusCodeEnum.SUCCESSFUL) {
           assertTrue(
-              "Successful".equals(status.getMsg())
-                  || "Crawl aborted before start".equals(status.getMsg()));
+            "Successful".equals(status.getMsg())
+              || "Crawl aborted before start".equals(status.getMsg()));
         } else {
           assertTrue(
-              "Aborted".equals(status.getMsg())
-                  || "Crawl aborted before start".equals(status.getMsg()));
+            "Aborted".equals(status.getMsg())
+              || "Crawl aborted before start".equals(status.getMsg()));
         }
       } else {
         assertTrue(
@@ -650,7 +675,6 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
         }
       }
     }
-
     return crawlCount;
   }
 
@@ -683,8 +707,7 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     crawlPager = runTestGetCrawls(ANYBODY, null, null, HttpStatus.OK);
     validateGetCrawlsResult(crawlPager, null, 3);
 
-    doCrawlCommonTest("lockss");
-  //  doCrawlCommonTest(("wget"));
+    doCrawlCommonTest(CLASSIC_CRAWLER_ID);
 
     log.debug2("Done");
   }
@@ -706,8 +729,7 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
 
     runTestDoCrawl(crawlDesc, null, HttpStatus.UNAUTHORIZED);
 
-    doCrawlCommonTest("lockss");
-   // doCrawlCommonTest(("wget"));
+    doCrawlCommonTest(CLASSIC_CRAWLER_ID);
 
     log.debug2("Done");
   }
@@ -751,6 +773,33 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     log.debug2("Done");
   }
 
+  private void doCrawlPluggableTest(String crawlerId) throws Exception {
+    log.debug2("Invoked");
+    CrawlPager crawlPager = runTestGetCrawls(USER_ADMIN, null, null, HttpStatus.OK);;
+    int oldJobCount = validateGetCrawlsResult(crawlPager, null, -1);
+    log.info("Job Count before " + oldJobCount);
+    runTestDoCrawl(null, USER_ADMIN, HttpStatus.BAD_REQUEST);
+    runTestDoCrawl(new CrawlDesc().crawlerId(crawlerId), CONTENT_ADMIN, HttpStatus.BAD_REQUEST);
+    runTestDoCrawl(new CrawlDesc().auId(sau.getAuId()).crawlerId(crawlerId), USER_ADMIN, HttpStatus.BAD_REQUEST);
+    runTestDoCrawl(new CrawlDesc().crawlerId(crawlerId), CONTENT_ADMIN, HttpStatus.BAD_REQUEST);
+    //
+    crawlPager = runTestGetCrawls(USER_ADMIN, null, null, HttpStatus.OK);;
+    int jobCount = validateGetCrawlsResult(crawlPager, null, -1);
+    assertEquals(oldJobCount, jobCount);
+    log.info("jobCount before success: {}",oldJobCount);
+    CrawlDesc crawlDesc = new CrawlDesc()
+      .auId(sau.getAuId())
+      .crawlDepth(5)
+      .crawlKind(CrawlDesc.CrawlKindEnum.NEWCONTENT)
+      .crawlerId(crawlerId).forceCrawl(true);
+    // first crawl
+    CrawlJob crawlJob = runTestDoCrawl(crawlDesc, CONTENT_ADMIN, HttpStatus.ACCEPTED);
+    assertEquals(sau.getAuId(), crawlJob.getCrawlDesc().getAuId());
+    crawlPager = runTestGetCrawls(CONTENT_ADMIN, null, null, HttpStatus.OK);
+    validateGetCrawlsResult(crawlPager, null, ++jobCount);
+
+    log.debug2("Done");
+  }
 
   /**
    * Performs a POST operation to perform a crawl.
@@ -1589,6 +1638,57 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     return result;
   }
 
+  /**
+   * Runs the deleteCrawls()-related un-authenticated-specific tests.
+   *
+   * @throws Exception if there are problems.
+   */
+  private void deleteCrawlsUnAuthenticatedTest() throws Exception {
+    log.debug2("Invoked");
+
+    runTestDeleteCrawls(null, HttpStatus.OK);
+
+    deleteCrawlsCommonTest();
+
+    log.debug2("Done");
+  }
+
+  /**
+   * Runs the deleteCrawls()-related authenticated-specific tests.
+   *
+   * @throws Exception if there are problems.
+   */
+  private void deleteCrawlsAuthenticatedTest() throws Exception {
+    log.debug2("Invoked");
+
+    runTestDeleteCrawls(null, HttpStatus.UNAUTHORIZED);
+    runTestDeleteCrawls(ANYBODY, HttpStatus.UNAUTHORIZED);
+
+    deleteCrawlsCommonTest();
+
+    log.debug2("Done");
+  }
+
+  /**
+   * Runs the deleteCrawls()-related authentication-independent tests.
+   *
+   * @throws Exception if there are problems.
+   */
+  private void deleteCrawlsCommonTest() throws Exception {
+    log.debug2("Invoked");
+
+    runTestDeleteCrawls(USER_ADMIN, HttpStatus.OK);
+
+    CrawlDesc crawlDesc =
+	new CrawlDesc().auId(sau.getAuId()).crawlKind(CrawlDesc.CrawlKindEnum.NEWCONTENT);
+    crawlDesc.forceCrawl(true);
+
+    runTestDoCrawl(crawlDesc, USER_ADMIN, HttpStatus.ACCEPTED);
+
+    runTestDeleteCrawls(CONTENT_ADMIN, HttpStatus.OK);
+
+    log.debug2("Done");
+  }
 
   /**
    * Performs a DELETE operation on all crawls.
@@ -1597,8 +1697,8 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
    * @param expectedHttpStatus An HttpStatus with the expected HTTP status of the result.
    * @throws Exception if there are problems.
    */
-  private void deleteAllCrawls(Credentials credentials, HttpStatus expectedHttpStatus)
-      throws Exception {
+  private void runTestDeleteCrawls(Credentials credentials,
+      HttpStatus expectedHttpStatus) throws Exception {
     log.debug2("credentials = {}", credentials);
     log.debug2("expectedHttpStatus = {}", expectedHttpStatus);
 

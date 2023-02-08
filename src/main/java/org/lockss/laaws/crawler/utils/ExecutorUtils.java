@@ -1,5 +1,6 @@
 package org.lockss.laaws.crawler.utils;
 
+import java.util.Objects;
 import org.jetbrains.annotations.NotNull;
 import org.lockss.config.CurrentConfig;
 import org.lockss.laaws.crawler.impl.PluggableCrawlManager;
@@ -10,34 +11,64 @@ import java.util.List;
 import java.util.concurrent.*;
 
 public class ExecutorUtils {
-  public static final long DEFAULT_THREAD_TIMEOUT = 30 * Constants.SECOND;
   static final String PREFIX = PluggableCrawlManager.PREFIX;
+
+  public static final String EXEC_PREFIX = PREFIX + "executor.";
+
+  /**
+   * Executor Spec:
+   * <tt><i>queue-max</i>;<i>thread-max</i></tt> or
+   * <tt><i>queue-max</i>;<i>core-threads</i>;<i>max-threads</i></tt>
+
+   */
+  public static final String PARAM_EXECUTOR_SPEC = EXEC_PREFIX + "<name>.spec";
+  public static final String DEFAULT_EXECUTOR_SPEC = "100;2";
+
+  /**
+   * The default executor spec as an object
+   */
+  private static final ExecSpec DEF_EXEC_SPEC = ExecutorUtils.parsePoolSpec(DEFAULT_EXECUTOR_SPEC);
+
   /**
    * Executor thread timeout
    */
   public static final String PARAM_THREAD_TIMEOUT = PREFIX + "thread.timeout";
+  public static final long DEFAULT_THREAD_TIMEOUT = 30 * Constants.SECOND;
+
   private static final L4JLogger log = L4JLogger.getLogger();
 
-  public static ThreadPoolExecutor createOrReConfigureExecutor(ThreadPoolExecutor executor,
-                                                               ExecSpec curSpec,
-                                                               PriorityBlockingQueue<Runnable> priorityQueue) {
-    long threadTimeout =
-      CurrentConfig.getCurrentConfig().getTimeInterval(PARAM_THREAD_TIMEOUT, DEFAULT_THREAD_TIMEOUT);
-    if (executor == null) {
-      return makePriorityExecutor(threadTimeout, curSpec.coreThreads, curSpec.maxThreads, priorityQueue);
+  public static ThreadPoolExecutor createOrReConfigureExecutor(ThreadPoolExecutor executer,
+      String spec,
+      String defaultSpec) {
+    // Set default for each field
+    ExecSpec eSpec = parsePoolSpec(defaultSpec);
+    // Override from param
+    eSpec = parsePoolSpecInto(spec, eSpec);
+    // If illegal, use default
+    if (eSpec.coreThreads > eSpec.maxThreads) {
+      log.warn("coreThreads (" + eSpec.coreThreads +
+          ") must be less than maxThreads (" + eSpec.maxThreads + ")");
+      eSpec = parsePoolSpec(defaultSpec);
     }
-    else {
-      executor.setCorePoolSize(curSpec.coreThreads);
-      executor.setMaximumPoolSize(curSpec.maxThreads);
-      executor.setKeepAliveTime(threadTimeout, TimeUnit.MILLISECONDS);
-      return executor;
+    long threadTimeout =
+        CurrentConfig.getCurrentConfig().getTimeInterval(PARAM_THREAD_TIMEOUT, DEFAULT_THREAD_TIMEOUT);
+    if (executer == null) {
+      return makePriorityExecutor(eSpec.queueSize, threadTimeout,
+          eSpec.coreThreads, eSpec.maxThreads);
+    } else {
+      executer.setCorePoolSize(eSpec.coreThreads);
+      executer.setMaximumPoolSize(eSpec.maxThreads);
+      executer.setKeepAliveTime(threadTimeout, TimeUnit.MILLISECONDS);
+      // Can't change queue capacity, would need to copy to new queue
+      // which requires awkward locking/synchronzation?
+      return executer;
     }
   }
 
-  public static ThreadPoolExecutor makePriorityExecutor(long threadTimeout, int coreThreads,
-                                                        int maxThreads, BlockingQueue<Runnable> priorityQueue) {
+  static public ThreadPoolExecutor makePriorityExecutor(int queueMax, long threadTimeout,
+      int coreThreads, int maxThreads) {
     ThreadPoolExecutor exec = new ThreadPoolExecutor(coreThreads, maxThreads, threadTimeout,
-      TimeUnit.MILLISECONDS, priorityQueue) {
+        TimeUnit.MILLISECONDS, new PriorityBlockingQueue<Runnable>(queueMax)) {
       @Override
       protected <T> RunnableFuture<T> newTaskFor(Runnable runnable, T value) {
         return new ComparableFutureTask<>(runnable, value);
@@ -47,7 +78,6 @@ public class ExecutorUtils {
       protected <T> RunnableFuture<T> newTaskFor(Callable<T> callable) {
         return new ComparableFutureTask<>(callable);
       }
-
     };
     exec.allowCoreThreadTimeOut(true);
     exec.setRejectedExecutionHandler((r, executor) -> {
@@ -57,10 +87,9 @@ public class ExecutorUtils {
         // check afterwards and throw if pool shutdown
         if (executor.isShutdown()) {
           throw new RejectedExecutionException("Crawl request " + r +
-            " rejected from because shutdown");
+              " rejected from because shutdown");
         }
-      }
-      catch (InterruptedException e) {
+      } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
         throw new RejectedExecutionException("Producer interrupted", e);
       }
@@ -68,18 +97,8 @@ public class ExecutorUtils {
     return exec;
   }
 
-  public static ExecSpec getCurrentSpec(String reqSpec, ExecSpec defSpec) {
-    // Set default for each field
-    ExecSpec curSpec = ExecSpec.copyOf(defSpec);
-
-    // Override from param
-    parsePoolSpecInto(reqSpec, curSpec);
-    // If illegal, use default
-    if (curSpec.coreThreads > curSpec.maxThreads) {
-      log.warn("coreThreads ({}) must be less than maxThreads ( {})", curSpec.coreThreads, curSpec.maxThreads);
-      curSpec = defSpec;
-    }
-    return curSpec;
+  public static ExecSpec parsePoolSpec(String spec) {
+    return parsePoolSpecInto(spec, new ExecSpec());
   }
 
   public static ExecSpec parsePoolSpecInto(String spec, ExecSpec eSpec) {
@@ -104,17 +123,53 @@ public class ExecutorUtils {
     public int coreThreads;
     public int maxThreads;
 
-    public static  ExecSpec copyOf(ExecSpec spec) {
-      ExecSpec copySpec = new ExecSpec();
-      copySpec.coreThreads = spec.coreThreads;
-      copySpec.maxThreads = spec.maxThreads;
-      copySpec.queueSize = spec.queueSize;
-      return copySpec;
+    public ExecSpec() {}
+
+    public ExecSpec queueSize(int queueSize) {
+      this.queueSize = queueSize;
+      return this;
+    }
+
+    public ExecSpec coreThreads(int coreThreads) {
+      this.coreThreads = coreThreads;
+      return this;
+    }
+
+    public ExecSpec maxThreads(int maxThreads) {
+      this.maxThreads = maxThreads;
+      return this;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+      ExecSpec execSpec = (ExecSpec) o;
+      return queueSize == execSpec.queueSize && coreThreads == execSpec.coreThreads
+          && maxThreads == execSpec.maxThreads;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(queueSize, coreThreads, maxThreads);
+    }
+
+    @Override
+    public String toString() {
+      return "ExecSpec{" +
+          "queueSize=" + queueSize +
+          ", coreThreads=" + coreThreads +
+          ", maxThreads=" + maxThreads +
+          '}';
     }
   }
 
   public static class ComparableFutureTask<T> extends FutureTask<T>
-    implements Comparable<Object> {
+      implements Comparable<Object> {
 
     private final Comparable<Object> comparableJob;
 
@@ -133,7 +188,7 @@ public class ExecutorUtils {
     @Override
     public int compareTo(@NotNull Object o) {
       return this.comparableJob
-        .compareTo(((ComparableFutureTask<?>) o).comparableJob);
+          .compareTo(((ComparableFutureTask<?>) o).comparableJob);
     }
   }
 

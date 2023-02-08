@@ -26,11 +26,16 @@
 
 package org.lockss.laaws.crawler;
 
+import static org.lockss.app.LockssApp.PARAM_START_PLUGINS;
+import static org.lockss.app.LockssApp.managerKey;
+import static org.lockss.app.ManagerDescs.*;
+
 import org.lockss.app.LockssApp;
 import org.lockss.app.LockssApp.AppSpec;
 import org.lockss.app.LockssApp.ManagerDesc;
 import org.lockss.app.LockssDaemon;
 import org.lockss.app.ServiceDescr;
+import org.lockss.crawler.CrawlManagerImpl;
 import org.lockss.laaws.crawler.impl.PluggableCrawlManager;
 import org.lockss.plugin.PluginManager;
 import org.lockss.spring.base.BaseSpringBootApplication;
@@ -41,10 +46,6 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.solr.SolrAutoConfiguration;
 import springfox.documentation.swagger2.annotations.EnableSwagger2;
-
-import static org.lockss.app.LockssApp.PARAM_START_PLUGINS;
-import static org.lockss.app.LockssApp.managerKey;
-import static org.lockss.app.ManagerDescs.*;
 
 /**
  * The Spring-Boot application.
@@ -99,18 +100,25 @@ public class CrawlerApplication extends BaseSpringBootApplication implements Com
     if (args != null && args.length > 0) {
       // Yes: Start the LOCKSS daemon.
       logger.info("Starting the LOCKSS Crawler Service");
-
-      AppSpec spec = new AppSpec()
-        .setService(ServiceDescr.SVC_CRAWLER)
-        .setArgs(args)
-        .addAppConfig(PARAM_START_PLUGINS, "true")
-        .addAppConfig(PluginManager.PARAM_START_ALL_AUS, "true")
-        .setSpringApplicatonContext(getApplicationContext())
-        .setAppManagers(myManagerDescs);
-      logger.info("Calling LockssApp.startStatic...");
-      LockssApp.startStatic(LockssDaemon.class, spec);
+      try {
+        AppSpec spec = new AppSpec()
+          .setService(ServiceDescr.SVC_CRAWLER)
+          .setName("Crawler Service")
+          .setArgs(args)
+          .setSpringApplicatonContext(getApplicationContext())
+          .setAppManagers(myManagerDescs)
+          .addAppConfig(CrawlManagerImpl.PARAM_ENABLE_JMS_SEND,"true")
+          .addAppConfig(PARAM_START_PLUGINS, "true")
+          .addAppConfig(PluginManager.PARAM_START_ALL_AUS, "true");
+        logger.info("Calling LockssApp.startStatic...");
+        LockssApp.startStatic(LockssDaemon.class, spec);
+      }
+      catch(Exception ex) {
+        logger.error("LockssApp.startStatic failed: ", ex);
+      }
     }
     else {
+      logger.info("No args provided, daemon not started.");
       // No: Do nothing. This happens when a test is started and before the
       // test setup has got a chance to inject the appropriate command line
       // parameters.

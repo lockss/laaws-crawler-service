@@ -82,16 +82,19 @@ org.lockss.crawler.enabled=true
 # if false this will turn off all pluggable crawlers
 org.lockss.crawlerservice.pluggableEnabled=true
 # The path to the pluggable crawlmanager db
-org.lockss.crawlerservice.dbPath=crawlerDb
+org.lockss.crawlerservice.dbPath=./crawlerDb
 
 # The list of supported crawlers
-org.lockss.crawlerservice.crawlers=lockss;wget
+org.lockss.crawlerservice.crawlers=classic;wget
 
 # The lockss/default crawler
-org.lockss.crawlerservice.lockss.enabled=true
+org.lockss.crawlerservice.classic.enabled=true
 
 # The wget crawler
 org.lockss.crawlerservice.wget.enabled=true
+org.lockss.crawlerservice.wget.crawler=org.lockss.laaws.crawler.impl.pluggable.CmdLineCrawler
+org.lockss.crawlerservice.wget.cmdLineBuilder=org.lockss.laaws.crawler.wget.WgetCommandLineBuilder
+
 
 # Disable the SOAP web services.
 org.lockss.ws.enabled=false

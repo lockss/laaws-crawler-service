@@ -25,10 +25,10 @@ class TestCmdLineCrawl extends LockssTestCase5 {
   private static final String DEF_JOB_ID = "1000";
   private static final String[] TEST_CMD_LINE ={"mycmd", "-p",  "prop1"};
 
-  private JobStatus QueuedStatus = new JobStatus().statusCode(JobStatus.StatusCodeEnum.QUEUED).msg("queued");
-  private JobStatus ActiveStatus = new JobStatus().statusCode(JobStatus.StatusCodeEnum.ACTIVE).msg("active");
-  private JobStatus AbortedStatus = new JobStatus().statusCode(JobStatus.StatusCodeEnum.ABORTED).msg("aborted");
-  private JobStatus SuccessStatus = new JobStatus().statusCode(JobStatus.StatusCodeEnum.SUCCESSFUL).msg("successful");
+  private JobStatus QueuedStatus = new JobStatus().statusCode(JobStatus.StatusCodeEnum.QUEUED).msg("Pending");
+  private JobStatus ActiveStatus = new JobStatus().statusCode(JobStatus.StatusCodeEnum.ACTIVE).msg("Active");
+  private JobStatus AbortedStatus = new JobStatus().statusCode(JobStatus.StatusCodeEnum.ABORTED).msg("Aborted");
+  private JobStatus SuccessStatus = new JobStatus().statusCode(JobStatus.StatusCodeEnum.SUCCESSFUL).msg("Successful");
   File tmpDir;
 
   @BeforeEach
@@ -84,7 +84,7 @@ class TestCmdLineCrawl extends LockssTestCase5 {
     CmdLineCrawl crawl = makeMockCrawl(crawler);
     crawl.startCrawl();
     assertEquals(JobStatus.StatusCodeEnum.ACTIVE, crawl.getJobStatus().getStatusCode());
-    assertEquals("Running.", crawl.getJobStatus().getMsg());
+    assertEquals("Active.", crawl.getJobStatus().getMsg());
   }
 
   CmdLineCrawler makeMockCrawler() {

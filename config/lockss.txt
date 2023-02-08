@@ -78,6 +78,7 @@ org.lockss.plugin.restartAusWithNewPlugin=true
 # Enable crawler
 #if false this will turn off all crawling
 org.lockss.crawler.enabled=true
+org.lockss.daemon.crawlMode=NonPlugins
 
 # if false this will turn off all pluggable crawlers
 org.lockss.crawlerservice.pluggableEnabled=true
@@ -85,7 +86,7 @@ org.lockss.crawlerservice.pluggableEnabled=true
 org.lockss.crawlerservice.dbPath=./crawlerDb
 
 # The list of supported crawlers
-org.lockss.crawlerservice.crawlers=classic;wget
+org.lockss.crawlerservice.crawlers=lockss;wget
 
 # The lockss/default crawler
 org.lockss.crawlerservice.classic.enabled=true

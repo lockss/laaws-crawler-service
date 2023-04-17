@@ -54,6 +54,7 @@ import org.lockss.test.ConfigurationUtil;
 import org.lockss.test.MockPlugin;
 import org.lockss.util.rest.RestUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
+import org.lockss.util.rest.crawler.CrawlDesc.CrawlKindEnum;
 import org.lockss.util.rest.crawler.CrawlJob;
 import org.lockss.util.rest.crawler.JobStatus;
 import org.lockss.util.rest.crawler.JobStatus.StatusCodeEnum;
@@ -83,10 +84,6 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
 
   private static final String UI_PORT_CONFIGURATION_TEMPLATE = "UiPortConfigTemplate.txt";
   private static final String UI_PORT_CONFIGURATION_FILE = "UiPort.txt";
-//  private static final String REPO_CONFIGURATION_TEMPLATE =
-//      "RepositoryConfigTemplate.txt";
-//  private static final String REPO_CONFIGURATION_FILE = "RepositoryConfig.txt";
-//  private static final String REPO_COLLECTION = "testrepo";
   private static final String WGET_CRAWLER_ID = "wget";
 
   private static final String EMPTY_STRING = "";
@@ -711,6 +708,8 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     validateGetCrawlsResult(crawlPager, null, 3);
 
     doCrawlCommonTest(CLASSIC_CRAWLER_ID);
+    //doCrawlCommonTest(WGET_CRAWLER_ID);
+
     log.debug2("Done");
   }
 
@@ -732,6 +731,7 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     runTestDoCrawl(crawlDesc, null, HttpStatus.UNAUTHORIZED);
 
     doCrawlCommonTest(CLASSIC_CRAWLER_ID);
+    //doCrawlCommonTest(WGET_CRAWLER_ID);
 
     log.debug2("Done");
   }

@@ -52,6 +52,8 @@ import static org.lockss.laaws.crawler.wget.WgetCommandOptions.*;
  */
 public class WgetCommandLineBuilder implements CmdLineCrawler.CommandLineBuilder {
   private static final L4JLogger log = L4JLogger.getLogger();
+  protected static final String WARC_FILE_NAME = "wget";
+
 
   /**
    * Builds the wget command line.
@@ -69,12 +71,21 @@ public class WgetCommandLineBuilder implements CmdLineCrawler.CommandLineBuilder
     List<String> command = new ArrayList<>();
     command.add("wget");
 
+    if(crawlDesc.getCrawlKind().equals(CrawlDesc.CrawlKindEnum.NEWCONTENT)){
+      command.add("-r");
+    }
+
     Integer crawlDepth = crawlDesc.getCrawlDepth();
     log.trace("crawlDepth = {}", crawlDepth);
 
-    if (crawlDepth != null) {
+    if (crawlDepth != null && crawlDepth > 0) {
       StringCommandOption.process(LEVEL_KEY, crawlDepth.toString(), command);
     }
+
+    // fixed output information
+    File warc = new File(tmpDir, WARC_FILE_NAME);
+    command.add(WARC_FILE_KEY + "=" + warc.getAbsolutePath());
+    command.add(WARC_TEMPDIR_KEY + "=" + tmpDir.getAbsolutePath());
 
     Map<String, Object> extraCrawlerDataMap = crawlDesc.getExtraCrawlerData();
     if (extraCrawlerDataMap != null) {
@@ -140,7 +151,6 @@ public class WgetCommandLineBuilder implements CmdLineCrawler.CommandLineBuilder
                 }
               }
             }
-
             break;
           case INPUT_FILE_KEY:
           case WARC_DEDUP_KEY:
@@ -151,7 +161,7 @@ public class WgetCommandLineBuilder implements CmdLineCrawler.CommandLineBuilder
         }
       }
     }
-
+    // input information
     List<String> crawlList = crawlDesc.getCrawlList();
     log.trace("crawlList = {}", crawlList);
 

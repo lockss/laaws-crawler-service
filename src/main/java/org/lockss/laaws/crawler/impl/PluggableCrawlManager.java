@@ -36,8 +36,7 @@ import org.lockss.app.BaseLockssDaemonManager;
 import org.lockss.app.ConfigurableManager;
 import org.lockss.config.Configuration;
 import org.lockss.config.Configuration.Differences;
-import org.lockss.crawler.CrawlManager;
-import org.lockss.crawler.CrawlManagerImpl;
+import org.lockss.crawler.*;
 import org.lockss.laaws.crawler.impl.pluggable.PluggableCrawler;
 import org.lockss.laaws.crawler.model.CrawlerConfig;
 import org.lockss.log.L4JLogger;
@@ -45,6 +44,8 @@ import org.lockss.util.ClassUtil;
 import org.lockss.util.ListUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.crawler.CrawlJob;
+import org.lockss.util.rest.crawler.JobStatus;
+
 import java.io.File;
 import java.util.HashMap;
 import java.util.List;
@@ -52,7 +53,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.dizitart.no2.objects.filters.ObjectFilters.eq;
-import static org.lockss.util.rest.crawler.CrawlDesc.LOCKSS_CRAWLER_ID;
+import static org.lockss.util.rest.crawler.CrawlDesc.CLASSIC_CRAWLER_ID;
 
 /**
  * The type Pluggable crawl manager.
@@ -87,7 +88,7 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
   /**
    * The default list of known crawlers.
    */
-  public static final List<String> defaultCrawlerIds = ListUtil.list(LOCKSS_CRAWLER_ID);
+  public static final List<String> defaultCrawlerIds = ListUtil.list(CLASSIC_CRAWLER_ID);
 
 
 // ------------------
@@ -132,6 +133,7 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
   private Nitrite crawlServiceDb;
 
   private CrawlManagerImpl lockssCrawlMgr;
+  private CrawlEventHandler crawlEventHandler;
 
 
   public void startService() {
@@ -139,6 +141,20 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
     //find configured data dir);
     File dbDir = getDaemon().getConfigManager().findConfiguredDataDir(PARAM_CRAWL_DB_PATH,
             DEFAULT_CRAWL_DB_PATH);
+    // register for crawlevent callbacks
+    crawlEventHandler = new CrawlEventHandler.Base() {
+      @Override
+      protected void handleNewContentCompleted(CrawlEvent event) {
+        handleCrawlComplete(event);
+      }
+
+      @Override
+      protected void handleRepairCompleted(CrawlEvent event) {
+        handleCrawlComplete(event);
+      }
+    };
+    getLockssCrawlManager().registerCrawlEventHandler(crawlEventHandler);
+
     // initialize the database
     try {
       initDb(new File(dbDir, DB_FILENAME));
@@ -216,6 +232,16 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
     for (CrawlJob crawlJob : jobCursor) {
       if (crawlJob.getEndDate() != null) {
         return true;
+      }
+      if(crawlJob.getJobStatus() != null) {
+        JobStatus status = crawlJob.getJobStatus();
+        JobStatus.StatusCodeEnum statusCode = status.getStatusCode();
+        if(statusCode == JobStatus.StatusCodeEnum.ACTIVE ||
+          statusCode == JobStatus.StatusCodeEnum.QUEUED) {
+          return false;
+        }
+      } else {
+        log.warn("CrawlJob {} misssing a jobStatus", crawlJob);
       }
     }
     return false;
@@ -305,7 +331,7 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
         CrawlDesc desc = job.getCrawlDesc();
         PluggableCrawler crawler = pluggableCrawlers.get(desc.getCrawlerId());
         if (crawler != null && crawler.isCrawlerEnabled()) {
-          crawler.requestCrawl(job, null);
+          crawler.requestCrawl(job);
         }
       }
     }
@@ -377,6 +403,32 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
     return false;
   }
 
+  /**
+   * handle the complete crawl.
+   * @param event the crawl complete event.
+   */
+  public void handleCrawlComplete(CrawlEvent event) {
+    String key = event.getCrawlerId();
+    CrawlJob job = getCrawlJob(key);
+    if(job != null) {
+      CrawlerStatus status = ApiUtils.getCrawlerStatus(key);
+      JobsApiServiceImpl.updateCrawlJob(job, status);
+      updateCrawlJob(job);
+    }
+  }
+
+  /**
+   * handle the complete crawl.
+   * @param status the status of the completed crawl.
+   */
+  public void handleCrawlComplete(CrawlerStatus status) {
+    String key = status.getKey();
+    CrawlJob job = getCrawlJob(key);
+    if(job != null) {
+      JobsApiServiceImpl.updateCrawlJob(job,status);
+      updateCrawlJob(job);
+    }
+  }
 
   /**
    * Provides the map of crawler configurations.

@@ -200,13 +200,13 @@ class TestPluggableCrawlManager  extends LockssTestCase4 {
     void setConfigWhenCrawlerIdsKeyIsChangedThenUpdateCrawlerIds() {
         // ConfiguManager.CONFIGMANAGER_EMPTY_CONFIGURTION
         pluggableCrawlManager.initDb(dbFile);
-        config = ConfigurationUtil.fromArgs(CRAWLER_IDS,"lockss;wget");
-        prevConfig = ConfigurationUtil.fromArgs(CRAWLER_IDS, "lockss");
+        config = ConfigurationUtil.fromArgs(CRAWLER_IDS,"classic;wget");
+        prevConfig = ConfigurationUtil.fromArgs(CRAWLER_IDS, "classic");
         changedKeys = mock(Configuration.Differences.class);
         crawler = mock(PluggableCrawler.class);
         lockssCrawlMgr = mock(CrawlManagerImpl.class);
         when(changedKeys.contains(PREFIX)).thenReturn(true);
-        List<String> expected = ListUtil.list("lockss", "wget");
+        List<String> expected = ListUtil.list("classic", "wget");
         pluggableCrawlManager.setConfig(config, prevConfig, changedKeys);
         assertArrayEquals(expected.toArray(), pluggableCrawlManager.getCrawlerIds().toArray());
     }

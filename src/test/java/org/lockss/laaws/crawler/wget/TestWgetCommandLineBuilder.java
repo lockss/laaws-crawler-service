@@ -31,11 +31,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 package org.lockss.laaws.crawler.wget;
 
-import static org.lockss.laaws.crawler.wget.WgetCommandOptions.INPUT_FILE_KEY;
-import static org.lockss.laaws.crawler.wget.WgetCommandOptions.USER_AGENT_KEY;
-
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -46,6 +44,9 @@ import org.lockss.util.ListUtil;
 import org.lockss.util.StringUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
 
+import static org.lockss.laaws.crawler.wget.WgetCommandLineBuilder.WARC_FILE_NAME;
+import static org.lockss.laaws.crawler.wget.WgetCommandOptions.*;
+
 /** Test class for WgetCommandLineBuilder. */
 public class TestWgetCommandLineBuilder extends LockssTestCase4 {
   private static final L4JLogger log = L4JLogger.getLogger();
@@ -53,12 +54,16 @@ public class TestWgetCommandLineBuilder extends LockssTestCase4 {
       "--user-agent=LOCKSS Crawler Service REST API 1.0.0-SNAPSHOT";
 
   private File tmpDir;
+  List<String> crawlList = ListUtil.list("http://url1", "https://Url2", "http://URL3");
+
+  String tmpDirPath;
 
   @Override
   public void setUp() throws Exception {
     super.setUp();
     tmpDir = getTempDir("TestWgetCommandLineBuilder");
     log.info("tmpDir = {}", tmpDir);
+    tmpDirPath=tmpDir.getAbsolutePath();
   }
 
   @Override
@@ -72,9 +77,14 @@ public class TestWgetCommandLineBuilder extends LockssTestCase4 {
    * @throws Exception if there are input/output problems.
    */
   @Test
-  public void testBuildCommandLine() throws Exception {
+  public void testBuildCommandLineRepair() throws Exception {
     List<String> command = null;
     CrawlDesc crawlDesc = new CrawlDesc();
+    crawlDesc.crawlKind(CrawlDesc.CrawlKindEnum.REPAIR);
+    List<String> expectedCommand = ListUtil.list("wget");
+    expectedCommand.add(WARC_FILE_KEY + "=" + tmpDirPath + "/" + WARC_FILE_NAME);
+    expectedCommand.add(WARC_TEMPDIR_KEY + "=" + tmpDirPath);
+    expectedCommand.addAll(crawlList);
 
     try {
       command = new WgetCommandLineBuilder().buildCommandLine(crawlDesc, tmpDir);
@@ -83,20 +93,45 @@ public class TestWgetCommandLineBuilder extends LockssTestCase4 {
       // Expected
     }
 
-    List<String> crawlList = ListUtil.list("http://url1", "https://Url2", "http://URL3");
     crawlDesc.crawlList(crawlList);
 
     command = new WgetCommandLineBuilder().buildCommandLine(crawlDesc, tmpDir);
 
-    assertEquals(4, command.size());
+    assertEquals(expectedCommand.size(), command.size());
+    assertIsomorphic(expectedCommand, command);
+  }
+  @Test
+  public void testBuildCommandLineNewContent() throws Exception {
+    List<String> command = null;
+    CrawlDesc crawlDesc = new CrawlDesc();
+    crawlDesc.crawlKind(CrawlDesc.CrawlKindEnum.NEWCONTENT);
+    crawlDesc.crawlList(crawlList);
 
-    assertEquals("wget", command.get(0));
+    List<String> expectedCommand = ListUtil.list("wget", "-r");
+    expectedCommand.add(WARC_FILE_KEY + "=" + tmpDirPath + "/" + WARC_FILE_NAME);
+    expectedCommand.add(WARC_TEMPDIR_KEY + "=" + tmpDirPath);
+    expectedCommand.addAll(crawlList);
 
-    assertEquals(crawlList.get(0), command.get(1));
-    assertEquals(crawlList.get(1), command.get(2));
-    assertEquals(crawlList.get(2), command.get(3));
+    command = new WgetCommandLineBuilder().buildCommandLine(crawlDesc, tmpDir);
 
-    List<String> inputFileUrls = ListUtil.list("https://ip1", "http://IP2");
+    assertEquals(expectedCommand.size(), command.size());
+    assertIsomorphic(expectedCommand, command);
+  }
+  @Test
+  public void testBuildCommandWithExtraData() throws Exception {
+    List<String> command = null;
+    CrawlDesc crawlDesc = new CrawlDesc();
+    crawlDesc.crawlKind(CrawlDesc.CrawlKindEnum.NEWCONTENT);
+    crawlDesc.crawlList(crawlList);
+    List<String> inputFileUrls = ListUtil.list("https://ip1","https://ip2","http://ip3");
+
+    List<String> expectedCommand = ListUtil.list("wget", "-r");
+    expectedCommand.add(WARC_FILE_KEY + "=" + tmpDirPath + "/" + WARC_FILE_NAME);
+    expectedCommand.add(WARC_TEMPDIR_KEY + "=" + tmpDirPath);
+    expectedCommand.add(INPUT_FILE_KEY + "=" + tmpDirPath + "/" + INPUT_FILE_KEY.substring(2));
+    expectedCommand.add(userAgent);
+    expectedCommand.addAll(crawlList);
+
     Map<String, Object> extraCrawlerMap = new HashMap<>();
     extraCrawlerMap.put(INPUT_FILE_KEY.substring(2), inputFileUrls);
     log.info("extraCrawlerData = {}", extraCrawlerMap);
@@ -105,18 +140,14 @@ public class TestWgetCommandLineBuilder extends LockssTestCase4 {
     command = new WgetCommandLineBuilder().buildCommandLine(crawlDesc, tmpDir);
 
     log.info("command = {}", command);
-    assertEquals(6, command.size());
 
-    assertEquals("wget", command.get(0));
+    assertEquals(expectedCommand.size(), command.size());
+    assertIsomorphic(expectedCommand, command);
 
     validateFileOption(INPUT_FILE_KEY, inputFileUrls, command);
 
     String userAgentOption = findOption(USER_AGENT_KEY, command);
     assertEquals(userAgent, userAgentOption);
-
-    assertEquals(crawlList.get(0), command.get(3));
-    assertEquals(crawlList.get(1), command.get(4));
-    assertEquals(crawlList.get(2), command.get(5));
   }
 
   /**

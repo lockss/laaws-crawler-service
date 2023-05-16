@@ -54,7 +54,7 @@ org.lockss.scomm.timeout.connect=15s
 org.lockss.metrics.slowest.hashrate=250
 org.lockss.state.recall.delay=5m
 
-org.lockss.daemon.crawlMode=NonPlugins
+org.lockss.daemon.crawlMode=All
 
 # Turn on ICP on port 3131
 # org.lockss.proxy.icp.enabled=true
@@ -85,13 +85,16 @@ org.lockss.crawlerservice.pluggableEnabled=true
 org.lockss.crawlerservice.dbPath=crawlerDb
 
 # The list of supported crawlers
-org.lockss.crawlerservice.crawlers=lockss;wget
+org.lockss.crawlerservice.crawlers=classic;wget
 
 # The lockss/default crawler
-org.lockss.crawlerservice.lockss.enabled=true
+org.lockss.crawlerservice.classic.enabled=true
 
 # The wget crawler
 org.lockss.crawlerservice.wget.enabled=true
+org.lockss.crawlerservice.wget.crawler=org.lockss.laaws.crawler.impl.pluggable.CmdLineCrawler
+org.lockss.crawlerservice.wget.cmdLineBuilder=org.lockss.laaws.crawler.wget.WgetCommandLineBuilder
+
 
 # Disable the SOAP web services.
 org.lockss.ws.enabled=false

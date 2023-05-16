@@ -1,14 +1,11 @@
 package org.lockss.laaws.crawler.impl.pluggable;
 
-import org.lockss.crawler.CrawlManager;
 import org.lockss.crawler.CrawlerStatus;
 import org.lockss.daemon.Crawler;
 import org.lockss.daemon.LockssRunnable;
 import org.lockss.laaws.crawler.impl.ApiUtils;
-import org.lockss.laaws.crawler.model.CrawlStatus;
 import org.lockss.log.L4JLogger;
 import org.lockss.util.io.FileUtil;
-import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.crawler.CrawlJob;
 import org.lockss.util.rest.crawler.JobStatus;
 
@@ -53,7 +50,7 @@ public class CmdLineCrawl extends PluggableCrawl {
     JobStatus js = getJobStatus();
     try {
       js.setStatusCode(JobStatus.StatusCodeEnum.ACTIVE);
-      js.setMsg("Running.");
+      js.setMsg("Active.");
       tmpDir = FileUtil.createTempDir("laaws-pluggable-crawler", "");
       command = crawler.getCmdLineBuilder().buildCommandLine(getCrawlDesc(), tmpDir);
     }
@@ -83,10 +80,10 @@ public class CmdLineCrawl extends PluggableCrawl {
 
   public List<String>  getWarcFiles() {
     try {
-      List<String> files = FileUtil.listDirFilesWithExtension(tmpDir,"warc");
-      return files;
+      return FileUtil.listDirFilesWithExtension(tmpDir,"warc");
     }
     catch (IOException e) {
+      log.warn("CmdLine crawl did not return any results.");
       return null;
     }
   }
@@ -109,18 +106,19 @@ public class CmdLineCrawl extends PluggableCrawl {
 
         try {
           nowRunning();
-
+          startCrawl();
           ProcessBuilder builder = new ProcessBuilder();
           builder.command(command);
           builder.inheritIO();
 
-          log.trace("external crawl process started");
+          log.info("external crawl process started");
           Process process = builder.start();
           crawlerStatus.signalCrawlStarted();
           int exitCode = process.waitFor();
-          log.trace("external crawl process finished: exitCode = {}", exitCode);
+          log.info("external crawl process finished: exitCode = {}", exitCode);
           if (exitCode == 0) {
             List<String> warcFiles = getWarcFiles();
+            log.info("Found {} warcFiles after crawl.", warcFiles.size());
             for (String warcName : warcFiles) {
               File warcFile = new File(tmpDir,warcName);
               crawler.storeInRepository(crawlerStatus.getAuId(), warcFile, false);
@@ -131,11 +129,6 @@ public class CmdLineCrawl extends PluggableCrawl {
             crawlerStatus.setCrawlStatus(
               Crawler.STATUS_ERROR, "crawl exited with code: " + exitCode);
           }
-          CrawlManager.Callback callback = getCallback();
-          if (callback != null) {
-            CrawlStatus cs = ApiUtils.makeCrawlStatus(crawlerStatus);
-            callback.signalCrawlAttemptCompleted(!crawlerStatus.isCrawlError(), null, crawlerStatus);
-          }
         }
         catch (IOException ioe) {
           log.error("Exception caught running process", ioe);
@@ -144,10 +137,14 @@ public class CmdLineCrawl extends PluggableCrawl {
           // no action
         }
         finally {
+          ApiUtils.getPluggableCrawlManager().handleCrawlComplete(crawlerStatus);
           crawlerStatus.signalCrawlEnded();
           setThreadName(threadName + ": idle");
-          log.trace("Deleting tree at {}", tmpDir);
-          boolean isDeleted = FileUtil.delTree(tmpDir);
+          log.info("Deleting tree at {}", tmpDir);
+          boolean isDeleted=true;
+          if(tmpDir!= null) {
+            isDeleted = FileUtil.delTree(tmpDir);
+          }
           log.trace("isDeleted = {}", isDeleted);
           if (!isDeleted) {
             log.warn("Temporary directory {} cannot be deleted after processing", tmpDir);

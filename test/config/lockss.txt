@@ -46,7 +46,6 @@ org.lockss.comm.enabled=false
 org.lockss.scomm.enabled=true
 org.lockss.scomm.maxMessageSize=33554430
 org.lockss.scomm.timeout.connect=15s
-
 org.lockss.metrics.slowest.hashrate=250
 org.lockss.state.recall.delay=5m
 
@@ -84,6 +83,10 @@ org.lockss.plugin.restartAusWithNewPlugin=true
 # Enable crawler
 #if false this will turn off all crawling
 org.lockss.crawler.enabled=true
+# We will crawl everything
+org.lockss.daemon.crawlMode=All
+org.lockss.crawler.jms.enableJmsSend=false
+org.lockss.crawler.jms.enableJmsReceive=false
 
 # if false this will turn off all pluggable crawlers
 org.lockss.crawlerservice.pluggableEnabled=true
@@ -91,12 +94,12 @@ org.lockss.crawlerservice.pluggableEnabled=true
 # the path to our crawlQueueDatabase
 org.lockss.crawlerservice.dbPath=./crawlerDb
 # the crawlers we support
-org.lockss.crawlerservice.crawlers=lockss;wget
+org.lockss.crawlerservice.crawlers=classic;wget
 # the lockss crawler spec
-org.lockss.crawlerservice.lockss.enabled=true
+org.lockss.crawlerservice.classic.enabled=true
 # the wget crawler spec
 org.lockss.crawlerservice.wget.enabled=true
-org.lockss.crawlerservice.wget.crawler=org.lockss.laaws.crawler.wget.WgetCommandLineCrawler
-#org.lockss.crawlerservice.wget.cmdLineBuilder=org.lockss.laaws.crawler.wget.WgetCommandLineBuilder
+org.lockss.crawlerservice.wget.crawler=org.lockss.laaws.crawler.impl.pluggable.CmdLineCrawler
+org.lockss.crawlerservice.wget.cmdLineBuilder=org.lockss.laaws.crawler.wget.WgetCommandLineBuilder
 
 #org.lockss.restAuth.authenticationType=basic

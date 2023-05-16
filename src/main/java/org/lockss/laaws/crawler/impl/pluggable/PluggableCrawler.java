@@ -1,8 +1,6 @@
 package org.lockss.laaws.crawler.impl.pluggable;
 
-import org.lockss.crawler.CrawlManager;
 import org.lockss.laaws.crawler.impl.PluggableCrawlManager;
-import org.lockss.laaws.crawler.model.CrawlStatus;
 import org.lockss.laaws.crawler.model.CrawlerConfig;
 import org.lockss.util.rest.crawler.CrawlJob;
 
@@ -13,7 +11,7 @@ public interface PluggableCrawler {
 
   /**
    * Return the unique Id for this crawler.
-   * @return
+   * @return the id of the crawler
    */
   String getCrawlerId();
 
@@ -31,7 +29,7 @@ public interface PluggableCrawler {
    */
   CrawlerConfig getCrawlerConfig();
 
-  PluggableCrawl requestCrawl(CrawlJob crawlJob, CrawlManager.Callback callback);
+  PluggableCrawl requestCrawl(CrawlJob crawlJob);
 
   /**
    * Stop a crawl a specific crawl

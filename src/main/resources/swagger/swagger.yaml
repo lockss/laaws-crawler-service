@@ -687,7 +687,7 @@ definitions:
       crawlerId:
         description: The crawler to be used for this crawl.
         type: string
-        default: lockss
+        default: classic
       forceCrawl:
         description: An indication of whether the crawl is to be forced,\
           \ suppressing conditions that might otherwise prevent the crawl from\
@@ -792,7 +792,7 @@ definitions:
       crawlerId:
         description: The identifier for this crawler
         type: string
-        example: "lockss"
+        example: "classic"
       attributes:
         description: key value pairs specific providing attributes\
           \ and configuration information.
@@ -811,6 +811,7 @@ definitions:
       - endTime
       - jobStatus
       - priority
+      - crawlerId
     type: object
     properties:
       jobId:
@@ -834,6 +835,10 @@ definitions:
         format: int32
         description: The priority for this crawl.
         type: integer
+      crawlerId:
+        description: The id of the crawler used for this crawl.
+        type: string
+        default: "classic"
       sources:
         description: The sources to use for the crawl.
         type: array

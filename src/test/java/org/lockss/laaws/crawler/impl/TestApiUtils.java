@@ -62,7 +62,7 @@ class TestApiUtils extends LockssTestCase5 {
     when(crawlDesc.getCrawlList()).thenReturn(ListUtil.fromCSV("url1,url2"));
     when(crawlDesc.getAuId()).thenReturn("AU_ID");
     when(crawlDesc.getCrawlKind()).thenReturn(NEWCONTENT);
-    when(crawlDesc.getCrawlerId()).thenReturn("lockss");
+    when(crawlDesc.getCrawlerId()).thenReturn("classic");
     return new CmdLineCrawl(crawler, crawlJob);
   }
 

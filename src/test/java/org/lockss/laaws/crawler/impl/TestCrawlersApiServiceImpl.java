@@ -60,7 +60,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.lockss.laaws.crawler.impl.PluggableCrawlManager.*;
-import static org.lockss.util.rest.crawler.CrawlDesc.LOCKSS_CRAWLER_ID;
+import static org.lockss.util.rest.crawler.CrawlDesc.CLASSIC_CRAWLER_ID;
 
 /** Test class for org.lockss.laaws.crawler.impl.CrawlersApiServiceImpl. */
 @RunWith(SpringRunner.class)
@@ -95,13 +95,6 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
   private PluggableCrawlManager pcm;
   private File tmpDir;
 
-
-  /** Set up code to be run before all tests. */
-  @BeforeClass
-  public static void setUpBeforeAllTests() {
-
-  }
-
   /**
    * Set up code to be run before each test.
    *
@@ -118,9 +111,6 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
     setUpUiPort(UI_PORT_CONFIGURATION_TEMPLATE, UI_PORT_CONFIGURATION_FILE);
 
     log.debug2("Done");
-  }
-
-  public void cleanUpAfterEachTest() throws Exception {
   }
 
   /**
@@ -255,7 +245,7 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
 
     // Good crawler ID.
     runTestMethodNotAllowed(
-        LOCKSS_CRAWLER_ID, null, HttpMethod.PATCH, HttpStatus.METHOD_NOT_ALLOWED);
+        CLASSIC_CRAWLER_ID, null, HttpMethod.PATCH, HttpStatus.METHOD_NOT_ALLOWED);
 
     runTestMethodNotAllowed(
         WGET_CRAWLER_ID, ANYBODY, HttpMethod.PUT, HttpStatus.METHOD_NOT_ALLOWED);
@@ -279,7 +269,7 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
     runTestMethodNotAllowed(UNKNOWN_CRAWLER, ANYBODY, HttpMethod.PUT, HttpStatus.UNAUTHORIZED);
 
     // No credentials.
-    runTestMethodNotAllowed(LOCKSS_CRAWLER_ID, null, HttpMethod.PATCH, HttpStatus.UNAUTHORIZED);
+    runTestMethodNotAllowed(CLASSIC_CRAWLER_ID, null, HttpMethod.PATCH, HttpStatus.UNAUTHORIZED);
 
     // Bad credentials.
     runTestMethodNotAllowed(WGET_CRAWLER_ID, ANYBODY, HttpMethod.PUT, HttpStatus.UNAUTHORIZED);
@@ -304,7 +294,7 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
         UNKNOWN_CRAWLER, ACCESS_CONTENT, HttpMethod.PUT, HttpStatus.METHOD_NOT_ALLOWED);
 
     runTestMethodNotAllowed(
-        LOCKSS_CRAWLER_ID, USER_ADMIN, HttpMethod.PUT, HttpStatus.METHOD_NOT_ALLOWED);
+        CLASSIC_CRAWLER_ID, USER_ADMIN, HttpMethod.PUT, HttpStatus.METHOD_NOT_ALLOWED);
 
     runTestMethodNotAllowed(
         WGET_CRAWLER_ID, CONTENT_ADMIN, HttpMethod.PATCH, HttpStatus.METHOD_NOT_ALLOWED);
@@ -393,13 +383,13 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
     CrawlerStatuses statuses = runTestGetCrawlers(null, HttpStatus.OK);
     Map<String, CrawlerStatus> crawlers = statuses.getCrawlerMap();
     assertEquals(2, crawlers.size());
-    assertTrue(crawlers.containsKey(LOCKSS_CRAWLER_ID));
+    assertTrue(crawlers.containsKey(CLASSIC_CRAWLER_ID));
     assertTrue(crawlers.containsKey(WGET_CRAWLER_ID));
 
     statuses = runTestGetCrawlers(ANYBODY, HttpStatus.OK);
     crawlers = statuses.getCrawlerMap();
     assertEquals(2, crawlers.size());
-    assertTrue(crawlers.containsKey(LOCKSS_CRAWLER_ID));
+    assertTrue(crawlers.containsKey(CLASSIC_CRAWLER_ID));
     assertTrue(crawlers.containsKey(WGET_CRAWLER_ID));
 
     getCrawlersCommonTest();
@@ -434,13 +424,13 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
     CrawlerStatuses statuses = runTestGetCrawlers(USER_ADMIN, HttpStatus.OK);
     Map<String, CrawlerStatus> crawlers = statuses.getCrawlerMap();
     assertEquals(2, crawlers.size());
-    assertTrue(crawlers.containsKey(LOCKSS_CRAWLER_ID));
+    assertTrue(crawlers.containsKey(CLASSIC_CRAWLER_ID));
     assertTrue(crawlers.containsKey(WGET_CRAWLER_ID));
 
     statuses = runTestGetCrawlers(CONTENT_ADMIN, HttpStatus.OK);
     crawlers = statuses.getCrawlerMap();
     assertEquals(2, crawlers.size());
-    assertTrue(crawlers.containsKey(LOCKSS_CRAWLER_ID));
+    assertTrue(crawlers.containsKey(CLASSIC_CRAWLER_ID));
     assertTrue(crawlers.containsKey(WGET_CRAWLER_ID));
 
     log.debug2("Done");
@@ -541,13 +531,13 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
     runTestGetCrawlerConfig(UNKNOWN_CRAWLER, null, HttpStatus.NOT_FOUND);
     runTestGetCrawlerConfig(UNKNOWN_CRAWLER, ANYBODY, HttpStatus.NOT_FOUND);
 
-    CrawlerConfig crawlerConfig = runTestGetCrawlerConfig(LOCKSS_CRAWLER_ID, null, HttpStatus.OK);
+    CrawlerConfig crawlerConfig = runTestGetCrawlerConfig(CLASSIC_CRAWLER_ID, null, HttpStatus.OK);
     log.info("crawlerConfig = {}", crawlerConfig);
     assertNotNull(crawlerConfig);
     Map<String, String> attributes = crawlerConfig.getAttributes();
     assertTrue(Boolean.parseBoolean(attributes.get(ATTR_STARTER_ENABLED)));
     assertEquals(enabled, Boolean.parseBoolean(attributes.get(ATTR_CRAWLING_ENABLED)));
-    assertTrue(Boolean.parseBoolean(attributes.get(LOCKSS_CRAWLER_ID + ENABLED)));
+    assertTrue(Boolean.parseBoolean(attributes.get(CLASSIC_CRAWLER_ID + ENABLED)));
     getCrawlerConfigCommonTest(enabled);
 
     log.debug2("Done");
@@ -573,8 +563,8 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
     runTestGetCrawlerConfig(UNKNOWN_CRAWLER, null, HttpStatus.UNAUTHORIZED);
     runTestGetCrawlerConfig(UNKNOWN_CRAWLER, ANYBODY, HttpStatus.UNAUTHORIZED);
 
-    runTestGetCrawlerConfig(LOCKSS_CRAWLER_ID, null, HttpStatus.UNAUTHORIZED);
-    runTestGetCrawlerConfig(WGET_CRAWLER_ID, ANYBODY, HttpStatus.UNAUTHORIZED);
+    runTestGetCrawlerConfig(CLASSIC_CRAWLER_ID, null, HttpStatus.UNAUTHORIZED);
+    runTestGetCrawlerConfig(WGET_CRAWLER_ID, null, HttpStatus.UNAUTHORIZED);
 
     getCrawlerConfigCommonTest(true);
 
@@ -599,13 +589,13 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
     runTestGetCrawlerConfig(UNKNOWN_CRAWLER, ACCESS_CONTENT, HttpStatus.NOT_FOUND);
 
     CrawlerConfig crawlerConfig =
-      runTestGetCrawlerConfig(LOCKSS_CRAWLER_ID, USER_ADMIN, HttpStatus.OK);
+      runTestGetCrawlerConfig(CLASSIC_CRAWLER_ID, USER_ADMIN, HttpStatus.OK);
     log.info("crawlerConfig = {}", crawlerConfig);
     assertNotNull(crawlerConfig);
     Map<String, String> attributes = crawlerConfig.getAttributes();
     assertTrue(Boolean.parseBoolean(attributes.get(ATTR_STARTER_ENABLED)));
     assertEquals(enabled, Boolean.parseBoolean(attributes.get(ATTR_CRAWLING_ENABLED)));
-    assertTrue(Boolean.parseBoolean(attributes.get(LOCKSS_CRAWLER_ID + ENABLED)));
+    assertTrue(Boolean.parseBoolean(attributes.get(CLASSIC_CRAWLER_ID + ENABLED)));
     log.debug2("Done");
   }
 

@@ -30,7 +30,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.File;
 import java.net.URI;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import org.junit.Before;
 import org.junit.BeforeClass;
@@ -668,7 +667,7 @@ public class TestJobsApiServiceImpl extends SpringLockssTestCase4 {
     jobPager = runTestGetJobs(ANYBODY, null, null, HttpStatus.OK);
     validateGetJobsResult(jobPager, null, 3);
 
-    queueJobCommonTest("lockss");
+    queueJobCommonTest("classic");
     //  queueJobCommonTest(("wget"));
 
     log.debug2("Done");
@@ -691,7 +690,7 @@ public class TestJobsApiServiceImpl extends SpringLockssTestCase4 {
 
     runTestQueueJob(crawlDesc, null, HttpStatus.UNAUTHORIZED);
 
-    queueJobCommonTest("lockss");
+    queueJobCommonTest("classic");
 //    queueJobCommonTest(("wget"));
 
     log.debug2("Done");

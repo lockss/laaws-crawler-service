@@ -60,6 +60,7 @@ public class WgetCommandOptions {
   public static final String WARC_FILE_KEY = "--warc-file";
   public static final String WARC_HEADER_KEY = "--warc-header";
   public static final String WARC_MAX_SIZE_KEY = "--warc-max-size";
+  public static final String WARC_TEMPDIR_KEY = "--warc-tempdir";
 
   /**
    * The keys of all the supported wget command line options.

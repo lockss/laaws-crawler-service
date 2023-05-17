@@ -5,9 +5,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.lockss.laaws.crawler.impl.PluggableCrawlManager;
-import org.lockss.laaws.crawler.model.CrawlStatus;
 import org.lockss.laaws.crawler.model.CrawlerConfig;
-import org.lockss.laaws.rs.core.LockssRepository;
+import org.lockss.util.rest.repo.LockssRepository;
 import org.lockss.util.ListUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.crawler.CrawlJob;
@@ -84,7 +83,7 @@ class TestCmdLineCrawler extends LockssTestCase5 {
     when(pluggableCrawlManager.isEligibleForCrawl(DEF_AU_ID)).thenReturn(true);
     CrawlJob crawlJob = makeMockCrawlJob(DEF_AU_ID, DEF_CRAWLER_ID);
 
-    cmdLineCrawler.requestCrawl(crawlJob, null);
+    cmdLineCrawler.requestCrawl(crawlJob);
     cmdLineCrawler.deleteAllCrawls();
     assertEquals(0, cmdLineCrawler.crawlMap.size());
   }
@@ -128,7 +127,7 @@ class TestCmdLineCrawler extends LockssTestCase5 {
   void stopCrawlShouldRemoveTheCrawlFromTheMap() {
     when(pluggableCrawlManager.isEligibleForCrawl(DEF_AU_ID)).thenReturn(true);
     CrawlJob crawlJob = makeMockCrawlJob(DEF_AU_ID,DEF_CRAWLER_ID);
-    cmdLineCrawler.requestCrawl(crawlJob, null);
+    cmdLineCrawler.requestCrawl(crawlJob);
     assertEquals(1, cmdLineCrawler.crawlMap.size());
     cmdLineCrawler.stopCrawl(DEF_JOB_ID);
     assertEquals(0, cmdLineCrawler.crawlMap.size());
@@ -139,7 +138,7 @@ class TestCmdLineCrawler extends LockssTestCase5 {
   void requestCrawlWhenAuIsNotEligibleForCrawlThenReturnNull() {
     when(pluggableCrawlManager.isEligibleForCrawl(DEF_AU_ID)).thenReturn(false);
     CrawlJob crawlJob = makeMockCrawlJob(DEF_AU_ID,DEF_CRAWLER_ID);
-    PluggableCrawl pluggableCrawl = cmdLineCrawler.requestCrawl(crawlJob, null);
+    PluggableCrawl pluggableCrawl = cmdLineCrawler.requestCrawl(crawlJob);
     assertNull(pluggableCrawl);
   }
 
@@ -148,7 +147,7 @@ class TestCmdLineCrawler extends LockssTestCase5 {
   void updateCrawlerConfigShouldSetTheCrawlerConfig() {
     CrawlerConfig crawlerConfig = new CrawlerConfig();
     Map<String, String> attr = new HashMap<>();
-    attr.put(ATTR_CRAWLER_ID, "lockss");
+    attr.put(ATTR_CRAWLER_ID, "classic");
     attr.put(ATTR_CRAWLING_ENABLED, "true");
     attr.put(ATTR_STARTER_ENABLED, "true");
     crawlerConfig.setAttributes(attr);
@@ -162,7 +161,7 @@ class TestCmdLineCrawler extends LockssTestCase5 {
   void
   updateCrawlerConfigShouldInstantiateTheCommandLineBuilderWhenTheBuilderClassNameIsNotNull() {
     Map<String, String> attr = new HashMap<>();
-    attr.put(ATTR_CRAWLER_ID, "lockss");
+    attr.put(ATTR_CRAWLER_ID, "classic");
     attr.put(ATTR_CRAWLING_ENABLED, "true");
     attr.put(ATTR_STARTER_ENABLED, "true");
     attr.put(ATTR_CMDLINE_BUILDER, "org.lockss.laaws.crawler.TestCmdLineCrawler.TestCommandLineBuilder");

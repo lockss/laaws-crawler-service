@@ -31,6 +31,7 @@ import org.lockss.app.LockssApp.AppSpec;
 import org.lockss.app.LockssApp.ManagerDesc;
 import org.lockss.app.LockssDaemon;
 import org.lockss.app.ServiceDescr;
+import org.lockss.crawler.CrawlManagerImpl;
 import org.lockss.laaws.crawler.impl.PluggableCrawlManager;
 import org.lockss.plugin.PluginManager;
 import org.lockss.spring.base.BaseSpringBootApplication;
@@ -105,9 +106,8 @@ public class CrawlerApplication extends BaseSpringBootApplication implements Com
         .setArgs(args)
         .addAppConfig(PARAM_START_PLUGINS, "true")
         .addAppConfig(PluginManager.PARAM_START_ALL_AUS, "true")
-        .addAppConfig(org.lockss.config.ConfigManager.PARAM_ENABLE_JMS_SEND,
-              "true")
-          .setSpringApplicatonContext(getApplicationContext())
+        .addAppConfig(CrawlManagerImpl.PARAM_ENABLE_JMS_SEND,"true")
+        .setSpringApplicatonContext(getApplicationContext())
         .setAppManagers(myManagerDescs);
       logger.info("Calling LockssApp.startStatic...");
       LockssApp.startStatic(LockssDaemon.class, spec);

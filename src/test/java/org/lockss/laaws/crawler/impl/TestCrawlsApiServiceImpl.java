@@ -708,7 +708,6 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     validateGetCrawlsResult(crawlPager, null, 3);
 
     doCrawlCommonTest(CLASSIC_CRAWLER_ID);
-    //doCrawlCommonTest(WGET_CRAWLER_ID);
 
     log.debug2("Done");
   }
@@ -731,7 +730,6 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     runTestDoCrawl(crawlDesc, null, HttpStatus.UNAUTHORIZED);
 
     doCrawlCommonTest(CLASSIC_CRAWLER_ID);
-    //doCrawlCommonTest(WGET_CRAWLER_ID);
 
     log.debug2("Done");
   }

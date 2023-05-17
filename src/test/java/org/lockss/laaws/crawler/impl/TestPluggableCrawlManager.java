@@ -8,10 +8,10 @@ import org.lockss.config.Configuration;
 import org.lockss.crawler.CrawlManagerImpl;
 import org.lockss.laaws.crawler.impl.pluggable.PluggableCrawler;
 import org.lockss.test.ConfigurationUtil;
-import org.lockss.test.LockssTestCase4;
 import org.lockss.util.ListUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.crawler.CrawlJob;
+import org.lockss.util.test.LockssTestCase5;
 import org.lockss.util.time.TimeBase;
 import java.io.File;
 import java.io.IOException;
@@ -22,7 +22,7 @@ import static org.lockss.laaws.crawler.impl.PluggableCrawlManager.CRAWLER_IDS;
 import static org.lockss.laaws.crawler.impl.PluggableCrawlManager.PREFIX;
 import static org.mockito.Mockito.*;
 
-class TestPluggableCrawlManager  extends LockssTestCase4 {
+class TestPluggableCrawlManager  extends LockssTestCase5 {
     private PluggableCrawlManager pluggableCrawlManager;
 
     private File tmpDir;

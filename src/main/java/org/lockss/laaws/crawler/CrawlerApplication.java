@@ -26,10 +26,6 @@
 
 package org.lockss.laaws.crawler;
 
-import static org.lockss.app.LockssApp.PARAM_START_PLUGINS;
-import static org.lockss.app.LockssApp.managerKey;
-import static org.lockss.app.ManagerDescs.*;
-
 import org.lockss.app.LockssApp;
 import org.lockss.app.LockssApp.AppSpec;
 import org.lockss.app.LockssApp.ManagerDesc;
@@ -46,6 +42,10 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.solr.SolrAutoConfiguration;
 import springfox.documentation.swagger2.annotations.EnableSwagger2;
+
+import static org.lockss.app.LockssApp.PARAM_START_PLUGINS;
+import static org.lockss.app.LockssApp.managerKey;
+import static org.lockss.app.ManagerDescs.*;
 
 /**
  * The Spring-Boot application.

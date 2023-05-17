@@ -382,7 +382,7 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
       crawlJob.getJobStatus().msg(delayReason);
     }
     // Get the crawl priority, specified or configured.
-    int priority =0;
+    int priority;
 
     if (requestedPriority != null) {
       priority = requestedPriority;

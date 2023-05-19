@@ -157,13 +157,19 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
    */
   @Override
   public ResponseEntity<CrawlJob> queueJob(CrawlDesc crawlDesc) {
-    log.debug2("crawlDesc = {}", crawlDesc);
+    log.debug("crawlDesc = {}", crawlDesc);
     HttpStatus httpStatus;
     CrawlJob crawlJob = new CrawlJob().crawlDesc(crawlDesc);
     String crawlerId = crawlDesc.getCrawlerId();
     CrawlDesc.CrawlKindEnum crawlKind = crawlDesc.getCrawlKind();
-    ArchivalUnit au = getPluginManager().getAuFromId(crawlDesc.getAuId());
 
+    ArchivalUnit au = getPluginManager().getAuFromId(crawlDesc.getAuId());
+    // Get the Archival Unit to be crawled.
+    // Handle a missing Archival Unit.
+    if (au == null) {
+      logCrawlError(NO_SUCH_AU_ERROR_MESSAGE, crawlJob);
+      return new ResponseEntity<>(crawlJob, HttpStatus.NOT_FOUND);
+    }
     try {
       // Check whether the service has not been fully initialized.
       if (!waitConfig()) {
@@ -179,12 +185,6 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
       }
       // Determine which crawler to use.
       if (crawlerId.equals(CLASSIC_CRAWLER_ID)) {
-        // Get the Archival Unit to be crawled.
-        // Handle a missing Archival Unit.
-        if (au == null) {
-          logCrawlError(NO_SUCH_AU_ERROR_MESSAGE, crawlJob);
-          return new ResponseEntity<>(crawlJob, HttpStatus.NOT_FOUND);
-        }
         // Determine which kind of crawl is being requested.
         switch (crawlKind) {
           case NEWCONTENT:
@@ -199,10 +199,6 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
         }
       }
       else {
-        if(crawlDesc.getAuId() == null) {
-          logCrawlError(NO_SUCH_AU_ERROR_MESSAGE, crawlJob);
-          return new ResponseEntity<>(crawlJob, HttpStatus.NOT_FOUND);
-        }
         // Determine which kind of crawl is being requested.
         switch (crawlKind) {
           case NEWCONTENT:

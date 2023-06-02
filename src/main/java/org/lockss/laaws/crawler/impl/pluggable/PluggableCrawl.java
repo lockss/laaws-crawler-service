@@ -26,6 +26,7 @@
 package org.lockss.laaws.crawler.impl.pluggable;
 
 import org.lockss.crawler.CrawlerStatus;
+import org.lockss.daemon.Crawler;
 import org.lockss.laaws.crawler.impl.ApiUtils;
 import org.lockss.laaws.crawler.model.CrawlStatus;
 import org.lockss.laaws.crawler.model.CrawlerConfig;
@@ -220,6 +221,11 @@ public abstract class PluggableCrawl {
       this.crawlerId = desc.getCrawlerId();
       this.auName = crawl.getAuName(auid);
       this.key = crawl.getCrawlKey();
+      if(desc.getCrawlKind() == CrawlDesc.CrawlKindEnum.NEWCONTENT)
+        setType(Crawler.Type.NEW_CONTENT.name());
+      else {
+        setType(Crawler.Type.REPAIR.name());
+      }
       setPriority(desc.getPriority()==null? 0 : desc.getPriority());
       setDepth(desc.getCrawlDepth() == null ? 1 : desc.getCrawlDepth());
       setRefetchDepth(desc.getRefetchDepth()== null ? -1 : desc.getRefetchDepth());

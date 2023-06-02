@@ -33,13 +33,12 @@
 package org.lockss.laaws.crawler.impl;
 
 import org.lockss.app.LockssDaemon;
-import org.lockss.app.ServiceBinding;
-import org.lockss.app.ServiceDescr;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
 import org.lockss.crawler.CrawlManagerImpl;
 import org.lockss.crawler.CrawlReq;
 import org.lockss.crawler.CrawlerStatus;
+import org.lockss.daemon.Crawler;
 import org.lockss.laaws.crawler.api.JobsApi;
 import org.lockss.laaws.crawler.api.JobsApiDelegate;
 import org.lockss.laaws.crawler.impl.pluggable.PluggableCrawl;
@@ -55,10 +54,12 @@ import org.lockss.util.rest.crawler.CrawlJob;
 import org.lockss.util.rest.crawler.JobStatus;
 import org.lockss.util.rest.crawler.JobStatus.StatusCodeEnum;
 import org.lockss.util.time.TimeBase;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
+import javax.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -81,7 +82,12 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
   private static final String UNKNOWN_CRAWLER_MESSAGE = "No registered crawler with id:";
   private static final String UNKNOWN_CRAWL_TYPE = "Unknown crawl kind:";
 
+  private final HttpServletRequest request;
 
+  @Autowired
+  public JobsApiServiceImpl(HttpServletRequest request) {
+    this.request = request;
+  }
 
   /**
    * Get all crawl jobs
@@ -94,7 +100,7 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
 
     try {
       // Check whether the service has not been fully initialized.
-      if (!waitConfig()) {
+      if (!waitReady()) {
         // Yes: Report the problem.
         log.error(NOT_INITIALIZED_MESSAGE);
         log.error("limit = {}, continuationToken = {}", limit, continuationToken);
@@ -130,7 +136,7 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
 
     try {
       // Check whether the service has not been fully initialized.
-      if (!waitConfig()) {
+      if (!waitReady()) {
         // Yes: Report the problem.
         log.error(NOT_INITIALIZED_MESSAGE);
         return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
@@ -157,22 +163,17 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
    */
   @Override
   public ResponseEntity<CrawlJob> queueJob(CrawlDesc crawlDesc) {
-    log.debug("crawlDesc = {}", crawlDesc);
+    log.debug2("crawlDesc = {}", crawlDesc);
     HttpStatus httpStatus;
     CrawlJob crawlJob = new CrawlJob().crawlDesc(crawlDesc);
     String crawlerId = crawlDesc.getCrawlerId();
     CrawlDesc.CrawlKindEnum crawlKind = crawlDesc.getCrawlKind();
 
     ArchivalUnit au = getPluginManager().getAuFromId(crawlDesc.getAuId());
-    // Get the Archival Unit to be crawled.
-    // Handle a missing Archival Unit.
-    if (au == null) {
-      logCrawlError(NO_SUCH_AU_ERROR_MESSAGE, crawlJob);
-      return new ResponseEntity<>(crawlJob, HttpStatus.NOT_FOUND);
-    }
+
     try {
       // Check whether the service has not been fully initialized.
-      if (!waitConfig()) {
+      if (!waitReady()) {
         // Yes: Report the problem.
         logCrawlError(NOT_INITIALIZED_MESSAGE, crawlJob);
         return new ResponseEntity<>(crawlJob, HttpStatus.SERVICE_UNAVAILABLE);
@@ -185,6 +186,12 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
       }
       // Determine which crawler to use.
       if (crawlerId.equals(CLASSIC_CRAWLER_ID)) {
+        // Get the Archival Unit to be crawled.
+        // Handle a missing Archival Unit.
+        if (au == null) {
+          logCrawlError(NO_SUCH_AU_ERROR_MESSAGE, crawlJob);
+          return new ResponseEntity<>(crawlJob, HttpStatus.NOT_FOUND);
+        }
         // Determine which kind of crawl is being requested.
         switch (crawlKind) {
           case NEWCONTENT:
@@ -199,6 +206,10 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
         }
       }
       else {
+        if(crawlDesc.getAuId() == null) {
+          logCrawlError(NO_SUCH_AU_ERROR_MESSAGE, crawlJob);
+          return new ResponseEntity<>(crawlJob, HttpStatus.NOT_FOUND);
+        }
         // Determine which kind of crawl is being requested.
         switch (crawlKind) {
           case NEWCONTENT:
@@ -424,12 +435,8 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
       return HttpStatus.INTERNAL_SERVER_ERROR;
     }
 
-    ServiceBinding crawlerServiceBinding =
-      LockssDaemon.getLockssDaemon().getServiceBinding(ServiceDescr.SVC_CRAWLER);
-    log.trace("crawlerServiceBinding = {}", crawlerServiceBinding);
-
-    if (crawlerServiceBinding != null) {
-      String crawlerServiceUrl = crawlerServiceBinding.getRestStem();
+    if (request != null) {
+      String crawlerServiceUrl = request.getRequestURI();
       crawlJob.result(crawlerServiceUrl);
     }
     crawlJob.jobStatus(makeJobStatus(lockssCrawlStatus));
@@ -501,17 +508,14 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
         logCrawlError(msg, crawlJob);
         return HttpStatus.INTERNAL_SERVER_ERROR;
       }
-      ServiceBinding crawlerServiceBinding = LockssDaemon.getLockssDaemon()
-        .getServiceBinding(ServiceDescr.SVC_CRAWLER);
-      log.trace("crawlerServiceBinding = {}", crawlerServiceBinding);
-
-      if (crawlerServiceBinding != null) {
-        String crawlerServiceUrl = crawlerServiceBinding.getRestStem();
+      if (request != null) {
+        String crawlerServiceUrl = request.getRequestURI();
+        log.debug2("requestURI = {}", crawlerServiceUrl);
         crawlJob.result(crawlerServiceUrl);
       }
       log.debug2("result = {}", crawlJob);
       pcMgr.addCrawlJob(crawlJob);
-//      getLockssCrawlManager().getStatus().addCrawlStatus(crawlerStatus);
+      getLockssCrawlManager().getStatus().addCrawlStatus(crawlerStatus);
       return HttpStatus.ACCEPTED;
     }
     catch (IllegalArgumentException iae) {

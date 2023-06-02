@@ -112,7 +112,7 @@ public class ApiUtils {
       .auId(cs.getAuId())
       .crawlDepth(cs.getDepth())
       .crawlList((List<String>) cs.getStartUrls())
-      .crawlerId(CLASSIC_CRAWLER_ID)
+      .crawlerId(cs.getCrawlerId())
       .refetchDepth(cs.getRefetchDepth())
       .priority(cs.getPriority());
 

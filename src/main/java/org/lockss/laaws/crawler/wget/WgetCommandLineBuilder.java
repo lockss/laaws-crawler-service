@@ -31,12 +31,14 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 package org.lockss.laaws.crawler.wget;
 
+import org.lockss.app.LockssDaemon;
 import org.lockss.laaws.crawler.impl.pluggable.CmdLineCrawler;
 import org.lockss.laaws.crawler.impl.pluggable.command.BooleanCommandOption;
 import org.lockss.laaws.crawler.impl.pluggable.command.FileCommandOption;
 import org.lockss.laaws.crawler.impl.pluggable.command.ListStringCommandOption;
 import org.lockss.laaws.crawler.impl.pluggable.command.StringCommandOption;
 import org.lockss.log.L4JLogger;
+import org.lockss.util.ListUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.status.ApiStatus;
 import java.io.File;
@@ -52,8 +54,10 @@ import static org.lockss.laaws.crawler.wget.WgetCommandOptions.*;
  */
 public class WgetCommandLineBuilder implements CmdLineCrawler.CommandLineBuilder {
   private static final L4JLogger log = L4JLogger.getLogger();
-  protected static final String WARC_FILE_NAME = "wget";
 
+  protected static final String WARC_FILE_NAME = "lockss-wget";
+  public static final List<String> DEFAULT_CONFIG =
+      ListUtil.fromCSV(DELETE_AFTER_KEY +","+NO_DIRECTORIES_KEY +","+VERBOSE_KEY+"=off");
 
   /**
    * Builds the wget command line.
@@ -70,11 +74,10 @@ public class WgetCommandLineBuilder implements CmdLineCrawler.CommandLineBuilder
 
     List<String> command = new ArrayList<>();
     command.add("wget");
-
+    command.addAll(DEFAULT_CONFIG);
     if(crawlDesc.getCrawlKind().equals(CrawlDesc.CrawlKindEnum.NEWCONTENT)){
-      command.add("-r");
+      command.add(RECURSIVE_KEY);
     }
-
     Integer crawlDepth = crawlDesc.getCrawlDepth();
     log.trace("crawlDepth = {}", crawlDepth);
 
@@ -97,6 +100,10 @@ public class WgetCommandLineBuilder implements CmdLineCrawler.CommandLineBuilder
         log.trace("extraCrawlerOptionData = {}", extraCrawlerOptionData);
 
         switch (optionKey) {
+          case DEBUG_KEY:
+          case QUIET_KEY:
+          case VERBOSE_KEY:
+          case NO_PARENT_KEY:
           case DELETE_AFTER_KEY:
           case NO_DIRECTORIES_KEY:
           case PAGE_REQUISITES_KEY:
@@ -104,6 +111,7 @@ public class WgetCommandLineBuilder implements CmdLineCrawler.CommandLineBuilder
           case SPAN_HOSTS_KEY:
           case SPIDER_KEY:
           case WARC_CDX_KEY:
+          case NO_WARC_COMPRESSION_KEY:
             BooleanCommandOption.process(optionKey, extraCrawlerOptionData, command);
             break;
           case DOMAINS_KEY:
@@ -117,22 +125,21 @@ public class WgetCommandLineBuilder implements CmdLineCrawler.CommandLineBuilder
           case WAIT_KEY:
           case WARC_FILE_KEY:
           case WARC_MAX_SIZE_KEY:
+          case TRIES_KEY:
+          case TIMEOUT_KEY:
+          case DNS_TIMEOUT_KEY:
+          case CONNECT_TIMEOUT_KEY:
+          case READ_TIMEOUT_KEY:
             StringCommandOption.process(optionKey, extraCrawlerOptionData, command);
             break;
           case USER_AGENT_KEY:
             StringCommandOption userAgentOption =
               StringCommandOption.process(optionKey, extraCrawlerOptionData, command);
-
             if (userAgentOption.getValue() == null) {
-              ApiStatus apiStatus = new ApiStatus("swagger/swagger.yaml");
-              log.trace("apiStatus = {}", apiStatus);
-
-              String userAgent = apiStatus.getServiceName() + " " + apiStatus.getComponentVersion();
+              String userAgent = LockssDaemon.getUserAgent();
               log.trace("userAgent = {}", userAgent);
-
               StringCommandOption.process(optionKey, userAgent, command);
             }
-
             break;
           case HEADER_KEY:
           case WARC_HEADER_KEY:
@@ -154,6 +161,7 @@ public class WgetCommandLineBuilder implements CmdLineCrawler.CommandLineBuilder
             break;
           case INPUT_FILE_KEY:
           case WARC_DEDUP_KEY:
+          case APPEND_LOG_KEY:
             FileCommandOption.process(optionKey, extraCrawlerOptionData, tmpDir, command);
             break;
           default:

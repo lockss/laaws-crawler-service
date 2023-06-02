@@ -39,12 +39,14 @@ import org.lockss.log.L4JLogger;
 import org.lockss.spring.base.BaseSpringApiServiceImpl;
 import org.lockss.util.rest.crawler.JobStatus;
 import org.lockss.util.rest.crawler.JobStatus.StatusCodeEnum;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.NotFoundException;
 
 import static org.lockss.laaws.crawler.impl.ApiUtils.*;
@@ -58,6 +60,13 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
   static final String NOT_INITIALIZED_MESSAGE = "The service has not been fully initialized";
   // The logger for this class.
   private static final L4JLogger log = L4JLogger.getLogger();
+
+  private final HttpServletRequest request;
+
+  @Autowired
+  public CrawlsApiServiceImpl(HttpServletRequest request) {
+    this.request = request;
+  }
 
   /**
    * Deletes a crawl previously added to the crawl queue, stopping the crawl if already running.
@@ -74,7 +83,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
     JobStatus jobStatus;
     try {
       // Check whether the service has not been fully initialized.
-      if (!waitConfig()) {
+      if (!waitReady()) {
         // Yes: Report the problem.
         log.error(NOT_INITIALIZED_MESSAGE);
         log.error("jobId = {}", jobId);
@@ -124,7 +133,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
 
     try {
       // Check whether the service has not been fully initialized.
-      if (!waitConfig()) {
+      if (!waitReady()) {
         // Yes: Report the problem.
         String message = "The service has not been fully initialized";
         log.error(message);
@@ -174,7 +183,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
 
     try {
       // Check whether the service has not been fully initialized.
-      if (!waitConfig()) {
+      if (!waitReady()) {
         // Yes: Report the problem.
         String message = "The service has not been fully initialized";
         log.error(message);
@@ -229,7 +238,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
 
     try {
       // Check whether the service has not been fully initialized.
-      if (!waitConfig()) {
+      if (!waitReady()) {
         // Yes: Report the problem.
         String message = "The service has not been fully initialized";
         log.error(message);
@@ -284,7 +293,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
 
     try {
       // Check whether the service has not been fully initialized.
-      if (!waitConfig()) {
+      if (!waitReady()) {
         // Yes: Report the problem.
         String message = "The service has not been fully initialized";
         log.error(message);
@@ -337,7 +346,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
 
     try {
       // Check whether the service has not been fully initialized.
-      if (!waitConfig()) {
+      if (!waitReady()) {
         // Yes: Report the problem.
         String message = "The service has not been fully initialized";
         log.error(message);
@@ -390,7 +399,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
 
     try {
       // Check whether the service has not been fully initialized.
-      if (!waitConfig()) {
+      if (!waitReady()) {
         // Yes: Report the problem.
         String message = "The service has not been fully initialized";
         log.error(message);
@@ -443,7 +452,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
 
     try {
       // Check whether the service has not been fully initialized.
-      if (!waitConfig()) {
+      if (!waitReady()) {
         // Yes: Report the problem.
         String message = "The service has not been fully initialized";
         log.error(message);
@@ -496,7 +505,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
 
     try {
       // Check whether the service has not been fully initialized.
-      if (!waitConfig()) {
+      if (!waitReady()) {
         // Yes: Report the problem.
         String message = "The service has not been fully initialized";
         log.error(message);
@@ -546,7 +555,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
 
     try {
       // Check whether the service has not been fully initialized.
-      if (!waitConfig()) {
+      if (!waitReady()) {
         // Yes: Report the problem.
         log.error(NOT_INITIALIZED_MESSAGE);
         log.error("limit = {}, continuationToken = {}", limit, continuationToken);

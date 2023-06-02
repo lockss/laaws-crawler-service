@@ -74,6 +74,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 /** Test class for org.lockss.laaws.crawler.impl.CrawlsApiServiceImpl. */
 import static org.lockss.laaws.crawler.impl.PluggableCrawlManager.CRAWLER_IDS;
+import static org.lockss.laaws.crawler.wget.WgetCommandOptions.USER_AGENT_KEY;
 import static org.lockss.util.rest.crawler.CrawlDesc.CLASSIC_CRAWLER_ID;
 
 @RunWith(SpringRunner.class)
@@ -84,6 +85,10 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
 
   private static final String UI_PORT_CONFIGURATION_TEMPLATE = "UiPortConfigTemplate.txt";
   private static final String UI_PORT_CONFIGURATION_FILE = "UiPort.txt";
+  private static final String REPO_CONFIGURATION_TEMPLATE =
+      "RepositoryConfigTemplate.txt";
+  private static final String REPO_CONFIGURATION_FILE = "RepositoryConfig.txt";
+  private static final String REPO_COLLECTION = "testrepo";
   private static final String WGET_CRAWLER_ID = "wget";
 
   private static final String EMPTY_STRING = "";
@@ -121,17 +126,10 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
   @Before
   public void setUpBeforeEachTest() throws Exception {
     log.debug2("port = {}", port);
-
     // Set up the temporary directory where the test data will reside.
     setUpTempDirectory(TestCrawlsApiServiceImpl.class.getCanonicalName());
     // Set up the Repository
-    //setUpRepositoryConfig(REPO_CONFIGURATION_TEMPLATE, REPO_CONFIGURATION_FILE);
-
-    //File repositoryStateDir = new File(getTempDirPath(), "testRepo");
-    //log.trace("repositoryStateDir = {}", () -> repositoryStateDir.getAbsolutePath());
-
-    //File repositoryDir = new File(getTempDirPath(), "testRepo");
-    //log.trace("repositoryDir = {}", () -> repositoryDir.getAbsolutePath());
+    setUpRepositoryConfig(REPO_CONFIGURATION_TEMPLATE, REPO_CONFIGURATION_FILE);
 
     // Set up the UI port.
     setUpUiPort(UI_PORT_CONFIGURATION_TEMPLATE, UI_PORT_CONFIGURATION_FILE);
@@ -215,9 +213,7 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     Configuration config = ConfigManager.getCurrentConfig();
     assertTrue(config.getBoolean(CrawlManagerImpl.PARAM_CRAWLER_ENABLED));
     cmi = (CrawlManagerImpl) LockssApp.getManagerByTypeStatic(CrawlManager.class);
-
     assertTrue(cmi.isCrawlerEnabled());
-
     runGetSwaggerDocsTest(getTestUrlTemplate("/v2/api-docs"));
     runMethodsNotAllowedAuthenticatedTest();
     getCrawlsAuthenticatedTest();
@@ -227,8 +223,30 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     urlPaginationAuthenticatedTest();
     deleteCrawlByIdAuthenticatedTest();
     deleteCrawlsAuthenticatedTest();
-
     log.debug2("Done");
+  }
+
+  @Test
+  public void runWgetTests() throws Exception {
+    log.debug2("Invoked");
+
+    // Specify the command line parameters to be used for the tests.
+    List<String> cmdLineArgs = getCommandLineArguments();
+    cmdLineArgs.add("-p");
+    cmdLineArgs.add("test/config/testAuthOn.txt");
+    CommandLineRunner runner = appCtx.getBean(CommandLineRunner.class);
+    runner.run(cmdLineArgs.toArray(new String[0]));
+    startAllAusIfNecessary();
+    Configuration config = ConfigManager.getCurrentConfig();
+    assertTrue(config.getBoolean(CrawlManagerImpl.PARAM_CRAWLER_ENABLED));
+    cmi = (CrawlManagerImpl) LockssApp.getManagerByTypeStatic(CrawlManager.class);
+    assertTrue(cmi.isCrawlerEnabled());
+    runGetSwaggerDocsTest(getTestUrlTemplate("/v2/api-docs"));
+    runMethodsNotAllowedAuthenticatedTest();
+    getCrawlsAuthenticatedTest();
+    //doCrawlPluggableTest(WGET_CRAWLER_ID);
+    log.debug2("Done");
+
   }
 
   /**
@@ -302,8 +320,8 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     cmdLineArgs.add(getUiPortConfigFile().getAbsolutePath());
     cmdLineArgs.add("-p");
     cmdLineArgs.add("test/config/lockss.opt");
-//    cmdLineArgs.add("-p");
-//    cmdLineArgs.add(getRepositoryConfigFile().getAbsolutePath());
+    cmdLineArgs.add("-p");
+    cmdLineArgs.add(getRepositoryConfigFile().getAbsolutePath());
 
     log.debug2("cmdLineArgs = {}", cmdLineArgs);
     return cmdLineArgs;
@@ -777,7 +795,7 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     log.debug2("Invoked");
     CrawlPager crawlPager = runTestGetCrawls(USER_ADMIN, null, null, HttpStatus.OK);;
     int oldJobCount = validateGetCrawlsResult(crawlPager, null, -1);
-    log.info("Job Count before " + oldJobCount);
+    log.debug2("Job Count before " + oldJobCount);
     runTestDoCrawl(null, USER_ADMIN, HttpStatus.BAD_REQUEST);
     runTestDoCrawl(new CrawlDesc().crawlerId(crawlerId), CONTENT_ADMIN, HttpStatus.BAD_REQUEST);
     runTestDoCrawl(new CrawlDesc().auId(sau.getAuId()).crawlerId(crawlerId), USER_ADMIN, HttpStatus.BAD_REQUEST);
@@ -786,12 +804,12 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     crawlPager = runTestGetCrawls(USER_ADMIN, null, null, HttpStatus.OK);;
     int jobCount = validateGetCrawlsResult(crawlPager, null, -1);
     assertEquals(oldJobCount, jobCount);
-    log.info("jobCount before success: {}",oldJobCount);
+    log.debug2("jobCount before success: {}",oldJobCount);
     CrawlDesc crawlDesc = new CrawlDesc()
       .auId(sau.getAuId())
-      .crawlDepth(5)
       .crawlKind(CrawlDesc.CrawlKindEnum.NEWCONTENT)
       .crawlerId(crawlerId).forceCrawl(true);
+
     // first crawl
     CrawlJob crawlJob = runTestDoCrawl(crawlDesc, CONTENT_ADMIN, HttpStatus.ACCEPTED);
     assertEquals(sau.getAuId(), crawlJob.getCrawlDesc().getAuId());
@@ -1104,21 +1122,23 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
    * @param crawlStatus A CrawlStatus with the status of the crawl.
    */
   private void validateGetCrawlByIdResult(CrawlStatus crawlStatus) {
-    log.info("crawlStatus = {}", crawlStatus);
+    log.debug2("crawlStatus = {}", crawlStatus);
     assertEquals(sau.getAuId(), crawlStatus.getAuId());
 
     if (crawlStatus.getJobStatus().getStatusCode() == StatusCodeEnum.SUCCESSFUL) {
-      if (crawlStatus.getPriority() == 0) {
-        assertEquals(25118, crawlStatus.getBytesFetched().longValue());
-        assertEquals(12, crawlStatus.getFetchedItems().getCount().intValue());
-      } else {
-        assertEquals(0, crawlStatus.getBytesFetched().longValue());
-        assertEquals(1, crawlStatus.getFetchedItems().getCount().intValue());
-      }
+      if(crawlStatus.getCrawlerId().equals(CLASSIC_CRAWLER_ID)) {
+        if (crawlStatus.getPriority() == 0) {
+          assertEquals(25118, crawlStatus.getBytesFetched().longValue());
+          assertEquals(12, crawlStatus.getFetchedItems().getCount().intValue());
+        } else {
+          assertEquals(0, crawlStatus.getBytesFetched().longValue());
+          assertEquals(1, crawlStatus.getFetchedItems().getCount().intValue());
+        }
 
-      assertEquals(1, crawlStatus.getExcludedItems().getCount().intValue());
-      assertEquals(1, crawlStatus.getNotModifiedItems().getCount().intValue());
-      assertEquals(4, crawlStatus.getParsedItems().getCount().intValue());
+        assertEquals(1, crawlStatus.getExcludedItems().getCount().intValue());
+        assertEquals(1, crawlStatus.getNotModifiedItems().getCount().intValue());
+        assertEquals(4, crawlStatus.getParsedItems().getCount().intValue());
+      }
     }
 
     log.debug2("Done");

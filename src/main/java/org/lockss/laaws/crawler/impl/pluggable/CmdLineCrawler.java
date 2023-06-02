@@ -25,11 +25,13 @@
  */
 package org.lockss.laaws.crawler.impl.pluggable;
 
+import org.lockss.app.LockssDaemon;
 import org.lockss.config.Configuration;
 import org.lockss.laaws.crawler.impl.PluggableCrawlManager;
 import org.lockss.laaws.crawler.model.CrawlerConfig;
 import org.lockss.laaws.crawler.utils.ExecutorUtils;
 import org.lockss.log.L4JLogger;
+import org.lockss.repository.RepoSpec;
 import org.lockss.util.ClassUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.crawler.CrawlJob;
@@ -111,7 +113,20 @@ public class CmdLineCrawler implements PluggableCrawler {
 
   public CmdLineCrawler setConfig(CrawlerConfig config) {
     updateCrawlerConfig(config);
+    if (v2Repo == null)initV2Repo();
     return this;
+  }
+
+  private void initV2Repo() {
+
+    RepoSpec v2RepoSpec = LockssDaemon.getLockssDaemon().getRepositoryManager().getV2Repository();
+    if (v2RepoSpec == null) {
+      log.error( "Unable to store content, not available V2 repository");
+    }
+    else {
+      setNamespace(v2RepoSpec.getNamespace());
+      setV2Repo(v2RepoSpec.getRepository());
+    }
   }
 
   public CmdLineCrawler setCmdLineBuilder(CommandLineBuilder cmdLineBuilder) {
@@ -175,10 +190,10 @@ public class CmdLineCrawler implements PluggableCrawler {
     CmdLineCrawl clCrawl = new CmdLineCrawl(this, crawlJob);
     crawlMap.put(crawlJob.getJobId(), clCrawl);
     if (crawlQueueExecutor.submit(new RunnableCrawlJob(crawlJob, clCrawl)) != null) {
-      JobStatus status = crawlJob.getJobStatus();
-      status.setStatusCode(StatusCodeEnum.QUEUED);
-      status.setMsg("Pending.");
-      return clCrawl;
+    JobStatus status = crawlJob.getJobStatus();
+    status.setStatusCode(StatusCodeEnum.QUEUED);
+    status.setMsg("Pending.");
+    return clCrawl;
     }
     else {
       log.warn("Attempt to queue job {} failed!", crawlJob);
@@ -257,7 +272,19 @@ public class CmdLineCrawler implements PluggableCrawler {
 
   public void storeInRepository (String auId, File warcFile, boolean isCompressed) throws IOException {
     BufferedInputStream bis = new BufferedInputStream(Files.newInputStream(warcFile.toPath()));
-    v2Repo.addArtifacts(namespace, auId, bis, LockssRepository.ArchiveType.WARC,isCompressed);
+    if(v2Repo != null) {
+      if(!v2Repo.isReady()) {
+        log.warn("Unable to store warc artifacts - Repository is not ready for connections.");
+      }
+      else {
+        log.debug2("Calling Repo");
+        v2Repo.addArtifacts(namespace, auId, bis, LockssRepository.ArchiveType.WARC, isCompressed);
+        log.debug2("Returned from call to repo");
+      }
+    }
+    else{
+      log.error("Unable to store warc artifacts - v2Repo is NULL");
+    }
   }
 
   protected void initCrawlScheduler(String reqSpec) {
@@ -297,6 +324,7 @@ public class CmdLineCrawler implements PluggableCrawler {
 
     @Override
     public void run() {
+
       cmdLineCrawl.getRunnable().run();
     }
   }

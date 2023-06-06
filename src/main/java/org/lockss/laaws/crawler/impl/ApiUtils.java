@@ -1,14 +1,17 @@
 package org.lockss.laaws.crawler.impl;
 
-import org.lockss.app.LockssApp;
+import org.lockss.app.LockssDaemon;
 import org.lockss.crawler.CrawlManager;
 import org.lockss.crawler.CrawlManagerImpl;
 import org.lockss.crawler.CrawlerStatus;
 import org.lockss.laaws.crawler.model.*;
 import org.lockss.laaws.crawler.utils.ContinuationToken;
 import org.lockss.log.L4JLogger;
+import org.lockss.repository.RepoSpec;
+import org.lockss.repository.RepositoryManager;
 import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.crawler.JobStatus;
+import org.lockss.util.rest.repo.LockssRepository;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.springframework.web.util.UriComponentsBuilder;
 import java.util.*;
@@ -17,7 +20,6 @@ import javax.ws.rs.NotFoundException;
 
 import static org.lockss.daemon.Crawler.STATUS_QUEUED;
 import static org.lockss.laaws.crawler.CrawlerApplication.PLUGGABLE_CRAWL_MANAGER;
-import static org.lockss.util.rest.crawler.CrawlDesc.CLASSIC_CRAWLER_ID;
 
 public class ApiUtils {
   private static final L4JLogger log = L4JLogger.getLogger();
@@ -29,6 +31,10 @@ public class ApiUtils {
   private static final String MIME_URI = "crawls/{jobId}/mimeType/{mimeType}";
   private static PluggableCrawlManager pluggableCrawlManager;
   private static CrawlManagerImpl lockssCrawlManager;
+
+  private static RepositoryManager repoManager;
+  private static LockssRepository v2Repo;
+  private static String v2Namespace;
 
   /**
    * Checks that a limit field is valid.
@@ -56,7 +62,7 @@ public class ApiUtils {
 
   public static PluggableCrawlManager getPluggableCrawlManager() {
     if (pluggableCrawlManager == null) {
-      pluggableCrawlManager = (PluggableCrawlManager) LockssApp.getManagerByKeyStatic(PLUGGABLE_CRAWL_MANAGER);
+      pluggableCrawlManager = (PluggableCrawlManager)LockssDaemon.getLockssApp().getManagerByKeyStatic(PLUGGABLE_CRAWL_MANAGER);
     }
     return pluggableCrawlManager;
   }
@@ -67,11 +73,23 @@ public class ApiUtils {
    * @return CrawlManagerImpl
    */
   public static CrawlManagerImpl getLockssCrawlManager() {
-    CrawlManager cmgr = LockssApp.getManagerByTypeStatic(CrawlManager.class);
+    CrawlManager cmgr = LockssDaemon.getLockssApp().getManagerByTypeStatic(CrawlManager.class);
     if (cmgr instanceof CrawlManagerImpl) {
       lockssCrawlManager = (CrawlManagerImpl) cmgr;
      }
     return lockssCrawlManager;
+  }
+
+  /**
+   * Provide the Lockss RepositoryManager
+   *
+   * @return CrawlManagerImpl
+   */
+  public static RepositoryManager getRepositoryManager() {
+    if(repoManager == null) {
+      repoManager = (RepositoryManager) LockssDaemon.getLockssDaemon().getManagerByTypeStatic(RepositoryManager.class);
+    }
+    return repoManager;
   }
 
   public static PageInfo getPageInfo(Integer resultsPerPage, Long lastElement, int totalCount, Long timeStamp) {
@@ -345,6 +363,29 @@ public class ApiUtils {
     return ServletUriComponentsBuilder.fromCurrentRequest();
   }
 
+  static public LockssRepository getV2Repo() {
+    if(v2Repo == null) {
+      RepoSpec v2RepoSpec = getRepositoryManager().getV2Repository();
+      if (v2RepoSpec == null) {
+        log.error("Unable to store content, not available V2 repository");
+      } else {
+        v2Repo = v2RepoSpec.getRepository();
+        v2Namespace = v2RepoSpec.getNamespace();
+      }
+    }
+    return v2Repo;
+  }
+  static public String getV2Namespace() {
+    if(v2Namespace == null) {
+      getV2Repo();
+    }
+    return v2Namespace;
+  }
+
+  static public void setRepoTest(LockssRepository repo, String ns) {
+    v2Repo = repo;
+    v2Namespace = ns;
+  }
 
   enum COUNTER_KIND {
     errors, excluded, fetched, notmodified, parsed, pending

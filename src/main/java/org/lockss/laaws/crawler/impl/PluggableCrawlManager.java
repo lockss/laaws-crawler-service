@@ -229,6 +229,9 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
 
     // We are a pluggable crawl so check each crawler
     Cursor<CrawlJob> jobCursor = getCrawlJobsWithAuId(auId);
+    if(jobCursor.totalCount()==0) {
+      return true;
+    }
     for (CrawlJob crawlJob : jobCursor) {
       if (crawlJob.getEndDate() != null) {
         return true;
@@ -241,7 +244,7 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
           return false;
         }
       } else {
-        log.warn("CrawlJob {} misssing a jobStatus", crawlJob);
+        log.debug("CrawlJob {} misssing a jobStatus", crawlJob);
       }
     }
     return false;

@@ -1,5 +1,7 @@
 package org.lockss.laaws.crawler.impl.pluggable;
 
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.filefilter.WildcardFileFilter;
 import org.lockss.crawler.CrawlerStatus;
 import org.lockss.daemon.Crawler;
 import org.lockss.daemon.LockssRunnable;
@@ -11,6 +13,7 @@ import org.lockss.util.rest.crawler.JobStatus;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -78,9 +81,13 @@ public class CmdLineCrawl extends PluggableCrawl {
     return tmpDir;
   }
 
-  public List<String>  getWarcFiles() {
+  public Collection<File> getWarcFiles(String extension) {
+    return FileUtils.listFiles(tmpDir, new WildcardFileFilter(extension), null);
+  }
+
+  public List<String>  getWarcFileNames(String extension) {
     try {
-      return FileUtil.listDirFilesWithExtension(tmpDir,"warc");
+      return FileUtil.listDirFilesWithExtension(tmpDir,extension);
     }
     catch (IOException e) {
       log.warn("CmdLine crawl did not return any results.");
@@ -110,18 +117,16 @@ public class CmdLineCrawl extends PluggableCrawl {
           ProcessBuilder builder = new ProcessBuilder();
           builder.command(command);
           builder.inheritIO();
-
-          log.info("external crawl process started");
+          log.debug("external crawl process started with command {}...", String.join(" ", command));
           Process process = builder.start();
           crawlerStatus.signalCrawlStarted();
           int exitCode = process.waitFor();
-          log.info("external crawl process finished: exitCode = {}", exitCode);
+          log.debug("external crawl process finished: exitCode = {}", exitCode);
           if (exitCode == 0) {
-            List<String> warcFiles = getWarcFiles();
-            log.info("Found {} warcFiles after crawl.", warcFiles.size());
-            for (String warcName : warcFiles) {
-              File warcFile = new File(tmpDir,warcName);
-              crawler.storeInRepository(crawlerStatus.getAuId(), warcFile, false);
+            Collection<File> warcFiles = getWarcFiles("*.warc.gz");
+            log.debug2("Found {} warcFiles after crawl.", warcFiles.size());
+            for (File warc : warcFiles) {
+              crawler.storeInRepository(crawlerStatus.getAuId(), warc, true);
             }
             crawlerStatus.setCrawlStatus(Crawler.STATUS_SUCCESSFUL);
           }
@@ -132,6 +137,8 @@ public class CmdLineCrawl extends PluggableCrawl {
         }
         catch (IOException ioe) {
           log.error("Exception caught running process", ioe);
+          crawlerStatus.setCrawlStatus(
+              Crawler.STATUS_ERROR, "Exception thrown: " + ioe.getMessage());
         }
         catch (InterruptedException ignore) {
           // no action

@@ -31,6 +31,9 @@ import java.io.File;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
+
+import org.apache.activemq.broker.BrokerService;
+import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -39,6 +42,7 @@ import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
 import org.lockss.crawler.FuncNewContentCrawler.MySimulatedArchivalUnit;
 import org.lockss.crawler.FuncNewContentCrawler.MySimulatedPlugin;
+import org.lockss.jms.JMSManager;
 import org.lockss.laaws.crawler.model.JobPager;
 import org.lockss.laaws.crawler.model.PageInfo;
 import org.lockss.log.L4JLogger;
@@ -50,6 +54,7 @@ import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.crawler.CrawlJob;
 import org.lockss.util.rest.crawler.JobStatus;
 import org.lockss.util.rest.crawler.JobStatus.StatusCodeEnum;
+import org.lockss.util.time.TimerUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.web.client.RestTemplateBuilder;
@@ -88,12 +93,21 @@ public class TestJobsApiServiceImpl extends SpringLockssTestCase4 {
   // The port that Tomcat is using during this test.
   @LocalServerPort private int port;
   private MySimulatedArchivalUnit sau;
+  static BrokerService broker;
 
   /** Set up code to be run before all tests. */
   @BeforeClass
-  public static void setUpBeforeAllTests() {
+  public static void setUpBeforeClass() throws Exception {
+    broker = JMSManager.createBroker(JMSManager.DEFAULT_BROKER_URI);
   }
 
+  @AfterClass
+  public static void tearDownAfterClass() throws Exception {
+    if (broker != null) {
+      TimerUtil.sleep(1000);
+      broker.stop();
+    }
+  }
   /**
    * Set up code to be run before each test.
    *

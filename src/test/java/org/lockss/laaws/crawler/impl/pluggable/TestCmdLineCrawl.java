@@ -12,7 +12,9 @@ import org.lockss.util.rest.crawler.JobStatus;
 import org.lockss.util.test.LockssTestCase5;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 
 import static org.mockito.Mockito.mock;
@@ -23,7 +25,7 @@ class TestCmdLineCrawl extends LockssTestCase5 {
   static final CrawlDesc.CrawlKindEnum REPAIR = CrawlDesc.CrawlKindEnum.REPAIR;
   private static final String TEST_CRAWLER = "cmdLineCrawler";
   private static final String DEF_JOB_ID = "1000";
-  private static final String[] TEST_CMD_LINE ={"mycmd", "-p",  "prop1"};
+  private static final String[] TEST_CMD_LINE ={"wget", "--debug", "--mirror", "https://webscraper.io/test-sites/e-commerce/allinone"};
 
   private JobStatus QueuedStatus = new JobStatus().statusCode(JobStatus.StatusCodeEnum.QUEUED).msg("Pending");
   private JobStatus ActiveStatus = new JobStatus().statusCode(JobStatus.StatusCodeEnum.ACTIVE).msg("Active");
@@ -49,21 +51,45 @@ class TestCmdLineCrawl extends LockssTestCase5 {
     CmdLineCrawler crawler = makeMockCrawler();
     CmdLineCrawl crawl = makeMockCrawl(crawler);
     crawl.tmpDir = tmpDir;
-    assertEquals(0,crawl.getWarcFiles().size());
+    assertEquals(0,crawl.getWarcFiles("warc").size());
   }
 
   @Test
+  @DisplayName("Should return a list of warc file names when the tmpdir is not empty")
+  void getWarcFileNamesWhenTmpDirIsNotEmptyThenReturnListOfWarcFiles() throws Exception {
+    CmdLineCrawler crawler = makeMockCrawler();
+    CmdLineCrawl crawl = makeMockCrawl(crawler);
+    //add a mock warc file
+    crawl.tmpDir = tmpDir;
+    List<String> expected = new ArrayList<>();
+    for(int ix =0; ix < 3; ix++) {
+      expected.add(FileUtil.createTempFile("mock", ".warc", tmpDir).getName());
+    }
+    when(crawl.getWarcFileNames("warc")).thenCallRealMethod();
+    List<String> warcs = crawl.getWarcFileNames("warc");
+    assertNotNull(warcs);
+    assertEquals(3,warcs.size());
+    assertTrue(warcs.containsAll(expected));
+  }
+
+ @Test
   @DisplayName("Should return a list of warc files when the tmpdir is not empty")
   void getWarcFilesWhenTmpDirIsNotEmptyThenReturnListOfWarcFiles() throws Exception {
     CmdLineCrawler crawler = makeMockCrawler();
     CmdLineCrawl crawl = makeMockCrawl(crawler);
     //add a mock warc file
     crawl.tmpDir = tmpDir;
-    FileUtil.createTempFile("mock",".warc",tmpDir);
-    when(crawl.getWarcFiles()).thenCallRealMethod();
-    List<String> warcs = crawl.getWarcFiles();
+    List<File> expected = new ArrayList<>();
+    for(int ix =0; ix < 3; ix++) {
+      expected.add(FileUtil.createTempFile("mock", ".warc", tmpDir));
+    }
+    when(crawl.getWarcFiles(".warc")).thenCallRealMethod();
+    Collection<File> warcs = crawl.getWarcFiles("*.warc");
     assertNotNull(warcs);
-    assertEquals(1,warcs.size());
+    assertEquals(3,warcs.size());
+    for(int ix=0; ix < 3; ix++) {
+      assertTrue(warcs.contains(expected.get(ix)));
+    }
   }
 
   @Test

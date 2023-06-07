@@ -98,4 +98,7 @@ org.lockss.crawlerservice.wget.enabled=true
 org.lockss.crawlerservice.wget.crawler=org.lockss.laaws.crawler.impl.pluggable.CmdLineCrawler
 org.lockss.crawlerservice.wget.cmdLineBuilder=org.lockss.laaws.crawler.wget.WgetCommandLineBuilder
 
+org.lockss.repository.v2Repository=volatile:testRepo
+#org.lockss.plugin.jms.enable=true
+
 #org.lockss.restAuth.authenticationType=basic

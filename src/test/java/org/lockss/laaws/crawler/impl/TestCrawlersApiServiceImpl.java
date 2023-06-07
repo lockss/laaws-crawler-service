@@ -32,7 +32,6 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.lockss.app.LockssDaemon;
-import org.lockss.crawler.CrawlManagerImpl;
 import org.lockss.laaws.crawler.model.CrawlerConfig;
 import org.lockss.laaws.crawler.model.CrawlerStatus;
 import org.lockss.laaws.crawler.model.CrawlerStatuses;

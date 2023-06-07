@@ -38,6 +38,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.junit.Test;
+import org.lockss.app.LockssDaemon;
 import org.lockss.log.L4JLogger;
 import org.lockss.test.LockssTestCase4;
 import org.lockss.util.ListUtil;
@@ -50,8 +51,7 @@ import static org.lockss.laaws.crawler.wget.WgetCommandOptions.*;
 /** Test class for WgetCommandLineBuilder. */
 public class TestWgetCommandLineBuilder extends LockssTestCase4 {
   private static final L4JLogger log = L4JLogger.getLogger();
-  private static final String userAgent =
-      "--user-agent=LOCKSS Crawler Service REST API 1.0.0-SNAPSHOT";
+  private static final String userAgent = "--user-agent=\""+LockssDaemon.getUserAgent()+"\"";
 
   private File tmpDir;
   List<String> crawlList = ListUtil.list("http://url1", "https://Url2", "http://URL3");
@@ -82,6 +82,7 @@ public class TestWgetCommandLineBuilder extends LockssTestCase4 {
     CrawlDesc crawlDesc = new CrawlDesc();
     crawlDesc.crawlKind(CrawlDesc.CrawlKindEnum.REPAIR);
     List<String> expectedCommand = ListUtil.list("wget");
+    expectedCommand.addAll(WgetCommandLineBuilder.DEFAULT_CONFIG);
     expectedCommand.add(WARC_FILE_KEY + "=" + tmpDirPath + "/" + WARC_FILE_NAME);
     expectedCommand.add(WARC_TEMPDIR_KEY + "=" + tmpDirPath);
     expectedCommand.addAll(crawlList);
@@ -107,7 +108,9 @@ public class TestWgetCommandLineBuilder extends LockssTestCase4 {
     crawlDesc.crawlKind(CrawlDesc.CrawlKindEnum.NEWCONTENT);
     crawlDesc.crawlList(crawlList);
 
-    List<String> expectedCommand = ListUtil.list("wget", "-r");
+    List<String> expectedCommand = ListUtil.list("wget");
+    expectedCommand.add("-r");
+    expectedCommand.addAll(WgetCommandLineBuilder.DEFAULT_CONFIG);
     expectedCommand.add(WARC_FILE_KEY + "=" + tmpDirPath + "/" + WARC_FILE_NAME);
     expectedCommand.add(WARC_TEMPDIR_KEY + "=" + tmpDirPath);
     expectedCommand.addAll(crawlList);
@@ -125,7 +128,9 @@ public class TestWgetCommandLineBuilder extends LockssTestCase4 {
     crawlDesc.crawlList(crawlList);
     List<String> inputFileUrls = ListUtil.list("https://ip1","https://ip2","http://ip3");
 
-    List<String> expectedCommand = ListUtil.list("wget", "-r");
+    List<String> expectedCommand = ListUtil.list("wget");
+    expectedCommand.add("-r");
+    expectedCommand.addAll(WgetCommandLineBuilder.DEFAULT_CONFIG);
     expectedCommand.add(WARC_FILE_KEY + "=" + tmpDirPath + "/" + WARC_FILE_NAME);
     expectedCommand.add(WARC_TEMPDIR_KEY + "=" + tmpDirPath);
     expectedCommand.add(INPUT_FILE_KEY + "=" + tmpDirPath + "/" + INPUT_FILE_KEY.substring(2));

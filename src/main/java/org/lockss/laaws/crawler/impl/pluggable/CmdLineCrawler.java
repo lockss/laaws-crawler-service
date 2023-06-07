@@ -26,6 +26,7 @@
 package org.lockss.laaws.crawler.impl.pluggable;
 
 import org.lockss.config.Configuration;
+import org.lockss.laaws.crawler.impl.ApiUtils;
 import org.lockss.laaws.crawler.impl.PluggableCrawlManager;
 import org.lockss.laaws.crawler.model.CrawlerConfig;
 import org.lockss.laaws.crawler.utils.ExecutorUtils;
@@ -127,10 +128,6 @@ public class CmdLineCrawler implements PluggableCrawler {
     return cmdLineBuilder;
   }
 
-  protected String getNamespace() {
-    return namespace;
-  }
-
   @Override
   public String getCrawlerId() {
     return config.getCrawlerId();
@@ -174,16 +171,11 @@ public class CmdLineCrawler implements PluggableCrawler {
     }
     CmdLineCrawl clCrawl = new CmdLineCrawl(this, crawlJob);
     crawlMap.put(crawlJob.getJobId(), clCrawl);
-    if (crawlQueueExecutor.submit(new RunnableCrawlJob(crawlJob, clCrawl)) != null) {
-      JobStatus status = crawlJob.getJobStatus();
-      status.setStatusCode(StatusCodeEnum.QUEUED);
-      status.setMsg("Pending.");
-      return clCrawl;
-    }
-    else {
-      log.warn("Attempt to queue job {} failed!", crawlJob);
-      return null;
-    }
+    crawlQueueExecutor.submit(new RunnableCrawlJob(crawlJob, clCrawl));
+    JobStatus status = crawlJob.getJobStatus();
+    status.setStatusCode(StatusCodeEnum.QUEUED);
+    status.setMsg("Pending.");
+    return clCrawl;
   }
 
   @Override
@@ -242,7 +234,8 @@ public class CmdLineCrawler implements PluggableCrawler {
   public void disable(boolean abortCrawling) {
     if(abortCrawling) {
       // this will abort all running tasks and empty the queue
-      List<Runnable> aborted = crawlQueueExecutor.shutdownNow();
+      List<Runnable> runnables = crawlQueueExecutor.shutdownNow();
+      if(log.isDebug2Enabled()) log.debug2("successfullly aborted {}", runnables);
     }
     else {
       // this will empty the queue and wait for threads to complete.
@@ -257,7 +250,10 @@ public class CmdLineCrawler implements PluggableCrawler {
 
   public void storeInRepository (String auId, File warcFile, boolean isCompressed) throws IOException {
     BufferedInputStream bis = new BufferedInputStream(Files.newInputStream(warcFile.toPath()));
-    v2Repo.addArtifacts(namespace, auId, bis, LockssRepository.ArchiveType.WARC,isCompressed);
+    ensureRepo();
+    log.debug2("Calling Repo");
+    v2Repo.addArtifacts(namespace, auId, bis, LockssRepository.ArchiveType.WARC, isCompressed);
+    log.debug2("Returned from call to repo");
   }
 
   protected void initCrawlScheduler(String reqSpec) {
@@ -297,8 +293,18 @@ public class CmdLineCrawler implements PluggableCrawler {
 
     @Override
     public void run() {
+
       cmdLineCrawl.getRunnable().run();
     }
   }
-
+  private void ensureRepo() throws IOException{
+    if(v2Repo == null) {
+      v2Repo = ApiUtils.getV2Repo();
+      namespace = ApiUtils.getV2Namespace();
+    }
+    if(v2Repo == null || !v2Repo.isReady()) {
+      log.error("Unable to store warc artifacts - Repository is not ready for connections.");
+      throw new IOException("Unable to store warc artifacts - Repository is not ready for connections.");
+    }
+  }
 }

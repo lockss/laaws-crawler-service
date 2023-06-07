@@ -49,6 +49,7 @@ class TestCmdLineCrawler extends LockssTestCase5 {
   @BeforeEach
   public void beforeEach() throws IOException {
     ensureTempTmpDir();
+
     tmpDir = getTempDir("TestCmdLineCrawler");
     dbFile = new File(tmpDir, "testDb");
     Map<String, String> attrs = new HashMap<>();
@@ -105,6 +106,7 @@ class TestCmdLineCrawler extends LockssTestCase5 {
     try {
       File warcfile = getTempFile("test",".warc");
       CrawlJob crawlJob = makeMockCrawlJob(DEF_AU_ID, DEF_CRAWLER_ID);
+      when(lockssRepository.isReady()).thenReturn(true);
       cmdLineCrawler.storeInRepository(DEF_AU_ID, warcfile, false);
       verify(lockssRepository,times(1)).addArtifacts(anyString(),anyString(),anyObject(),
         anyObject(),anyBoolean());

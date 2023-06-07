@@ -66,7 +66,7 @@ public class WgetCommandOptions {
   public static final String LEVEL_KEY = "--level";
   public static final String DELETE_AFTER_KEY = "--delete-after";
   public static final String PAGE_REQUISITES_KEY = "--page-requisites";
-
+  public static final String MIRROR_KEY = "--mirror";
   /** Recursive accept/reject options */
   public static final String ACCEPT_REGEX_KEY = "--accept-regex";
   public static final String REJECT_REGEX_KEY = "--reject-regex";
@@ -112,6 +112,7 @@ public class WgetCommandOptions {
         add(NO_PARENT_KEY);
         add(PAGE_REQUISITES_KEY);
         add(RECURSIVE_KEY);
+        add(MIRROR_KEY);
         add(REJECT_REGEX_KEY);
         add(SPAN_HOSTS_KEY);
         add(SPIDER_KEY);

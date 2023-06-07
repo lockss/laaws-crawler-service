@@ -38,9 +38,10 @@ import org.lockss.laaws.crawler.impl.pluggable.command.FileCommandOption;
 import org.lockss.laaws.crawler.impl.pluggable.command.ListStringCommandOption;
 import org.lockss.laaws.crawler.impl.pluggable.command.StringCommandOption;
 import org.lockss.log.L4JLogger;
+import org.lockss.util.FileUtil;
 import org.lockss.util.ListUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
-import org.lockss.util.rest.status.ApiStatus;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -57,7 +58,7 @@ public class WgetCommandLineBuilder implements CmdLineCrawler.CommandLineBuilder
 
   protected static final String WARC_FILE_NAME = "lockss-wget";
   public static final List<String> DEFAULT_CONFIG =
-      ListUtil.fromCSV(DELETE_AFTER_KEY +","+NO_DIRECTORIES_KEY +","+VERBOSE_KEY+"=off");
+      ListUtil.fromCSV(DELETE_AFTER_KEY);
 
   /**
    * Builds the wget command line.
@@ -71,13 +72,13 @@ public class WgetCommandLineBuilder implements CmdLineCrawler.CommandLineBuilder
   public List<String> buildCommandLine(CrawlDesc crawlDesc, File tmpDir) throws IOException {
     log.debug2("crawlDesc = {}", crawlDesc);
     log.debug2("tmpDir = {}", tmpDir);
-
+    FileUtil.ensureDirExists(tmpDir);
     List<String> command = new ArrayList<>();
     command.add("wget");
-    command.addAll(DEFAULT_CONFIG);
     if(crawlDesc.getCrawlKind().equals(CrawlDesc.CrawlKindEnum.NEWCONTENT)){
-      command.add(RECURSIVE_KEY);
+      command.add("-r");
     }
+    command.add(DELETE_AFTER_KEY);
     Integer crawlDepth = crawlDesc.getCrawlDepth();
     log.trace("crawlDepth = {}", crawlDepth);
 
@@ -112,6 +113,7 @@ public class WgetCommandLineBuilder implements CmdLineCrawler.CommandLineBuilder
           case SPIDER_KEY:
           case WARC_CDX_KEY:
           case NO_WARC_COMPRESSION_KEY:
+          case MIRROR_KEY:
             BooleanCommandOption.process(optionKey, extraCrawlerOptionData, command);
             break;
           case DOMAINS_KEY:
@@ -138,7 +140,7 @@ public class WgetCommandLineBuilder implements CmdLineCrawler.CommandLineBuilder
             if (userAgentOption.getValue() == null) {
               String userAgent = LockssDaemon.getUserAgent();
               log.trace("userAgent = {}", userAgent);
-              StringCommandOption.process(optionKey, userAgent, command);
+              command.add(USER_AGENT_KEY+"=\""+userAgent+"\"");
             }
             break;
           case HEADER_KEY:

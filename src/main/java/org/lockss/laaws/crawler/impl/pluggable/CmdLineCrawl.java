@@ -1,4 +1,5 @@
 package org.lockss.laaws.crawler.impl.pluggable;
+
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.filefilter.WildcardFileFilter;
 import org.lockss.crawler.CrawlerStatus;
@@ -10,10 +11,8 @@ import org.lockss.util.io.FileUtil;
 import org.lockss.util.rest.crawler.CrawlJob;
 import org.lockss.util.rest.crawler.JobStatus;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.util.Collection;
 import java.util.List;
 
@@ -118,7 +117,7 @@ public class CmdLineCrawl extends PluggableCrawl {
           ProcessBuilder builder = new ProcessBuilder();
           builder.command(command);
           builder.inheritIO();
-          log.info("external crawl process started");
+          log.debug("external crawl process started with command {}...", String.join(" ", command));
           Process process = builder.start();
           crawlerStatus.signalCrawlStarted();
           int exitCode = process.waitFor();
@@ -132,7 +131,6 @@ public class CmdLineCrawl extends PluggableCrawl {
             crawlerStatus.setCrawlStatus(Crawler.STATUS_SUCCESSFUL);
           }
           else {
-            log.error();
             crawlerStatus.setCrawlStatus(
               Crawler.STATUS_ERROR, "crawl exited with code: " + exitCode);
           }

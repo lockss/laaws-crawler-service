@@ -25,7 +25,7 @@ class TestCmdLineCrawl extends LockssTestCase5 {
   static final CrawlDesc.CrawlKindEnum REPAIR = CrawlDesc.CrawlKindEnum.REPAIR;
   private static final String TEST_CRAWLER = "cmdLineCrawler";
   private static final String DEF_JOB_ID = "1000";
-  private static final String[] TEST_CMD_LINE ={"mycmd", "-p",  "prop1"};
+  private static final String[] TEST_CMD_LINE ={"wget", "--debug", "--mirror", "https://webscraper.io/test-sites/e-commerce/allinone"};
 
   private JobStatus QueuedStatus = new JobStatus().statusCode(JobStatus.StatusCodeEnum.QUEUED).msg("Pending");
   private JobStatus ActiveStatus = new JobStatus().statusCode(JobStatus.StatusCodeEnum.ACTIVE).msg("Active");

@@ -1,5 +1,6 @@
 package org.lockss.laaws.crawler.impl;
 
+import org.lockss.app.LockssApp;
 import org.lockss.app.LockssDaemon;
 import org.lockss.crawler.CrawlManager;
 import org.lockss.crawler.CrawlManagerImpl;
@@ -62,7 +63,7 @@ public class ApiUtils {
 
   public static PluggableCrawlManager getPluggableCrawlManager() {
     if (pluggableCrawlManager == null) {
-      pluggableCrawlManager = (PluggableCrawlManager)LockssDaemon.getLockssApp().getManagerByKeyStatic(PLUGGABLE_CRAWL_MANAGER);
+      pluggableCrawlManager = (PluggableCrawlManager)LockssApp.getManagerByKeyStatic(PLUGGABLE_CRAWL_MANAGER);
     }
     return pluggableCrawlManager;
   }
@@ -73,7 +74,8 @@ public class ApiUtils {
    * @return CrawlManagerImpl
    */
   public static CrawlManagerImpl getLockssCrawlManager() {
-    CrawlManager cmgr = LockssDaemon.getLockssApp().getManagerByTypeStatic(CrawlManager.class);
+    LockssDaemon.getLockssApp();
+    CrawlManager cmgr = LockssApp.getManagerByTypeStatic(CrawlManager.class);
     if (cmgr instanceof CrawlManagerImpl) {
       lockssCrawlManager = (CrawlManagerImpl) cmgr;
      }
@@ -87,7 +89,8 @@ public class ApiUtils {
    */
   public static RepositoryManager getRepositoryManager() {
     if(repoManager == null) {
-      repoManager = (RepositoryManager) LockssDaemon.getLockssDaemon().getManagerByTypeStatic(RepositoryManager.class);
+      LockssDaemon.getLockssDaemon();
+      repoManager = LockssApp.getManagerByTypeStatic(RepositoryManager.class);
     }
     return repoManager;
   }
@@ -380,11 +383,6 @@ public class ApiUtils {
       getV2Repo();
     }
     return v2Namespace;
-  }
-
-  static public void setRepoTest(LockssRepository repo, String ns) {
-    v2Repo = repo;
-    v2Namespace = ns;
   }
 
   enum COUNTER_KIND {

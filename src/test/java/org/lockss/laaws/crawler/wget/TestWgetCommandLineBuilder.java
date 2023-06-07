@@ -51,8 +51,7 @@ import static org.lockss.laaws.crawler.wget.WgetCommandOptions.*;
 /** Test class for WgetCommandLineBuilder. */
 public class TestWgetCommandLineBuilder extends LockssTestCase4 {
   private static final L4JLogger log = L4JLogger.getLogger();
-  private static final String userAgent =
-      "--user-agent="+LockssDaemon.getUserAgent();
+  private static final String userAgent = "--user-agent=\""+LockssDaemon.getUserAgent()+"\"";
 
   private File tmpDir;
   List<String> crawlList = ListUtil.list("http://url1", "https://Url2", "http://URL3");
@@ -110,8 +109,8 @@ public class TestWgetCommandLineBuilder extends LockssTestCase4 {
     crawlDesc.crawlList(crawlList);
 
     List<String> expectedCommand = ListUtil.list("wget");
+    expectedCommand.add("-r");
     expectedCommand.addAll(WgetCommandLineBuilder.DEFAULT_CONFIG);
-    expectedCommand.add(RECURSIVE_KEY);
     expectedCommand.add(WARC_FILE_KEY + "=" + tmpDirPath + "/" + WARC_FILE_NAME);
     expectedCommand.add(WARC_TEMPDIR_KEY + "=" + tmpDirPath);
     expectedCommand.addAll(crawlList);
@@ -130,8 +129,8 @@ public class TestWgetCommandLineBuilder extends LockssTestCase4 {
     List<String> inputFileUrls = ListUtil.list("https://ip1","https://ip2","http://ip3");
 
     List<String> expectedCommand = ListUtil.list("wget");
+    expectedCommand.add("-r");
     expectedCommand.addAll(WgetCommandLineBuilder.DEFAULT_CONFIG);
-    expectedCommand.add(RECURSIVE_KEY);
     expectedCommand.add(WARC_FILE_KEY + "=" + tmpDirPath + "/" + WARC_FILE_NAME);
     expectedCommand.add(WARC_TEMPDIR_KEY + "=" + tmpDirPath);
     expectedCommand.add(INPUT_FILE_KEY + "=" + tmpDirPath + "/" + INPUT_FILE_KEY.substring(2));

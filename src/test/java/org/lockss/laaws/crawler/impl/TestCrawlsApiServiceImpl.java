@@ -27,37 +27,33 @@
 package org.lockss.laaws.crawler.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.io.File;
-import java.io.IOException;
-import java.net.URI;
-import java.util.*;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.apache.activemq.broker.BrokerService;
+import org.junit.*;
 import org.junit.runner.RunWith;
 import org.lockss.app.LockssApp;
+import org.lockss.app.LockssDaemon;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
 import org.lockss.crawler.CrawlManager;
 import org.lockss.crawler.CrawlManagerImpl;
 import org.lockss.crawler.FuncNewContentCrawler.MySimulatedArchivalUnit;
 import org.lockss.crawler.FuncNewContentCrawler.MySimulatedPlugin;
-import org.lockss.laaws.crawler.model.*;
+import org.lockss.jms.JMSManager;
+import org.lockss.laaws.crawler.model.CrawlPager;
+import org.lockss.laaws.crawler.model.CrawlStatus;
+import org.lockss.laaws.crawler.model.PageInfo;
+import org.lockss.laaws.crawler.model.UrlPager;
 import org.lockss.log.L4JLogger;
 import org.lockss.plugin.PluginTestUtil;
 import org.lockss.plugin.simulated.SimulatedContentGenerator;
-import org.lockss.poller.PollTestPlugin;
-import org.lockss.repository.RepositoryManager;
 import org.lockss.spring.test.SpringLockssTestCase4;
-import org.lockss.test.ConfigurationUtil;
-import org.lockss.test.MockPlugin;
 import org.lockss.util.rest.RestUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
-import org.lockss.util.rest.crawler.CrawlDesc.CrawlKindEnum;
 import org.lockss.util.rest.crawler.CrawlJob;
 import org.lockss.util.rest.crawler.JobStatus;
 import org.lockss.util.rest.crawler.JobStatus.StatusCodeEnum;
+import org.lockss.util.rest.repo.LockssRepository;
+import org.lockss.util.time.TimerUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.context.embedded.LocalServerPort;
@@ -72,9 +68,12 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
 
-/** Test class for org.lockss.laaws.crawler.impl.CrawlsApiServiceImpl. */
+import java.io.File;
+import java.io.IOException;
+import java.net.URI;
+import java.util.*;
+
 import static org.lockss.laaws.crawler.impl.PluggableCrawlManager.CRAWLER_IDS;
-import static org.lockss.laaws.crawler.wget.WgetCommandOptions.USER_AGENT_KEY;
 import static org.lockss.util.rest.crawler.CrawlDesc.CLASSIC_CRAWLER_ID;
 
 @RunWith(SpringRunner.class)
@@ -109,14 +108,24 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
   // used for the tests.
   @Autowired private ApplicationContext appCtx;
   private CrawlManagerImpl cmi;
-
   private MySimulatedArchivalUnit sau;
-
   private PluggableCrawlManager pcm;
+  static BrokerService broker;
+
 
   /** Set up code to be run before all tests. */
   @BeforeClass
-  public static void setUpBeforeAllTests() {}
+  public static void setUpBeforeClass() throws Exception {
+    broker = JMSManager.createBroker(JMSManager.DEFAULT_BROKER_URI);
+  }
+
+  @AfterClass
+  public static void tearDownAfterClass() throws Exception {
+    if (broker != null) {
+      TimerUtil.sleep(1000);
+      broker.stop();
+    }
+  }
 
   /**
    * Set up code to be run before each test.
@@ -128,8 +137,6 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     log.debug2("port = {}", port);
     // Set up the temporary directory where the test data will reside.
     setUpTempDirectory(TestCrawlsApiServiceImpl.class.getCanonicalName());
-    // Set up the Repository
-    setUpRepositoryConfig(REPO_CONFIGURATION_TEMPLATE, REPO_CONFIGURATION_FILE);
 
     // Set up the UI port.
     setUpUiPort(UI_PORT_CONFIGURATION_TEMPLATE, UI_PORT_CONFIGURATION_FILE);
@@ -241,10 +248,14 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     assertTrue(config.getBoolean(CrawlManagerImpl.PARAM_CRAWLER_ENABLED));
     cmi = (CrawlManagerImpl) LockssApp.getManagerByTypeStatic(CrawlManager.class);
     assertTrue(cmi.isCrawlerEnabled());
+    assertTrue(LockssDaemon.getLockssDaemon().isDaemonRunning());
+    assertTrue(LockssDaemon.getLockssDaemon().isDaemonInited());
+    LockssRepository repository = ApiUtils.getV2Repo();
+    repository.initRepository();
     runGetSwaggerDocsTest(getTestUrlTemplate("/v2/api-docs"));
     runMethodsNotAllowedAuthenticatedTest();
     getCrawlsAuthenticatedTest();
-    //doCrawlPluggableTest(WGET_CRAWLER_ID);
+    doCrawlPluggableTest(WGET_CRAWLER_ID);
     log.debug2("Done");
 
   }
@@ -313,15 +324,13 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     log.trace("folder = {}", folder);
 
     cmdLineArgs.add("-x");
-    cmdLineArgs.add(folder.getAbsolutePath());
+    cmdLineArgs.add(getTempDirPath());
     cmdLineArgs.add("-p");
     cmdLineArgs.add("test/config/lockss.txt");
     cmdLineArgs.add("-p");
     cmdLineArgs.add(getUiPortConfigFile().getAbsolutePath());
     cmdLineArgs.add("-p");
     cmdLineArgs.add("test/config/lockss.opt");
-    cmdLineArgs.add("-p");
-    cmdLineArgs.add(getRepositoryConfigFile().getAbsolutePath());
 
     log.debug2("cmdLineArgs = {}", cmdLineArgs);
     return cmdLineArgs;
@@ -805,6 +814,9 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     int jobCount = validateGetCrawlsResult(crawlPager, null, -1);
     assertEquals(oldJobCount, jobCount);
     log.debug2("jobCount before success: {}",oldJobCount);
+    Map<String, Object> xtraData = new HashMap<>();
+    xtraData.put("--debug", "on");
+    xtraData.put("--mirror","true");
     CrawlDesc crawlDesc = new CrawlDesc()
       .auId(sau.getAuId())
       .crawlKind(CrawlDesc.CrawlKindEnum.NEWCONTENT)

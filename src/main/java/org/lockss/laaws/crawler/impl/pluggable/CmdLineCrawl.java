@@ -1,5 +1,8 @@
 package org.lockss.laaws.crawler.impl.pluggable;
 
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.filefilter.WildcardFileFilter;
 import org.lockss.crawler.CrawlerStatus;
@@ -46,6 +49,7 @@ public class CmdLineCrawl extends PluggableCrawl {
       ":" + crawlJob.getJobId();
 
   }
+
 
   @Override
   public CrawlerStatus startCrawl() {
@@ -106,23 +110,37 @@ public class CmdLineCrawl extends PluggableCrawl {
 
   public LockssRunnable getRunnable() {
     return new LockssRunnable(threadName) {
+
       @Override
       public void lockssRun() {
+
         log.debug2("{} started", this);
         CrawlerStatus crawlerStatus = getCrawlerStatus();
-
         try {
           nowRunning();
           startCrawl();
           ProcessBuilder builder = new ProcessBuilder();
           builder.command(command);
-          builder.inheritIO();
-          log.debug("external crawl process started with command {}...", String.join(" ", command));
+          log.debug("Starting crawl process with command {}...", String.join(" ", command));
           Process process = builder.start();
+          try (BufferedReader reader = new BufferedReader(
+            new InputStreamReader(process.getInputStream()))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+              log.info(line);
+            }
+          }
+          try (BufferedReader reader = new BufferedReader(
+            new InputStreamReader(process.getErrorStream()))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+              log.error(line);
+            }
+          }
           crawlerStatus.signalCrawlStarted();
           int exitCode = process.waitFor();
-          log.debug("external crawl process finished: exitCode = {}", exitCode);
-          if (exitCode == 0) {
+          log.debug("Completed crawl process: exitCode = {}", exitCode);
+          if (crawler.didCrawlSucceed(exitCode)) {
             Collection<File> warcFiles = getWarcFiles("*.warc.gz");
             log.debug2("Found {} warcFiles after crawl.", warcFiles.size());
             for (File warc : warcFiles) {
@@ -187,3 +205,4 @@ public class CmdLineCrawl extends PluggableCrawl {
     return sb.toString();
   }
 }
+

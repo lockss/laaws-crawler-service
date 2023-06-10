@@ -38,7 +38,6 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.lockss.laaws.crawler.impl.pluggable.CmdLineCrawler;
 import org.lockss.laaws.crawler.model.CrawlerConfig;
-import org.lockss.util.ListUtil;
 import org.lockss.util.StringUtil;
 
 /**

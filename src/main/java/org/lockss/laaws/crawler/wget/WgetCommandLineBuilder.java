@@ -31,8 +31,14 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 package org.lockss.laaws.crawler.wget;
 
+import static org.lockss.laaws.crawler.wget.WgetCommandOptions.*;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import org.lockss.app.LockssDaemon;
-import org.lockss.config.Configuration;
 import org.lockss.laaws.crawler.impl.pluggable.CmdLineCrawler;
 import org.lockss.laaws.crawler.impl.pluggable.command.BooleanCommandOption;
 import org.lockss.laaws.crawler.impl.pluggable.command.FileCommandOption;
@@ -42,14 +48,6 @@ import org.lockss.log.L4JLogger;
 import org.lockss.util.FileUtil;
 import org.lockss.util.ListUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
-
-import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-
-import static org.lockss.laaws.crawler.wget.WgetCommandOptions.*;
 
 /**
  * The builder of a wget command line.

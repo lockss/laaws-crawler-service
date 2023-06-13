@@ -109,8 +109,8 @@ org.lockss.crawlerservice.wget.opt.wait=5
 #org.lockss.crawlerservice.wget.opt.connect-timeout
 #org.lockss.crawlerservice.wget.opt.read-timeout
 # warc details
-org.lockss.crawlerservice.wget.opt.warc-keep-log=false
-org.lockss.crawlerservice.wget.opt.no-warc-compression=false
+org.lockss.crawlerservice.wget.opt.warc-keep-log=off
+#org.lockss.crawlerservice.wget.opt.no-warc-compression=false
 
 
 org.lockss.repository.v2Repository=volatile:testRepo

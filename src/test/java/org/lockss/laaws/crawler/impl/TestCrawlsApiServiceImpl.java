@@ -236,7 +236,6 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
   @Test
   public void runWgetTests() throws Exception {
     log.debug2("Invoked");
-
     // Specify the command line parameters to be used for the tests.
     List<String> cmdLineArgs = getCommandLineArguments();
     cmdLineArgs.add("-p");

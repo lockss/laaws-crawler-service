@@ -51,6 +51,7 @@ import java.util.concurrent.TimeUnit;
 
 import static org.lockss.laaws.crawler.impl.PluggableCrawlManager.ATTR_CRAWLER_ID;
 import static org.lockss.laaws.crawler.impl.PluggableCrawlManager.ENABLED;
+import static org.lockss.laaws.crawler.utils.ExecutorUtils.DEFAULT_EXECUTOR_SPEC;
 import static org.lockss.laaws.crawler.utils.ExecutorUtils.EXEC_PREFIX;
 
 /**
@@ -153,6 +154,7 @@ public class CmdLineCrawler implements PluggableCrawler {
       }
     }
     String qspec= attr.get(PREFIX+crawlerId+".executor.spec");
+    if(qspec == null) qspec = DEFAULT_EXECUTOR_SPEC;
     initCrawlScheduler(qspec);
   }
 
@@ -251,7 +253,7 @@ public class CmdLineCrawler implements PluggableCrawler {
   public void storeInRepository (String auId, File warcFile, boolean isCompressed) throws IOException {
     BufferedInputStream bis = new BufferedInputStream(Files.newInputStream(warcFile.toPath()));
     ensureRepo();
-    log.debug2("Calling Repo");
+    log.debug2("Calling Repository with warc for auid {}", auId);
     v2Repo.addArtifacts(namespace, auId, bis, LockssRepository.ArchiveType.WARC, isCompressed);
     log.debug2("Returned from call to repo");
   }
@@ -259,6 +261,10 @@ public class CmdLineCrawler implements PluggableCrawler {
   protected void initCrawlScheduler(String reqSpec) {
     crawlQueueExecutor = ExecutorUtils.createOrReConfigureExecutor(crawlQueueExecutor,
         reqSpec, DEFAULT_CMDLINE_CRAWL_EXECUTOR_SPEC);
+  }
+
+  protected boolean didCrawlSucceed(int exitCode) {
+    return exitCode == 0;
   }
 
   public interface CommandLineBuilder {

@@ -31,6 +31,13 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 package org.lockss.laaws.crawler.wget;
 
+import static org.lockss.laaws.crawler.wget.WgetCommandOptions.*;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import org.lockss.app.LockssDaemon;
 import org.lockss.laaws.crawler.impl.pluggable.CmdLineCrawler;
 import org.lockss.laaws.crawler.impl.pluggable.command.BooleanCommandOption;
@@ -42,23 +49,26 @@ import org.lockss.util.FileUtil;
 import org.lockss.util.ListUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-
-import static org.lockss.laaws.crawler.wget.WgetCommandOptions.*;
-
 /**
  * The builder of a wget command line.
  */
 public class WgetCommandLineBuilder implements CmdLineCrawler.CommandLineBuilder {
+
   private static final L4JLogger log = L4JLogger.getLogger();
 
   protected static final String WARC_FILE_NAME = "lockss-wget";
   public static final List<String> DEFAULT_CONFIG =
       ListUtil.fromCSV(DELETE_AFTER_KEY);
+  private final WgetCmdLineCrawler wgetCrawler;
+
+  WgetCommandLineBuilder() {
+    super();
+    wgetCrawler = null;
+  }
+
+  WgetCommandLineBuilder(WgetCmdLineCrawler crawler) {
+    wgetCrawler = crawler;
+  }
 
   /**
    * Builds the wget command line.
@@ -75,10 +85,15 @@ public class WgetCommandLineBuilder implements CmdLineCrawler.CommandLineBuilder
     FileUtil.ensureDirExists(tmpDir);
     List<String> command = new ArrayList<>();
     command.add("wget");
+    command.add("--directory-prefix=\""+tmpDir+ "\"");
     if(crawlDesc.getCrawlKind().equals(CrawlDesc.CrawlKindEnum.NEWCONTENT)){
       command.add("-r");
     }
     command.add(DELETE_AFTER_KEY);
+    // add parameters from config
+    if(wgetCrawler != null)
+      command.addAll(wgetCrawler.getConfigOptions());
+
     Integer crawlDepth = crawlDesc.getCrawlDepth();
     log.trace("crawlDepth = {}", crawlDepth);
 
@@ -90,7 +105,7 @@ public class WgetCommandLineBuilder implements CmdLineCrawler.CommandLineBuilder
     File warc = new File(tmpDir, WARC_FILE_NAME);
     command.add(WARC_FILE_KEY + "=" + warc.getAbsolutePath());
     command.add(WARC_TEMPDIR_KEY + "=" + tmpDir.getAbsolutePath());
-
+    // add parameters from request.
     Map<String, Object> extraCrawlerDataMap = crawlDesc.getExtraCrawlerData();
     if (extraCrawlerDataMap != null) {
       log.trace("extraCrawlerDataMap = {}", extraCrawlerDataMap);

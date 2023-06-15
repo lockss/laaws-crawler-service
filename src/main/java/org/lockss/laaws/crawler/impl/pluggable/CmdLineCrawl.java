@@ -10,6 +10,9 @@ import org.lockss.daemon.Crawler;
 import org.lockss.daemon.LockssRunnable;
 import org.lockss.laaws.crawler.impl.ApiUtils;
 import org.lockss.log.L4JLogger;
+import org.lockss.plugin.ArchivalUnit;
+import org.lockss.plugin.AuUtil;
+import org.lockss.state.AuState;
 import org.lockss.util.io.FileUtil;
 import org.lockss.util.rest.crawler.CrawlJob;
 import org.lockss.util.rest.crawler.JobStatus;
@@ -41,8 +44,8 @@ public class CmdLineCrawl extends PluggableCrawl {
    * @param crawler  the crawler for this crawl
    * @param crawlJob the job for this crawl
    */
-  public CmdLineCrawl(CmdLineCrawler crawler, CrawlJob crawlJob) {
-    super(crawler.getCrawlerConfig(), crawlJob);
+  public CmdLineCrawl(CmdLineCrawler crawler, ArchivalUnit au, CrawlJob crawlJob) {
+    super(crawler.getCrawlerConfig(), au, crawlJob);
     this.crawler = crawler;
     threadName = crawlDesc.getCrawlKind() + ":"
       + crawlDesc.getCrawlerId() +
@@ -63,6 +66,7 @@ public class CmdLineCrawl extends PluggableCrawl {
     }
     catch (IOException ioe) {
       log.error("Unable to create output directory for crawl:", ioe);
+
       js.setStatusCode(JobStatus.StatusCodeEnum.ERROR);
     }
     return cs;
@@ -116,7 +120,9 @@ public class CmdLineCrawl extends PluggableCrawl {
 
         log.debug2("{} started", this);
         CrawlerStatus crawlerStatus = getCrawlerStatus();
+        AuState aus = AuUtil.getAuState(crawlerStatus.getAu());
         try {
+          aus.newCrawlStarted();
           nowRunning();
           startCrawl();
           ProcessBuilder builder = new ProcessBuilder();
@@ -147,6 +153,7 @@ public class CmdLineCrawl extends PluggableCrawl {
               crawler.storeInRepository(crawlerStatus.getAuId(), warc, true);
             }
             crawlerStatus.setCrawlStatus(Crawler.STATUS_SUCCESSFUL);
+
           }
           else {
             crawlerStatus.setCrawlStatus(
@@ -163,6 +170,7 @@ public class CmdLineCrawl extends PluggableCrawl {
         }
         finally {
           ApiUtils.getPluggableCrawlManager().handleCrawlComplete(crawlerStatus);
+          aus.newCrawlFinished(crawlerStatus.getCrawlStatus(),null);
           crawlerStatus.signalCrawlEnded();
           setThreadName(threadName + ": idle");
           log.info("Deleting tree at {}", tmpDir);

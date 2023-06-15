@@ -1,24 +1,25 @@
 package org.lockss.laaws.crawler.impl.pluggable;
 
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.lockss.util.FileUtil;
-import org.lockss.util.ListUtil;
-import org.lockss.util.rest.crawler.CrawlDesc;
-import org.lockss.util.rest.crawler.CrawlJob;
-import org.lockss.util.rest.crawler.JobStatus;
-import org.lockss.util.test.LockssTestCase5;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.lockss.plugin.ArchivalUnit;
+import org.lockss.util.FileUtil;
+import org.lockss.util.ListUtil;
+import org.lockss.util.rest.crawler.CrawlDesc;
+import org.lockss.util.rest.crawler.CrawlJob;
+import org.lockss.util.rest.crawler.JobStatus;
+import org.lockss.util.test.LockssTestCase5;
 
 class TestCmdLineCrawl extends LockssTestCase5 {
   static final CrawlDesc.CrawlKindEnum NEWCONTENT = CrawlDesc.CrawlKindEnum.NEWCONTENT;
@@ -132,7 +133,9 @@ class TestCmdLineCrawl extends LockssTestCase5 {
     when(crawlDesc.getAuId()).thenReturn("AU_ID");
     when(crawlDesc.getCrawlKind()).thenReturn(NEWCONTENT);
     when(crawlDesc.getCrawlerId()).thenReturn(TEST_CRAWLER);
-    return new CmdLineCrawl(crawler, crawlJob);
+    ArchivalUnit au = mock(ArchivalUnit.class);
+    when(au.getName()).thenReturn("AU_ID");
+    return new CmdLineCrawl(crawler, au, crawlJob);
   }
 
   private static class TestCommandLineBuilder implements CmdLineCrawler.CommandLineBuilder {

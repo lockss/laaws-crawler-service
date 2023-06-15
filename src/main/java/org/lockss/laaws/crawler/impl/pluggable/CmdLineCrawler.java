@@ -31,6 +31,7 @@ import org.lockss.laaws.crawler.impl.PluggableCrawlManager;
 import org.lockss.laaws.crawler.model.CrawlerConfig;
 import org.lockss.laaws.crawler.utils.ExecutorUtils;
 import org.lockss.log.L4JLogger;
+import org.lockss.plugin.ArchivalUnit;
 import org.lockss.util.ClassUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.crawler.CrawlJob;
@@ -164,14 +165,14 @@ public class CmdLineCrawler implements PluggableCrawler {
   }
 
   @Override
-  public PluggableCrawl requestCrawl(CrawlJob crawlJob) {
+  public PluggableCrawl requestCrawl(ArchivalUnit au, CrawlJob crawlJob) {
     //check to see if we have already queued a job to crawl this au
 
     if (!pcManager.isEligibleForCrawl(crawlJob.getCrawlDesc().getAuId())) {
       log.warn("Crawl request {} ignored! au is not eligible for crawl.", crawlJob);
       return null;
     }
-    CmdLineCrawl clCrawl = new CmdLineCrawl(this, crawlJob);
+    CmdLineCrawl clCrawl = new CmdLineCrawl(this, au, crawlJob);
     crawlMap.put(crawlJob.getJobId(), clCrawl);
     crawlQueueExecutor.submit(new RunnableCrawlJob(crawlJob, clCrawl));
     JobStatus status = crawlJob.getJobStatus();

@@ -6,6 +6,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.lockss.laaws.crawler.impl.PluggableCrawlManager;
 import org.lockss.laaws.crawler.model.CrawlerConfig;
+import org.lockss.plugin.ArchivalUnit;
 import org.lockss.util.rest.repo.LockssRepository;
 import org.lockss.util.ListUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
@@ -83,8 +84,9 @@ class TestCmdLineCrawler extends LockssTestCase5 {
   void deleteAllCrawlsShouldStopAllCrawls() {
     when(pluggableCrawlManager.isEligibleForCrawl(DEF_AU_ID)).thenReturn(true);
     CrawlJob crawlJob = makeMockCrawlJob(DEF_AU_ID, DEF_CRAWLER_ID);
-
-    cmdLineCrawler.requestCrawl(crawlJob);
+    ArchivalUnit au = mock(ArchivalUnit.class);
+    when(au.getName()).thenReturn(DEF_AU_ID);
+    cmdLineCrawler.requestCrawl(au,crawlJob);
     cmdLineCrawler.deleteAllCrawls();
     assertEquals(0, cmdLineCrawler.crawlMap.size());
   }
@@ -129,7 +131,9 @@ class TestCmdLineCrawler extends LockssTestCase5 {
   void stopCrawlShouldRemoveTheCrawlFromTheMap() {
     when(pluggableCrawlManager.isEligibleForCrawl(DEF_AU_ID)).thenReturn(true);
     CrawlJob crawlJob = makeMockCrawlJob(DEF_AU_ID,DEF_CRAWLER_ID);
-    cmdLineCrawler.requestCrawl(crawlJob);
+    ArchivalUnit au = mock(ArchivalUnit.class);
+    when(au.getName()).thenReturn(DEF_AU_ID);
+    cmdLineCrawler.requestCrawl(au,crawlJob);
     assertEquals(1, cmdLineCrawler.crawlMap.size());
     cmdLineCrawler.stopCrawl(DEF_JOB_ID);
     assertEquals(0, cmdLineCrawler.crawlMap.size());
@@ -140,7 +144,10 @@ class TestCmdLineCrawler extends LockssTestCase5 {
   void requestCrawlWhenAuIsNotEligibleForCrawlThenReturnNull() {
     when(pluggableCrawlManager.isEligibleForCrawl(DEF_AU_ID)).thenReturn(false);
     CrawlJob crawlJob = makeMockCrawlJob(DEF_AU_ID,DEF_CRAWLER_ID);
-    PluggableCrawl pluggableCrawl = cmdLineCrawler.requestCrawl(crawlJob);
+    ArchivalUnit au = mock(ArchivalUnit.class);
+    when(au.getName()).thenReturn(DEF_AU_ID);
+    when(au.getAuId()).thenReturn(DEF_AU_ID);
+    PluggableCrawl pluggableCrawl = cmdLineCrawler.requestCrawl(au,crawlJob);
     assertNull(pluggableCrawl);
   }
 

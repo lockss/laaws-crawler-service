@@ -37,9 +37,12 @@ import org.lockss.app.ConfigurableManager;
 import org.lockss.config.Configuration;
 import org.lockss.config.Configuration.Differences;
 import org.lockss.crawler.*;
+import org.lockss.laaws.crawler.impl.pluggable.PluggableCrawl;
 import org.lockss.laaws.crawler.impl.pluggable.PluggableCrawler;
 import org.lockss.laaws.crawler.model.CrawlerConfig;
 import org.lockss.log.L4JLogger;
+import org.lockss.plugin.ArchivalUnit;
+import org.lockss.plugin.PluginManager;
 import org.lockss.util.ClassUtil;
 import org.lockss.util.ListUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
@@ -134,6 +137,7 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
 
   private CrawlManagerImpl lockssCrawlMgr;
   private CrawlEventHandler crawlEventHandler;
+  private PluginManager lockssPluginMgr;
 
 
   public void startService() {
@@ -334,7 +338,8 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
         CrawlDesc desc = job.getCrawlDesc();
         PluggableCrawler crawler = pluggableCrawlers.get(desc.getCrawlerId());
         if (crawler != null && crawler.isCrawlerEnabled()) {
-          crawler.requestCrawl(job);
+          ArchivalUnit au = getLockssPluginMgr().getAuFromId(desc.getAuId());
+          PluggableCrawl crawl = crawler.requestCrawl(au,job);
         }
       }
     }
@@ -485,6 +490,13 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
       }
     }
     return lockssCrawlMgr;
+  }
+
+  private PluginManager getLockssPluginMgr() {
+    if(lockssPluginMgr == null) {
+      lockssPluginMgr = getDaemon().getPluginManager();
+    }
+    return lockssPluginMgr;
   }
 
   void initDb(File dbDir) {

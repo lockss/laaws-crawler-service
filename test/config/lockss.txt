@@ -102,7 +102,7 @@ org.lockss.crawlerservice.wget.outputLevel=no-verbose
 # The permitted return code to indicate a successful crawl
 org.lockss.crawlerservice.wget.successCode=0;8
 #time between fetches
-org.lockss.crawlerservice.wget.opt.wait=5
+org.lockss.crawlerservice.wget.opt.wait=0.5
 #network timeouts
 #org.lockss.crawlerservice.wget.opt.timeout
 #org.lockss.crawlerservice.wget.opt.dns-timeout

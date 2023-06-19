@@ -70,10 +70,27 @@ public class CmdLineCrawler implements PluggableCrawler {
       EXEC_PREFIX + "cmdLineCrawl.spec";
   public static final String DEFAULT_CMDLINE_CRAWL_EXECUTOR_SPEC = "10;2";
 
+  public static final String ATTR_OUTPUT_LOG_LEVEL = "outputLogLevel";
+  public static final String DEFAULT_OUTPUT_LOG_LEVEL = "INFO";
+
+  public static final String ATTR_ERROR_LOG_LEVEL = "errorLogLevel";
+  public static final String DEFAULT_ERROR_LOG_LEVEL = "ERROR";
+
   /**
    * The Configuration for this crawler.
    */
   protected CrawlerConfig config;
+
+  /**
+   * The level to use when logging output from a process
+   */
+  protected String outputLogLevel;
+
+
+  /**
+   * The level to use when logging error from a process
+   */
+  protected String errorLogLevel;
 
   /**
    * The map of crawls for this crawler.
@@ -86,6 +103,8 @@ public class CmdLineCrawler implements PluggableCrawler {
   private ThreadPoolExecutor crawlQueueExecutor;
 
   private String namespace;
+  private boolean joinOutputStreams;
+
 
   /**
    * Instantiates a new Cmd line crawler.
@@ -157,6 +176,16 @@ public class CmdLineCrawler implements PluggableCrawler {
     String qspec= attr.get(PREFIX+crawlerId+".executor.spec");
     if(qspec == null) qspec = DEFAULT_EXECUTOR_SPEC;
     initCrawlScheduler(qspec);
+
+    outputLogLevel= attr.get(PREFIX+crawlerId+ATTR_OUTPUT_LOG_LEVEL);
+    if(outputLogLevel == null) outputLogLevel = DEFAULT_OUTPUT_LOG_LEVEL;
+
+    errorLogLevel= attr.get(PREFIX+crawlerId+ATTR_ERROR_LOG_LEVEL);
+    if(outputLogLevel == null) outputLogLevel = DEFAULT_OUTPUT_LOG_LEVEL;
+
+    if (outputLogLevel.equals(errorLogLevel)) {
+      joinOutputStreams = true;
+    }
   }
 
   @Override
@@ -266,6 +295,18 @@ public class CmdLineCrawler implements PluggableCrawler {
 
   protected boolean didCrawlSucceed(int exitCode) {
     return exitCode == 0;
+  }
+
+  public String getOutputLogLevel() {
+    return outputLogLevel;
+  }
+
+  public String getErrorLogLevel() {
+    return errorLogLevel;
+  }
+
+  public boolean isJoinOutputStreams() {
+    return joinOutputStreams;
   }
 
   public interface CommandLineBuilder {

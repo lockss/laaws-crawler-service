@@ -97,8 +97,8 @@ org.lockss.crawlerservice.classic.enabled=true
 org.lockss.crawlerservice.wget.enabled=true
 org.lockss.crawlerservice.wget.crawler=org.lockss.laaws.crawler.wget.WgetCmdLineCrawler
 # The level of wget output in decreasing detail: --debug, --verbose, --no-verbose, --quiet
-# Default is verbose
-org.lockss.crawlerservice.wget.outputLevel=verbose
+# Default is verbose set to no-verbose
+org.lockss.crawlerservice.wget.outputLevel=no-verbose
 # The permitted return code to indicate a successful crawl
 org.lockss.crawlerservice.wget.successCode=0;8
 #time between fetches

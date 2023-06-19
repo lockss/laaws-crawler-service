@@ -711,6 +711,7 @@ definitions:
         description: The priority for the crawl.
         type: integer
         format: int32
+        default: 0
       crawlList:
         type: array
         description: The list of URLs to crawl.

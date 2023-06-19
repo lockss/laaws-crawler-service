@@ -92,8 +92,22 @@ org.lockss.crawlerservice.classic.enabled=true
 
 # The wget crawler
 org.lockss.crawlerservice.wget.enabled=true
-org.lockss.crawlerservice.wget.crawler=org.lockss.laaws.crawler.impl.pluggable.CmdLineCrawler
-org.lockss.crawlerservice.wget.cmdLineBuilder=org.lockss.laaws.crawler.wget.WgetCommandLineBuilder
+org.lockss.crawlerservice.wget.crawler=org.lockss.laaws.crawler.wget.WgetCmdLineCrawler
+# The level of wget output in decreasing detail: --debug, --verbose, --no-verbose, --quiet
+# Default is verbose set to no-verbose
+org.lockss.crawlerservice.wget.outputLevel=no-verbose
+# The permitted return code to indicate a successful crawl
+org.lockss.crawlerservice.wget.successCode=0;8
+#time between fetches
+org.lockss.crawlerservice.wget.opt.wait=5
+#network timeouts
+#org.lockss.crawlerservice.wget.opt.timeout
+#org.lockss.crawlerservice.wget.opt.dns-timeout
+#org.lockss.crawlerservice.wget.opt.connect-timeout
+#org.lockss.crawlerservice.wget.opt.read-timeout
+# warc details
+org.lockss.crawlerservice.wget.opt.warc-keep-log=off
+#org.lockss.crawlerservice.wget.opt.no-warc-compression=false
 
 
 # Disable the SOAP web services.

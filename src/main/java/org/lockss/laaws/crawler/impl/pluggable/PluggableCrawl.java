@@ -217,10 +217,11 @@ public abstract class PluggableCrawl {
       this.crawlerId = desc.getCrawlerId();
       this.key = crawl.getCrawlKey();
       this.au = crawl.getAu();
+      this.auName = au.getName();
       if(desc.getCrawlKind() == CrawlDesc.CrawlKindEnum.NEWCONTENT)
-        setType(Crawler.Type.NEW_CONTENT.name());
+        setType(Crawler.Type.NEW_CONTENT.toString());
       else {
-        setType(Crawler.Type.REPAIR.name());
+        setType(Crawler.Type.REPAIR.toString());
       }
       setPriority(desc.getPriority()==null? 0 : desc.getPriority());
       setDepth(desc.getCrawlDepth() == null ? 1 : desc.getCrawlDepth());

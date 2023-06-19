@@ -1,10 +1,12 @@
 package org.lockss.laaws.crawler.impl.pluggable;
 
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
+import java.io.*;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.filefilter.WildcardFileFilter;
+import org.apache.logging.log4j.Level;
+import org.lockss.config.ConfigManager;
+import org.lockss.config.Configuration;
 import org.lockss.crawler.CrawlerStatus;
 import org.lockss.daemon.Crawler;
 import org.lockss.daemon.LockssRunnable;
@@ -17,8 +19,6 @@ import org.lockss.util.io.FileUtil;
 import org.lockss.util.rest.crawler.CrawlJob;
 import org.lockss.util.rest.crawler.JobStatus;
 
-import java.io.File;
-import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
 
@@ -38,6 +38,10 @@ public class CmdLineCrawl extends PluggableCrawl {
    */
   protected File tmpDir = null;
 
+  protected String outputLogLevel;
+  protected String errorLogLevel;
+
+
   /**
    * Instantiates a new Cmd line crawl.
    *
@@ -50,6 +54,9 @@ public class CmdLineCrawl extends PluggableCrawl {
     threadName = crawlDesc.getCrawlKind() + ":"
       + crawlDesc.getCrawlerId() +
       ":" + crawlJob.getJobId();
+    final Configuration currentConfig = ConfigManager.getCurrentConfig();
+    outputLogLevel = crawler.getOutputLogLevel();
+    errorLogLevel = crawler.getErrorLogLevel();
 
   }
 
@@ -121,27 +128,24 @@ public class CmdLineCrawl extends PluggableCrawl {
         log.debug2("{} started", this);
         CrawlerStatus crawlerStatus = getCrawlerStatus();
         AuState aus = AuUtil.getAuState(crawlerStatus.getAu());
+        boolean joinOutputStreams = crawler.isJoinOutputStreams();
         try {
           aus.newCrawlStarted();
           nowRunning();
-          startCrawl();
+          crawlerStatus = startCrawl();
           ProcessBuilder builder = new ProcessBuilder();
           builder.command(command);
+          if (joinOutputStreams) {
+            builder.redirectErrorStream(true);
+          }
           log.debug("Starting crawl process with command {}...", String.join(" ", command));
           Process process = builder.start();
-          try (BufferedReader reader = new BufferedReader(
-            new InputStreamReader(process.getInputStream()))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-              log.info(line);
-            }
-          }
-          try (BufferedReader reader = new BufferedReader(
-            new InputStreamReader(process.getErrorStream()))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-              log.error(line);
-            }
+          StreamGobbler outputGobbler = new StreamGobbler(process.getInputStream(), "OUTPUT");
+          outputGobbler.start();
+
+          if(!joinOutputStreams) {
+            StreamGobbler errorGobbler = new StreamGobbler(process.getErrorStream(), "ERROR");
+            errorGobbler.start();
           }
           crawlerStatus.signalCrawlStarted();
           int exitCode = process.waitFor();
@@ -188,6 +192,34 @@ public class CmdLineCrawl extends PluggableCrawl {
     };
   }
 
+  private class StreamGobbler extends Thread {
+    InputStream is;
+    String type;
+
+    private StreamGobbler(InputStream is, String type) {
+      this.is = is;
+      this.type = type;
+    }
+
+    @Override
+    public void run() {
+      try {
+        BufferedReader br = new BufferedReader(new InputStreamReader(is));
+        String line = null;
+        while ((line = br.readLine()) != null) {
+          if (type.equals("ERROR")) {
+            log.log(Level.toLevel(errorLogLevel),line);
+          }
+          else if(type.equals("INPUT")) {
+            log.log(Level.toLevel(outputLogLevel),line);
+          }
+        }
+      }
+      catch (IOException ioe) {
+        log.error("Exception thrown while reading stream output.", ioe);
+      }
+    }
+  }
 
   @Override
   public String toString() {

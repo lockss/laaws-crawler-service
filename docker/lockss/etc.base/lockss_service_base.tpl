@@ -54,6 +54,6 @@ org.lockss.crawlerservice.classic.enabled=true
 # The wget crawler
 org.lockss.crawlerservice.wget.enabled=true
 org.lockss.crawlerservice.wget.crawler=org.lockss.laaws.crawler.wget.WgetCmdLineCrawler
-org.lockss.crawlerservice.wget.opt.wait=5
+org.lockss.crawlerservice.wget.opt.wait=0.5
 org.lockss.crawlerservice.wget.successCode=0;8
 org.lockss.crawlerservice.wget.opt.warc-keep-log=off

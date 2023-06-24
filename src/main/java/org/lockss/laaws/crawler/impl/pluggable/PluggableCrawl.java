@@ -60,6 +60,8 @@ public abstract class PluggableCrawl {
    */
   protected CrawlerStatus crawlerStatus;
 
+  protected ArchivalUnit au;
+
   /**
    * Instantiates a new Pluggable crawl.
    * This will initialize the basic structures the concrete implementations
@@ -68,11 +70,12 @@ public abstract class PluggableCrawl {
    * @param crawlerConfig the crawler config
    * @param crawlJob      the crawl job
    */
-  public PluggableCrawl(CrawlerConfig crawlerConfig,
+  public PluggableCrawl(CrawlerConfig crawlerConfig, ArchivalUnit au,
                         CrawlJob crawlJob) {
     this.crawlerConfig = crawlerConfig;
     this.crawlJob = crawlJob;
     this.crawlDesc = crawlJob.getCrawlDesc();
+    this.au = au;
     crawlJob.setJobId(generateKey());
     crawlJob.setJobStatus(new JobStatus());
     crawlerStatus = new PluggableCrawlerStatus(this);
@@ -133,6 +136,8 @@ public abstract class PluggableCrawl {
     return crawlDesc;
   }
 
+  public ArchivalUnit getAu() {return au; }
+
   /**
    * Gets crawler config.
    *
@@ -174,15 +179,6 @@ public abstract class PluggableCrawl {
    */
   public abstract CrawlerStatus stopCrawl();
 
-  /**
-   * Gets au name.
-   *
-   * @param crawlerId the crawler id
-   * @return the au name
-   */
-  public String getAuName(String crawlerId) {
-    return crawlerId + ":" + getAuId();
-  }
 
   /**
    * Generate key string.
@@ -219,27 +215,18 @@ public abstract class PluggableCrawl {
       this.auid = crawl.getAuId();
       this.startUrls = desc.getCrawlList();
       this.crawlerId = desc.getCrawlerId();
-      this.auName = crawl.getAuName(auid);
       this.key = crawl.getCrawlKey();
+      this.au = crawl.getAu();
+      this.auName = au.getName();
       if(desc.getCrawlKind() == CrawlDesc.CrawlKindEnum.NEWCONTENT)
-        setType(Crawler.Type.NEW_CONTENT.name());
+        setType(Crawler.Type.NEW_CONTENT.toString());
       else {
-        setType(Crawler.Type.REPAIR.name());
+        setType(Crawler.Type.REPAIR.toString());
       }
       setPriority(desc.getPriority()==null? 0 : desc.getPriority());
       setDepth(desc.getCrawlDepth() == null ? 1 : desc.getCrawlDepth());
       setRefetchDepth(desc.getRefetchDepth()== null ? -1 : desc.getRefetchDepth());
       initCounters();
-    }
-
-    /**
-     * Provides the Archival Unit.
-     *
-     * @return an ArchivalUnit with the Archival Unit.
-     */
-    @Override
-    public ArchivalUnit getAu() {
-      return null;
     }
 
     @Override

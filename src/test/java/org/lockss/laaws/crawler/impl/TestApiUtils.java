@@ -12,6 +12,7 @@ import org.lockss.crawler.CrawlerStatus;
 import org.lockss.daemon.Crawler;
 import org.lockss.laaws.crawler.impl.pluggable.CmdLineCrawl;
 import org.lockss.laaws.crawler.impl.pluggable.CmdLineCrawler;
+import org.lockss.plugin.ArchivalUnit;
 import org.lockss.util.ListUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.crawler.CrawlJob;
@@ -63,7 +64,9 @@ class TestApiUtils extends LockssTestCase5 {
     when(crawlDesc.getAuId()).thenReturn("AU_ID");
     when(crawlDesc.getCrawlKind()).thenReturn(NEWCONTENT);
     when(crawlDesc.getCrawlerId()).thenReturn("classic");
-    return new CmdLineCrawl(crawler, crawlJob);
+    ArchivalUnit au = mock(ArchivalUnit.class);
+    when(au.getName()).thenReturn("AU_ID");
+    return new CmdLineCrawl(crawler, au, crawlJob);
   }
 
 

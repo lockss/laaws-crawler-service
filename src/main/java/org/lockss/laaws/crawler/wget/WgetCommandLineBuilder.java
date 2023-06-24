@@ -85,7 +85,7 @@ public class WgetCommandLineBuilder implements CmdLineCrawler.CommandLineBuilder
     FileUtil.ensureDirExists(tmpDir);
     List<String> command = new ArrayList<>();
     command.add("wget");
-    command.add("--directory-prefix=\""+tmpDir+ "\"");
+    command.add("--directory-prefix="+tmpDir);
     if(crawlDesc.getCrawlKind().equals(CrawlDesc.CrawlKindEnum.NEWCONTENT)){
       command.add("-r");
     }

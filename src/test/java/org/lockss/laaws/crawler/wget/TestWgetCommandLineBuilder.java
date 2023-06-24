@@ -82,7 +82,7 @@ public class TestWgetCommandLineBuilder extends LockssTestCase4 {
     CrawlDesc crawlDesc = new CrawlDesc();
     crawlDesc.crawlKind(CrawlDesc.CrawlKindEnum.REPAIR);
     List<String> expectedCommand = ListUtil.list("wget");
-    expectedCommand.add("--directory-prefix=\""+tmpDirPath+ "\"");
+    expectedCommand.add("--directory-prefix="+tmpDirPath);
     expectedCommand.addAll(WgetCommandLineBuilder.DEFAULT_CONFIG);
     expectedCommand.add(WARC_FILE_KEY + "=" + tmpDirPath + "/" + WARC_FILE_NAME);
     expectedCommand.add(WARC_TEMPDIR_KEY + "=" + tmpDirPath);
@@ -110,7 +110,7 @@ public class TestWgetCommandLineBuilder extends LockssTestCase4 {
     crawlDesc.crawlList(crawlList);
 
     List<String> expectedCommand = ListUtil.list("wget");
-    expectedCommand.add("--directory-prefix=\""+tmpDirPath+ "\"");
+    expectedCommand.add("--directory-prefix="+tmpDirPath);
     expectedCommand.add("-r");
     expectedCommand.addAll(WgetCommandLineBuilder.DEFAULT_CONFIG);
     expectedCommand.add(WARC_FILE_KEY + "=" + tmpDirPath + "/" + WARC_FILE_NAME);
@@ -131,7 +131,7 @@ public class TestWgetCommandLineBuilder extends LockssTestCase4 {
     List<String> inputFileUrls = ListUtil.list("https://ip1","https://ip2","http://ip3");
 
     List<String> expectedCommand = ListUtil.list("wget");
-    expectedCommand.add("--directory-prefix=\""+tmpDirPath+ "\"");
+    expectedCommand.add("--directory-prefix="+tmpDirPath);
     expectedCommand.add("-r");
     expectedCommand.addAll(WgetCommandLineBuilder.DEFAULT_CONFIG);
     expectedCommand.add(WARC_FILE_KEY + "=" + tmpDirPath + "/" + WARC_FILE_NAME);

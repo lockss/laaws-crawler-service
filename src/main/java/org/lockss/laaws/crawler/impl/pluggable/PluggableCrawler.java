@@ -2,6 +2,7 @@ package org.lockss.laaws.crawler.impl.pluggable;
 
 import org.lockss.laaws.crawler.impl.PluggableCrawlManager;
 import org.lockss.laaws.crawler.model.CrawlerConfig;
+import org.lockss.plugin.ArchivalUnit;
 import org.lockss.util.rest.crawler.CrawlJob;
 
 /**
@@ -29,7 +30,7 @@ public interface PluggableCrawler {
    */
   CrawlerConfig getCrawlerConfig();
 
-  PluggableCrawl requestCrawl(CrawlJob crawlJob);
+  PluggableCrawl requestCrawl(ArchivalUnit au, CrawlJob crawlJob);
 
   /**
    * Stop a crawl a specific crawl

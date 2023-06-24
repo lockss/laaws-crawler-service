@@ -84,6 +84,7 @@ List<Integer>  successCodes;
     }
   }
 
+
   @Override
   protected boolean didCrawlSucceed(int exitCode) {
     return successCodes.contains(exitCode);

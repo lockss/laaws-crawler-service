@@ -1,24 +1,28 @@
 package org.lockss.laaws.crawler.impl.pluggable;
 
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.lockss.util.FileUtil;
-import org.lockss.util.ListUtil;
-import org.lockss.util.rest.crawler.CrawlDesc;
-import org.lockss.util.rest.crawler.CrawlJob;
-import org.lockss.util.rest.crawler.JobStatus;
-import org.lockss.util.test.LockssTestCase5;
+import static org.lockss.laaws.crawler.impl.pluggable.CmdLineCrawl.errorPattern;
+import static org.lockss.laaws.crawler.impl.pluggable.CmdLineCrawl.successPattern;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import java.util.regex.Matcher;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.lockss.plugin.ArchivalUnit;
+import org.lockss.util.FileUtil;
+import org.lockss.util.ListUtil;
+import org.lockss.util.rest.crawler.CrawlDesc;
+import org.lockss.util.rest.crawler.CrawlJob;
+import org.lockss.util.rest.crawler.JobStatus;
+import org.lockss.util.test.LockssTestCase5;
 
 class TestCmdLineCrawl extends LockssTestCase5 {
   static final CrawlDesc.CrawlKindEnum NEWCONTENT = CrawlDesc.CrawlKindEnum.NEWCONTENT;
@@ -26,7 +30,10 @@ class TestCmdLineCrawl extends LockssTestCase5 {
   private static final String TEST_CRAWLER = "cmdLineCrawler";
   private static final String DEF_JOB_ID = "1000";
   private static final String[] TEST_CMD_LINE ={"wget", "--debug", "--mirror", "https://webscraper.io/test-sites/e-commerce/allinone"};
-
+  private static final String SUCCESS_STRING=
+    "2023-06-19 15:24:09 URL:https://www.example.com/wrapper/test1.html [7108/7108] -> \"data/temp/dtmp/laaws-pluggable-crawler57856/www.example.com/wrapper/test1.html.tmp\" [1]";
+  private static final String FAIL_STRING="2023-06-22 15:08:52 ERROR 404: Not Found.";
+  private static final String BASIC_URL = "https://www.example.com/wrapper/test1.html";
   private JobStatus QueuedStatus = new JobStatus().statusCode(JobStatus.StatusCodeEnum.QUEUED).msg("Pending");
   private JobStatus ActiveStatus = new JobStatus().statusCode(JobStatus.StatusCodeEnum.ACTIVE).msg("Active");
   private JobStatus AbortedStatus = new JobStatus().statusCode(JobStatus.StatusCodeEnum.ABORTED).msg("Aborted");
@@ -113,6 +120,31 @@ class TestCmdLineCrawl extends LockssTestCase5 {
     assertEquals("Active.", crawl.getJobStatus().getMsg());
   }
 
+  @Test
+  @DisplayName("Should find url in successful line.")
+  void filterLineForInfoWhenSuccessful() {
+    Matcher matcher = successPattern.matcher(SUCCESS_STRING);
+    assertTrue(matcher.matches());
+    matcher = successPattern.matcher(FAIL_STRING);
+    assertFalse(matcher.matches());
+  }
+  @Test
+  void extractUrlsFromError() {
+    Matcher matcher = errorPattern.matcher(SUCCESS_STRING);
+    assertFalse(matcher.matches());
+    matcher = errorPattern.matcher(FAIL_STRING);
+    assertTrue(matcher.matches());
+  }
+
+  @Test
+  void extractBytesFromMsg() {
+    long foundBytes = CmdLineCrawl.extractBytes(SUCCESS_STRING);
+    assertNotEquals(0,foundBytes);
+    foundBytes = CmdLineCrawl.extractBytes(FAIL_STRING);
+    assertEquals(0,foundBytes);
+  }
+
+
   CmdLineCrawler makeMockCrawler() {
     CmdLineCrawler crawler = mock(CmdLineCrawler.class);
     when(crawler.getCmdLineBuilder()).thenReturn(new TestCommandLineBuilder());
@@ -132,8 +164,11 @@ class TestCmdLineCrawl extends LockssTestCase5 {
     when(crawlDesc.getAuId()).thenReturn("AU_ID");
     when(crawlDesc.getCrawlKind()).thenReturn(NEWCONTENT);
     when(crawlDesc.getCrawlerId()).thenReturn(TEST_CRAWLER);
-    return new CmdLineCrawl(crawler, crawlJob);
+    ArchivalUnit au = mock(ArchivalUnit.class);
+    when(au.getName()).thenReturn("AU_ID");
+    return new CmdLineCrawl(crawler, au, crawlJob);
   }
+
 
   private static class TestCommandLineBuilder implements CmdLineCrawler.CommandLineBuilder {
 
@@ -142,5 +177,6 @@ class TestCmdLineCrawl extends LockssTestCase5 {
       return Arrays.asList(TEST_CMD_LINE);
     }
   }
+
 
 }

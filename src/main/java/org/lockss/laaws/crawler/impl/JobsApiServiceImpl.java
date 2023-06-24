@@ -38,7 +38,6 @@ import org.lockss.config.Configuration;
 import org.lockss.crawler.CrawlManagerImpl;
 import org.lockss.crawler.CrawlReq;
 import org.lockss.crawler.CrawlerStatus;
-import org.lockss.daemon.Crawler;
 import org.lockss.laaws.crawler.api.JobsApi;
 import org.lockss.laaws.crawler.api.JobsApiDelegate;
 import org.lockss.laaws.crawler.impl.pluggable.PluggableCrawl;
@@ -477,9 +476,9 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
       logCrawlError(msg, crawlJob);
       return HttpStatus.BAD_REQUEST;
     }
+    ArchivalUnit au = getPluginManager().getAuFromId(crawlDesc.getAuId());
     if (urls == null || urls.isEmpty()) {
       // try to get the urls from the au.
-      ArchivalUnit au = getPluginManager().getAuFromId(crawlDesc.getAuId());
       if((au != null)) {
         urls = au.getStartUrls();
         crawlDesc.setCrawlList((List<String>) urls);
@@ -498,7 +497,7 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
     crawlJob.requestDate(TimeBase.nowMs());
     try {
       // add the requested crawlJob to the CrawlQueue for that crawler.
-      PluggableCrawl crawl = crawler.requestCrawl(crawlJob);
+      PluggableCrawl crawl = crawler.requestCrawl(au, crawlJob);
       CrawlerStatus crawlerStatus = crawl.getCrawlerStatus();
       updateCrawlJob(crawlJob, crawlerStatus);
       JobStatus jobStatus = crawl.getJobStatus();

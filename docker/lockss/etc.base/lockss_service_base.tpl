@@ -56,4 +56,6 @@ org.lockss.crawlerservice.wget.enabled=true
 org.lockss.crawlerservice.wget.crawler=org.lockss.laaws.crawler.wget.WgetCmdLineCrawler
 org.lockss.crawlerservice.wget.opt.wait=0.5
 org.lockss.crawlerservice.wget.successCode=0;8
+# Default is verbose set to no-verbose
+org.lockss.crawlerservice.wget.outputLevel=no-verbose
 org.lockss.crawlerservice.wget.opt.warc-keep-log=off

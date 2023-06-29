@@ -25,7 +25,11 @@
  */
 package org.lockss.laaws.crawler.impl.pluggable;
 
+import java.util.*;
+import org.lockss.config.AuConfiguration;
 import org.lockss.config.Configuration;
+import org.lockss.config.ConfigManager;
+import org.lockss.db.DbException;
 import org.lockss.laaws.crawler.impl.ApiUtils;
 import org.lockss.laaws.crawler.impl.PluggableCrawlManager;
 import org.lockss.laaws.crawler.model.CrawlerConfig;
@@ -43,9 +47,6 @@ import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -75,6 +76,9 @@ public class CmdLineCrawler implements PluggableCrawler {
 
   public static final String ATTR_ERROR_LOG_LEVEL = "errorLogLevel";
   public static final String DEFAULT_ERROR_LOG_LEVEL = "ERROR";
+
+  private static final String START_URL_KEY = "start_urls";
+  private static final String URL_STEMS_KEY = "url_stems";
 
   /**
    * The Configuration for this crawler.
@@ -288,6 +292,42 @@ public class CmdLineCrawler implements PluggableCrawler {
     log.debug2("Returned from call to repo");
   }
 
+
+  public void updateAuConfig(String auId, List<String>reqUrls,
+    List<String> crawlStems) throws IOException {
+    ConfigManager cm = pcManager.getConfigManager();
+    AuConfiguration au_config;
+    try {
+      au_config = cm.retrieveArchivalUnitConfiguration(auId);
+      updateAuConfigItem(au_config, START_URL_KEY, reqUrls);
+      updateAuConfigItem(au_config, URL_STEMS_KEY, crawlStems);
+      cm.storeArchivalUnitConfiguration(au_config, true);
+    }
+    catch (DbException dbe) {
+      throw new IOException("Unable update AU configuration",dbe);
+    }
+  }
+
+
+  void updateAuConfigItem(AuConfiguration auConfig, String key, List<String> updateList) {
+    Map<String, String> configMap = auConfig.getAuConfig();
+    List<String> configList;
+    String config_str = configMap.get(key);
+    if(config_str != null) {
+      configList = new ArrayList<>(Arrays.asList(config_str.split(";")));
+    }
+    else {
+      configList = new ArrayList<>();
+    }
+    for(String elem: updateList) {
+      if(!configList.contains(elem)) {
+        configList.add(elem);
+      }
+    }
+    auConfig.putAuConfigItem(key,String.join(";", configList));
+  }
+
+
   protected void initCrawlScheduler(String reqSpec) {
     crawlQueueExecutor = ExecutorUtils.createOrReConfigureExecutor(crawlQueueExecutor,
         reqSpec, DEFAULT_CMDLINE_CRAWL_EXECUTOR_SPEC);
@@ -341,7 +381,6 @@ public class CmdLineCrawler implements PluggableCrawler {
 
     @Override
     public void run() {
-
       cmdLineCrawl.getRunnable().run();
     }
   }

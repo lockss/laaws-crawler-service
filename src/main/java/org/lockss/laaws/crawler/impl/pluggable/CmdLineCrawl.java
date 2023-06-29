@@ -24,6 +24,7 @@ import org.lockss.state.AuState;
 import org.lockss.util.MimeUtil;
 import org.lockss.util.UrlUtil;
 import org.lockss.util.io.FileUtil;
+import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.crawler.CrawlJob;
 import org.lockss.util.rest.crawler.JobStatus;
 
@@ -51,6 +52,12 @@ public class CmdLineCrawl extends PluggableCrawl {
   protected static Pattern bytesPattern= Pattern.compile("\\[[0-9]+/[0-9]+]", Pattern.CASE_INSENSITIVE);
   private static final String ERROR_STR = " ERROR ";
 
+  List<String> stems = new ArrayList<>();
+  List<String> reqUrls;
+  CrawlerStatus crawlerStatus;
+  AuState auState;
+  boolean isRepairCrawl = false;
+
   /**
    * Instantiates a new Cmd line crawl.
    *
@@ -66,7 +73,8 @@ public class CmdLineCrawl extends PluggableCrawl {
     final Configuration currentConfig = ConfigManager.getCurrentConfig();
     outputLogLevel = crawler.getOutputLogLevel();
     errorLogLevel = crawler.getErrorLogLevel();
-
+    isRepairCrawl = crawlJob.getCrawlDesc().getCrawlKind() == CrawlDesc.CrawlKindEnum.REPAIR;
+    reqUrls = normalizeReqUrls();
   }
 
 
@@ -127,6 +135,24 @@ public class CmdLineCrawl extends PluggableCrawl {
   public List<String> getCommand() {
     return command;
   }
+  protected List<String> getReqUrls() {return reqUrls; }
+  protected  List<String> getStems() { return stems;}
+
+  List<String> normalizeReqUrls() {
+    final List<String> req_list = crawlDesc.getCrawlList();
+    List<String> crawlList = new ArrayList<>();
+    if (req_list != null && !req_list.isEmpty()) {
+      for (String url : req_list) {
+        try {
+          crawlList.add(UrlUtil.normalizeUrl(url));
+        }
+        catch (MalformedURLException e) {
+          log.error("Request for a crawl with malformed request url");
+        }
+      }
+    }
+    return crawlList;
+  }
 
   public LockssRunnable getRunnable() {
     return new LockssRunnable(threadName) {
@@ -134,11 +160,11 @@ public class CmdLineCrawl extends PluggableCrawl {
       @Override
       public void lockssRun() {
         log.debug2("{} started", this);
-        CrawlerStatus crawlerStatus = getCrawlerStatus();
-        AuState aus = AuUtil.getAuState(crawlerStatus.getAu());
+        crawlerStatus = getCrawlerStatus();
+        auState = AuUtil.getAuState(crawlerStatus.getAu());
         boolean joinOutputStreams = crawler.isJoinOutputStreams();
         try {
-          aus.newCrawlStarted();
+          auState.newCrawlStarted();
           nowRunning();
           crawlerStatus = startCrawl();
           ProcessBuilder builder = new ProcessBuilder();
@@ -164,6 +190,7 @@ public class CmdLineCrawl extends PluggableCrawl {
             for (File warc : warcFiles) {
               crawler.storeInRepository(crawlerStatus.getAuId(), warc, true);
             }
+            crawler.updateAuConfig(getAuId(), getReqUrls(), getStems());
             crawlerStatus.setCrawlStatus(Crawler.STATUS_SUCCESSFUL);
 
           }
@@ -182,7 +209,7 @@ public class CmdLineCrawl extends PluggableCrawl {
         }
         finally {
           ApiUtils.getPluggableCrawlManager().handleCrawlComplete(crawlerStatus);
-          aus.newCrawlFinished(crawlerStatus.getCrawlStatus(),null);
+          auState.newCrawlFinished(crawlerStatus.getCrawlStatus(),null);
           crawlerStatus.signalCrawlEnded();
           setThreadName(threadName + ": idle");
           log.info("Deleting tree at {}", tmpDir);
@@ -203,7 +230,6 @@ public class CmdLineCrawl extends PluggableCrawl {
   private class StreamGobbler extends Thread {
     InputStream is;
     String type;
-
     private StreamGobbler(InputStream is, String type) {
       this.is = is;
       this.type = type;
@@ -269,6 +295,12 @@ public class CmdLineCrawl extends PluggableCrawl {
     // check for success
     Matcher matcher = successPattern.matcher(msg_line);
     if(matcher.matches()) {
+      try {
+        String stem = UrlUtil.getUrlPrefix(url);
+        if(!stems.contains(stem)) stems.add(stem);
+      } catch (MalformedURLException e) {
+        log.error("Found malformed url: " + url);
+      }
       long bytesFetched = extractBytes(msg_line);
       crawlerStatus.signalUrlFetched(url);
       crawlerStatus.addContentBytesFetched(bytesFetched);

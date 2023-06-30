@@ -85,7 +85,7 @@ public class CmdLineCrawl extends PluggableCrawl {
     try {
       js.setStatusCode(JobStatus.StatusCodeEnum.ACTIVE);
       js.setMsg("Active.");
-      tmpDir = FileUtil.createTempDir("laaws-pluggable-crawler", "");
+      tmpDir = FileUtil.createTempDir(crawlDesc.getCrawlerId()+"_crawl", "");
       command = crawler.getCmdLineBuilder().buildCommandLine(getCrawlDesc(), tmpDir);
     }
     catch (IOException ioe) {
@@ -101,6 +101,7 @@ public class CmdLineCrawl extends PluggableCrawl {
     JobStatus status = getJobStatus();
     status.setStatusCode(JobStatus.StatusCodeEnum.ABORTED);
     status.setMsg("Crawl Aborted.");
+    deleteTmpDir();
     return getCrawlerStatus();
   }
 
@@ -190,7 +191,7 @@ public class CmdLineCrawl extends PluggableCrawl {
             for (File warc : warcFiles) {
               crawler.storeInRepository(crawlerStatus.getAuId(), warc, true);
             }
-            crawler.updateAuConfig(getAuId(), getReqUrls(), getStems());
+            crawler.updateAuConfig(getAuId(), isRepairCrawl, getReqUrls(), getStems());
             crawlerStatus.setCrawlStatus(Crawler.STATUS_SUCCESSFUL);
 
           }
@@ -212,19 +213,23 @@ public class CmdLineCrawl extends PluggableCrawl {
           auState.newCrawlFinished(crawlerStatus.getCrawlStatus(),null);
           crawlerStatus.signalCrawlEnded();
           setThreadName(threadName + ": idle");
-          log.info("Deleting tree at {}", tmpDir);
-          boolean isDeleted=true;
-          if(tmpDir!= null) {
-            isDeleted = FileUtil.delTree(tmpDir);
-          }
-          log.trace("isDeleted = {}", isDeleted);
-          if (!isDeleted) {
-            log.warn("Temporary directory {} cannot be deleted after processing", tmpDir);
-          }
+          deleteTmpDir();
           log.debug2("{} terminating", this);
         }
       }
     };
+  }
+
+  private void deleteTmpDir() {
+    log.info("Deleting tree at {}", tmpDir);
+    boolean isDeleted=true;
+    if(tmpDir!= null) {
+      isDeleted = FileUtil.delTree(tmpDir);
+    }
+    log.trace("isDeleted = {}", isDeleted);
+    if (!isDeleted) {
+      log.warn("Temporary directory {} cannot be deleted after processing", tmpDir);
+    }
   }
 
   private class StreamGobbler extends Thread {

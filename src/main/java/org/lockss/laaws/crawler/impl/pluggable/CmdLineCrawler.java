@@ -293,13 +293,15 @@ public class CmdLineCrawler implements PluggableCrawler {
   }
 
 
-  public void updateAuConfig(String auId, List<String>reqUrls,
-    List<String> crawlStems) throws IOException {
+  public void updateAuConfig(String auId, boolean isRepairCrawl, List<String>reqUrls,
+                             List<String> crawlStems) throws IOException {
     ConfigManager cm = pcManager.getConfigManager();
     AuConfiguration au_config;
     try {
       au_config = cm.retrieveArchivalUnitConfiguration(auId);
-      updateAuConfigItem(au_config, START_URL_KEY, reqUrls);
+      if(!isRepairCrawl) {
+        updateAuConfigItem(au_config, START_URL_KEY, reqUrls);
+      }
       updateAuConfigItem(au_config, URL_STEMS_KEY, crawlStems);
       cm.storeArchivalUnitConfiguration(au_config, true);
     }

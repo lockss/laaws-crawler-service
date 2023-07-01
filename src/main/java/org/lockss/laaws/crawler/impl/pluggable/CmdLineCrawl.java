@@ -74,7 +74,7 @@ public class CmdLineCrawl extends PluggableCrawl {
     outputLogLevel = crawler.getOutputLogLevel();
     errorLogLevel = crawler.getErrorLogLevel();
     isRepairCrawl = crawlJob.getCrawlDesc().getCrawlKind() == CrawlDesc.CrawlKindEnum.REPAIR;
-    reqUrls = normalizeReqUrls();
+    reqUrls = crawlDesc.getCrawlList();
   }
 
 
@@ -85,7 +85,7 @@ public class CmdLineCrawl extends PluggableCrawl {
     try {
       js.setStatusCode(JobStatus.StatusCodeEnum.ACTIVE);
       js.setMsg("Active.");
-      tmpDir = FileUtil.createTempDir(crawlDesc.getCrawlerId()+"_crawl", "");
+      tmpDir = FileUtil.createTempDir(crawlDesc.getCrawlerId(), "");
       command = crawler.getCmdLineBuilder().buildCommandLine(getCrawlDesc(), tmpDir);
     }
     catch (IOException ioe) {
@@ -139,22 +139,6 @@ public class CmdLineCrawl extends PluggableCrawl {
   protected List<String> getReqUrls() {return reqUrls; }
   protected  List<String> getStems() { return stems;}
 
-  List<String> normalizeReqUrls() {
-    final List<String> req_list = crawlDesc.getCrawlList();
-    List<String> crawlList = new ArrayList<>();
-    if (req_list != null && !req_list.isEmpty()) {
-      for (String url : req_list) {
-        try {
-          crawlList.add(UrlUtil.normalizeUrl(url));
-        }
-        catch (MalformedURLException e) {
-          log.error("Request for a crawl with malformed request url");
-        }
-      }
-    }
-    return crawlList;
-  }
-
   public LockssRunnable getRunnable() {
     return new LockssRunnable(threadName) {
 
@@ -169,6 +153,7 @@ public class CmdLineCrawl extends PluggableCrawl {
           nowRunning();
           crawlerStatus = startCrawl();
           ProcessBuilder builder = new ProcessBuilder();
+          builder.directory(tmpDir);
           builder.command(command);
           if (joinOutputStreams) {
             builder.redirectErrorStream(true);
@@ -191,11 +176,14 @@ public class CmdLineCrawl extends PluggableCrawl {
             for (File warc : warcFiles) {
               crawler.storeInRepository(crawlerStatus.getAuId(), warc, true);
             }
-            crawler.updateAuConfig(getAuId(), isRepairCrawl, getReqUrls(), getStems());
+            crawler.updateAuConfig(getAu(), isRepairCrawl, getReqUrls(), getStems());
             crawlerStatus.setCrawlStatus(Crawler.STATUS_SUCCESSFUL);
 
           }
           else {
+            if(getStems().size() > 0) {
+              crawler.updateAuConfig(getAu(), isRepairCrawl, getReqUrls(), getStems());
+            }
             crawlerStatus.setCrawlStatus(
               Crawler.STATUS_ERROR, "crawl exited with code: " + exitCode);
           }

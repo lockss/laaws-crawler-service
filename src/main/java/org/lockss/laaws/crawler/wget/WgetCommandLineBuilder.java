@@ -85,7 +85,7 @@ public class WgetCommandLineBuilder implements CmdLineCrawler.CommandLineBuilder
     FileUtil.ensureDirExists(tmpDir);
     List<String> command = new ArrayList<>();
     command.add("wget");
-    command.add("--directory-prefix="+tmpDir);
+    command.add("--directory-prefix=./");
     if(crawlDesc.getCrawlKind().equals(CrawlDesc.CrawlKindEnum.NEWCONTENT)){
       command.add("-r");
     }
@@ -102,8 +102,8 @@ public class WgetCommandLineBuilder implements CmdLineCrawler.CommandLineBuilder
     }
 
     // fixed output information
-    File warc = new File(tmpDir, WARC_FILE_NAME);
-    command.add(WARC_FILE_KEY + "=" + warc.getAbsolutePath());
+    //File warc = new File(tmpDir, WARC_FILE_NAME);
+    command.add(WARC_FILE_KEY + "=" + WARC_FILE_NAME);
     command.add(WARC_TEMPDIR_KEY + "=" + tmpDir.getAbsolutePath());
     // add parameters from request.
     Map<String, Object> extraCrawlerDataMap = crawlDesc.getExtraCrawlerData();

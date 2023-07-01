@@ -36,6 +36,7 @@ import org.lockss.laaws.crawler.model.CrawlerConfig;
 import org.lockss.laaws.crawler.utils.ExecutorUtils;
 import org.lockss.log.L4JLogger;
 import org.lockss.plugin.ArchivalUnit;
+import org.lockss.plugin.CachedUrl;
 import org.lockss.util.ClassUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.crawler.CrawlJob;
@@ -293,18 +294,18 @@ public class CmdLineCrawler implements PluggableCrawler {
   }
 
 
-  public void updateAuConfig(String auId, boolean isRepairCrawl, List<String>reqUrls,
+  public void updateAuConfig(ArchivalUnit au, boolean isRepairCrawl, List<String>reqUrls,
                              List<String> crawlStems) throws IOException {
     log.debug("updating config for {}");
     ConfigManager cm = pcManager.getConfigManager();
     AuConfiguration au_config;
     try {
-      au_config = cm.retrieveArchivalUnitConfiguration(auId);
+      au_config = cm.retrieveArchivalUnitConfiguration(au.getAuId());
       if(!isRepairCrawl) {
         log.debug2("Updating AuConfig for start urls.");
-        updateAuConfigItem(au_config, START_URL_KEY, reqUrls);
+        updateAuConfigItem(au_config, START_URL_KEY, getCheckedStartUrls(au,reqUrls));
       }
-      log.debug2("Updating AuConfig for url stems: {}", crawlStems);
+      log.debug2("Updating AuConfig for url stems: {}", reqUrls);
       updateAuConfigItem(au_config, URL_STEMS_KEY, crawlStems);
       cm.storeArchivalUnitConfiguration(au_config, true);
     }
@@ -313,6 +314,27 @@ public class CmdLineCrawler implements PluggableCrawler {
     }
   }
 
+  List<String> getCheckedStartUrls(ArchivalUnit au, List<String> inUrls) {
+    List<String> outUrls = new ArrayList<>();
+    if(inUrls != null && !inUrls.isEmpty()) {
+      for(String url : inUrls) {
+        outUrls.add(checkStartUrl(au, url));
+      }
+    }
+    return outUrls;
+  }
+
+  String checkStartUrl(ArchivalUnit au, String startUrl) {
+    if(!startUrl.endsWith("/")) {
+      CachedUrl cu = au.makeCachedUrl(startUrl);
+      if(!cu.hasContent()) {
+        String newUrl = startUrl + "/";
+        cu = au.makeCachedUrl(newUrl);
+        if(cu.hasContent()) return newUrl;
+      }
+    }
+    return startUrl;
+  }
 
   void updateAuConfigItem(AuConfiguration auConfig, String key, List<String> updateList) {
     Map<String, String> configMap = auConfig.getAuConfig();

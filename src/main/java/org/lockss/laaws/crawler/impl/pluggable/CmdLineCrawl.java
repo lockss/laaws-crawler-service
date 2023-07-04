@@ -158,7 +158,8 @@ public class CmdLineCrawl extends PluggableCrawl {
           if (joinOutputStreams) {
             builder.redirectErrorStream(true);
           }
-          log.debug("Starting crawl process with command {}...", String.join(" ", command));
+          log.debug("Starting crawl process in {} with command {}...",
+                    tmpDir, String.join(" ", command));
           Process process = builder.start();
           StreamGobbler outputGobbler = new StreamGobbler(process.getInputStream(), "OUTPUT");
           outputGobbler.start();

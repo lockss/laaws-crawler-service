@@ -296,7 +296,7 @@ public class CmdLineCrawler implements PluggableCrawler {
 
   public void updateAuConfig(ArchivalUnit au, boolean isRepairCrawl, List<String>reqUrls,
                              List<String> crawlStems) throws IOException {
-    log.debug("updating config for {}");
+    log.debug("updating config for {}", au.getName());
     ConfigManager cm = pcManager.getConfigManager();
     AuConfiguration au_config;
     try {

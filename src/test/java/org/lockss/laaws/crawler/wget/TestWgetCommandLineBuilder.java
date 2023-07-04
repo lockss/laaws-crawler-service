@@ -86,7 +86,7 @@ public class TestWgetCommandLineBuilder extends LockssTestCase4 {
     expectedCommand.add("--directory-prefix=./");
     expectedCommand.addAll(WgetCommandLineBuilder.DEFAULT_CONFIG);
     expectedCommand.add(WARC_FILE_KEY + "="  + WARC_FILE_NAME);
-    expectedCommand.add(WARC_TEMPDIR_KEY + "=" + tmpDirPath);
+    expectedCommand.add(WARC_TEMPDIR_KEY + "=./");
     expectedCommand.addAll(crawlList);
 
     try {
@@ -115,7 +115,7 @@ public class TestWgetCommandLineBuilder extends LockssTestCase4 {
     expectedCommand.add("-r");
     expectedCommand.addAll(WgetCommandLineBuilder.DEFAULT_CONFIG);
     expectedCommand.add(WARC_FILE_KEY + "=" + WARC_FILE_NAME);
-    expectedCommand.add(WARC_TEMPDIR_KEY + "=" + tmpDirPath);
+    expectedCommand.add(WARC_TEMPDIR_KEY + "=./");
     expectedCommand.addAll(crawlList);
 
     command = new WgetCommandLineBuilder().buildCommandLine(crawlDesc, tmpDir);
@@ -136,7 +136,7 @@ public class TestWgetCommandLineBuilder extends LockssTestCase4 {
     expectedCommand.add("-r");
     expectedCommand.addAll(WgetCommandLineBuilder.DEFAULT_CONFIG);
     expectedCommand.add(WARC_FILE_KEY + "=" + WARC_FILE_NAME);
-    expectedCommand.add(WARC_TEMPDIR_KEY + "=" + tmpDirPath);
+    expectedCommand.add(WARC_TEMPDIR_KEY + "=./");
     expectedCommand.add(INPUT_FILE_KEY + "=" + tmpDirPath + "/" + INPUT_FILE_KEY.substring(2));
     expectedCommand.add(userAgent);
     expectedCommand.addAll(crawlList);

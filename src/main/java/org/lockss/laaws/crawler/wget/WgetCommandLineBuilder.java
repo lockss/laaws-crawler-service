@@ -104,7 +104,7 @@ public class WgetCommandLineBuilder implements CmdLineCrawler.CommandLineBuilder
     // fixed output information
     //File warc = new File(tmpDir, WARC_FILE_NAME);
     command.add(WARC_FILE_KEY + "=" + WARC_FILE_NAME);
-    command.add(WARC_TEMPDIR_KEY + "=" + tmpDir.getAbsolutePath());
+    command.add(WARC_TEMPDIR_KEY + "=./");
     // add parameters from request.
     Map<String, Object> extraCrawlerDataMap = crawlDesc.getExtraCrawlerData();
     if (extraCrawlerDataMap != null) {

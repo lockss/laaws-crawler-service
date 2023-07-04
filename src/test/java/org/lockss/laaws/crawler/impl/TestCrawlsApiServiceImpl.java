@@ -690,14 +690,17 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
             code == StatusCodeEnum.QUEUED
                 || code == StatusCodeEnum.ACTIVE
                 || code == StatusCodeEnum.SUCCESSFUL);
+        // status may change between checking code and getting
+        // message, so get message first
+        String statmsg = status.getMsg();
         if (code == StatusCodeEnum.QUEUED) {
-          assertEquals("Pending", status.getMsg());
+          assertEquals("Pending", statmsg);
         } else if (code == StatusCodeEnum.ACTIVE) {
-          assertEquals("Active", status.getMsg());
+          assertEquals("Active", statmsg);
         } else {
           assertTrue(
-              "Successful".equals(status.getMsg())
-                  || "Crawl aborted before start".equals(status.getMsg()));
+              "Successful".equals(statmsg)
+                  || "Crawl aborted before start".equals(statmsg));
         }
       }
     }

@@ -22,6 +22,7 @@ import org.lockss.plugin.ArchivalUnit;
 import org.lockss.plugin.AuUtil;
 import org.lockss.state.AuState;
 import org.lockss.util.MimeUtil;
+import org.lockss.util.StringUtil;
 import org.lockss.util.UrlUtil;
 import org.lockss.util.io.FileUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
@@ -67,9 +68,10 @@ public class CmdLineCrawl extends PluggableCrawl {
   public CmdLineCrawl(CmdLineCrawler crawler, ArchivalUnit au, CrawlJob crawlJob) {
     super(crawler.getCrawlerConfig(), au, crawlJob);
     this.crawler = crawler;
+    String jobId = crawlJob.getJobId();
     threadName = crawlDesc.getCrawlKind() + ":"
       + crawlDesc.getCrawlerId() +
-      ":" + crawlJob.getJobId();
+      ":" + jobId.substring(0, Integer.min(6, jobId.length() - 1));
     final Configuration currentConfig = ConfigManager.getCurrentConfig();
     outputLogLevel = crawler.getOutputLogLevel();
     errorLogLevel = crawler.getErrorLogLevel();
@@ -170,21 +172,22 @@ public class CmdLineCrawl extends PluggableCrawl {
           }
           crawlerStatus.signalCrawlStarted();
           int exitCode = process.waitFor();
-          log.debug("Completed crawl process: exitCode = {}", exitCode);
           if (crawler.didCrawlSucceed(exitCode)) {
+            log.info("Crawl process succeeded with exitCode {}", exitCode);
             Collection<File> warcFiles = getWarcFiles("*.warc.gz");
-            log.debug2("Found {} warcFiles after crawl.", warcFiles.size());
+            log.info("Importing {} into repository.",
+                     StringUtil.numberOfUnits(warcFiles.size(), "warcfile"));
+            crawlerStatus.setCrawlStatus(Crawler.STATUS_ACTIVE, "Storing");
             for (File warc : warcFiles) {
               crawler.storeInRepository(crawlerStatus.getAuId(), warc, true);
             }
             crawler.updateAuConfig(getAu(), isRepairCrawl, getReqUrls(), getStems());
             crawlerStatus.setCrawlStatus(Crawler.STATUS_SUCCESSFUL);
+            log.info("Content stored, crawl complete.");
 
           }
           else {
-            if(getStems().size() > 0) {
-              crawler.updateAuConfig(getAu(), isRepairCrawl, getReqUrls(), getStems());
-            }
+            log.info("Crawl process failed with exitCode {}", exitCode);
             crawlerStatus.setCrawlStatus(
               Crawler.STATUS_ERROR, "crawl exited with code: " + exitCode);
           }
@@ -210,7 +213,7 @@ public class CmdLineCrawl extends PluggableCrawl {
   }
 
   private void deleteTmpDir() {
-    log.info("Deleting tree at {}", tmpDir);
+    log.debug("Deleting tree at {}", tmpDir);
     boolean isDeleted=true;
     if(tmpDir!= null) {
       isDeleted = FileUtil.delTree(tmpDir);

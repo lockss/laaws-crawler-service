@@ -59,3 +59,4 @@ org.lockss.crawlerservice.wget.successCode=0;8
 # Default is verbose set to no-verbose
 org.lockss.crawlerservice.wget.outputLevel=no-verbose
 org.lockss.crawlerservice.wget.opt.warc-keep-log=off
+org.lockss.crawlerservice.wget.opt.content-on-error=off

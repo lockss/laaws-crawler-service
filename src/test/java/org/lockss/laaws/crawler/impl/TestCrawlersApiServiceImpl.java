@@ -595,7 +595,14 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
     assertTrue(Boolean.parseBoolean(attributes.get(ATTR_STARTER_ENABLED)));
     assertEquals(enabled, Boolean.parseBoolean(attributes.get(ATTR_CRAWLING_ENABLED)));
     assertTrue(Boolean.parseBoolean(attributes.get(CLASSIC_CRAWLER_ID + ENABLED)));
-    log.debug2("Done");
+    crawlerConfig =
+        runTestGetCrawlerConfig(WGET_CRAWLER_ID, USER_ADMIN, HttpStatus.OK);
+    log.info("crawlerConfig = {}", crawlerConfig);
+    assertNotNull(crawlerConfig);
+    attributes = crawlerConfig.getAttributes();
+    assertTrue(Boolean.parseBoolean(attributes.get(ATTR_STARTER_ENABLED)));
+    assertEquals(enabled, Boolean.parseBoolean(attributes.get(ATTR_CRAWLING_ENABLED)));
+    assertTrue(Boolean.parseBoolean(attributes.get(WGET_CRAWLER_ID + ENABLED)));  log.debug2("Done");
   }
 
   /**

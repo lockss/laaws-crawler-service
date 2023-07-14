@@ -72,6 +72,8 @@ public class CmdLineCrawler implements PluggableCrawler {
       EXEC_PREFIX + "cmdLineCrawl.spec";
   public static final String DEFAULT_CMDLINE_CRAWL_EXECUTOR_SPEC = "10;2";
 
+  public static final String DEFAULT_EXCLUDE_STATUS_PATTERN = "(4|5)..";
+
   public static final String ATTR_OUTPUT_LOG_LEVEL = "outputLogLevel";
   public static final String DEFAULT_OUTPUT_LOG_LEVEL = "INFO";
 
@@ -289,7 +291,7 @@ public class CmdLineCrawler implements PluggableCrawler {
     BufferedInputStream bis = new BufferedInputStream(Files.newInputStream(warcFile.toPath()));
     ensureRepo();
     log.debug2("Calling Repository with warc for auid {}", auId);
-    v2Repo.addArtifacts(namespace, auId, bis, LockssRepository.ArchiveType.WARC, isCompressed);
+    v2Repo.addArtifacts(namespace, auId, bis, LockssRepository.ArchiveType.WARC, isCompressed, false, DEFAULT_EXCLUDE_STATUS_PATTERN);
     log.debug2("Returned from call to repo");
   }
 

@@ -111,7 +111,7 @@ class TestCmdLineCrawler extends LockssTestCase5 {
       when(lockssRepository.isReady()).thenReturn(true);
       cmdLineCrawler.storeInRepository(DEF_AU_ID, warcfile, false);
       verify(lockssRepository,times(1)).addArtifacts(anyString(),anyString(),anyObject(),
-        anyObject(),anyBoolean());
+        anyObject(),anyBoolean(),anyBoolean(),anyString());
     }
     catch (IOException e) {
       fail("store Warc failed");

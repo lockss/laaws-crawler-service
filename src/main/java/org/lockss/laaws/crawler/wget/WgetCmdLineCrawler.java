@@ -38,6 +38,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.lockss.laaws.crawler.impl.pluggable.CmdLineCrawler;
 import org.lockss.laaws.crawler.model.CrawlerConfig;
+import org.lockss.util.Constants;
 import org.lockss.util.StringUtil;
 
 /**
@@ -82,6 +83,26 @@ List<Integer>  successCodes;
         configOptions.add(opt + "=" + val);
      }
     }
+  }
+
+  public long getMaxRetries() {
+    return pcManager.getMaxRetries();
+  }
+
+  public long getRetryDelay() {
+    return pcManager.getMinRetryDelay()/Constants.SECOND;
+  }
+
+  public long getConnectTimeout() {
+    return pcManager.getConnectTimeout()/Constants.SECOND;
+  }
+
+  public long getReadTimeout() {
+    return pcManager.getReadTimeout()/Constants.SECOND;
+  }
+
+  public long getFetchDelay() {
+    return pcManager.getFetchDelay()/Constants.SECOND;
   }
 
 

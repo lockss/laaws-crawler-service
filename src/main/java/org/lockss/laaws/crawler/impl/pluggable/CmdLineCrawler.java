@@ -55,7 +55,6 @@ import java.util.concurrent.TimeUnit;
 import static org.lockss.laaws.crawler.impl.PluggableCrawlManager.ATTR_CRAWLER_ID;
 import static org.lockss.laaws.crawler.impl.PluggableCrawlManager.ENABLED;
 import static org.lockss.laaws.crawler.utils.ExecutorUtils.DEFAULT_EXECUTOR_SPEC;
-import static org.lockss.laaws.crawler.utils.ExecutorUtils.EXEC_PREFIX;
 
 /**
  * A Base implementation of a CmdLineCrawler.
@@ -68,10 +67,10 @@ public class CmdLineCrawler implements PluggableCrawler {
   /**
    * Controls the number of AUs running cmd line crawls
    */
-  public static final String PARAM_CMDLINE_CRAWL_EXECUTOR_SPEC =
-      EXEC_PREFIX + "cmdLineCrawl.spec";
+  public static final String ATTR_CRAWL_EXECUTOR_SPEC="executor.spec";
   public static final String DEFAULT_CMDLINE_CRAWL_EXECUTOR_SPEC = "10;2";
 
+  public static final String ATTR_EXCLUDE_STATUS_PATTERN = "excludeStatusPattern";
   public static final String DEFAULT_EXCLUDE_STATUS_PATTERN = "(4|5)..";
 
   public static final String ATTR_OUTPUT_LOG_LEVEL = "outputLogLevel";
@@ -79,6 +78,9 @@ public class CmdLineCrawler implements PluggableCrawler {
 
   public static final String ATTR_ERROR_LOG_LEVEL = "errorLogLevel";
   public static final String DEFAULT_ERROR_LOG_LEVEL = "ERROR";
+
+  public static final String ATTR_JOIN_OUTPUT_STREAMS = "joinOutputStreams";
+  public static final String DEFAULT_JOIN_OUTPUT_STREAMS= "true";
 
   private static final String START_URL_KEY = "start_urls";
   private static final String URL_STEMS_KEY = "url_stems";
@@ -93,11 +95,15 @@ public class CmdLineCrawler implements PluggableCrawler {
    */
   protected String outputLogLevel;
 
-
   /**
    * The level to use when logging error from a process
    */
   protected String errorLogLevel;
+
+  /**
+   * The http response codes to exclude from warc import.
+   */
+  protected String excludeStatusPattern;
 
   /**
    * The map of crawls for this crawler.
@@ -180,19 +186,13 @@ public class CmdLineCrawler implements PluggableCrawler {
         log.error("Unable to instantiate CommandLineBuilder: {} for Crawler {} ", builderClassName, crawlerId);
       }
     }
-    String qspec= attr.get(PREFIX+crawlerId+".executor.spec");
-    if(qspec == null) qspec = DEFAULT_EXECUTOR_SPEC;
+    String qspec= attr.getOrDefault(ATTR_CRAWL_EXECUTOR_SPEC,DEFAULT_EXECUTOR_SPEC);
+
     initCrawlScheduler(qspec);
-
-    outputLogLevel= attr.get(PREFIX+crawlerId+ATTR_OUTPUT_LOG_LEVEL);
-    if(outputLogLevel == null) outputLogLevel = DEFAULT_OUTPUT_LOG_LEVEL;
-
-    errorLogLevel= attr.get(PREFIX+crawlerId+ATTR_ERROR_LOG_LEVEL);
-    if(outputLogLevel == null) outputLogLevel = DEFAULT_OUTPUT_LOG_LEVEL;
-
-    if (outputLogLevel.equals(errorLogLevel)) {
-      joinOutputStreams = true;
-    }
+    excludeStatusPattern= attr.getOrDefault(ATTR_EXCLUDE_STATUS_PATTERN,DEFAULT_EXCLUDE_STATUS_PATTERN);
+    outputLogLevel= attr.getOrDefault(ATTR_OUTPUT_LOG_LEVEL,DEFAULT_OUTPUT_LOG_LEVEL);
+    errorLogLevel= attr.getOrDefault(ATTR_ERROR_LOG_LEVEL,DEFAULT_ERROR_LOG_LEVEL);
+    joinOutputStreams = Boolean.parseBoolean(attr.getOrDefault(ATTR_JOIN_OUTPUT_STREAMS,DEFAULT_JOIN_OUTPUT_STREAMS));
   }
 
   @Override
@@ -291,7 +291,7 @@ public class CmdLineCrawler implements PluggableCrawler {
     BufferedInputStream bis = new BufferedInputStream(Files.newInputStream(warcFile.toPath()));
     ensureRepo();
     log.debug2("Calling Repository with warc for auid {}", auId);
-    v2Repo.addArtifacts(namespace, auId, bis, LockssRepository.ArchiveType.WARC, isCompressed, false, DEFAULT_EXCLUDE_STATUS_PATTERN);
+    v2Repo.addArtifacts(namespace, auId, bis, LockssRepository.ArchiveType.WARC, isCompressed, false, excludeStatusPattern);
     log.debug2("Returned from call to repo");
   }
 

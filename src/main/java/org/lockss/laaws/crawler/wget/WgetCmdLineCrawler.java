@@ -39,6 +39,7 @@ import java.util.stream.Collectors;
 import org.lockss.laaws.crawler.impl.pluggable.CmdLineCrawler;
 import org.lockss.laaws.crawler.model.CrawlerConfig;
 import org.lockss.util.Constants;
+import org.lockss.util.NumberUtil;
 import org.lockss.util.StringUtil;
 
 /**
@@ -89,20 +90,20 @@ List<Integer>  successCodes;
     return pcManager.getMaxRetries();
   }
 
-  public long getRetryDelay() {
-    return pcManager.getMinRetryDelay()/Constants.SECOND;
+  public double getRetryDelay() {
+    return NumberUtil.roundToNDecimals(((double) pcManager.getRetryDelay()) / Constants.SECOND,2);
   }
 
-  public long getConnectTimeout() {
-    return pcManager.getConnectTimeout()/Constants.SECOND;
+  public double getConnectTimeout() {
+    return NumberUtil.roundToNDecimals( ((double)pcManager.getConnectTimeout())/Constants.SECOND,2);
   }
 
-  public long getReadTimeout() {
-    return pcManager.getReadTimeout()/Constants.SECOND;
+  public double getReadTimeout() {
+    return NumberUtil.roundToNDecimals( ((double)pcManager.getReadTimeout())/Constants.SECOND,2);
   }
 
-  public long getFetchDelay() {
-    return pcManager.getFetchDelay()/Constants.SECOND;
+  public double getFetchDelay() {
+    return NumberUtil.roundToNDecimals(((double)pcManager.getFetchDelay())/Constants.SECOND,2);
   }
 
 

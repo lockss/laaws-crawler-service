@@ -114,7 +114,8 @@ public class WgetCommandLineBuilder implements CmdLineCrawler.CommandLineBuilder
         log.trace("optionKey = {}", optionKey);
 
         Object extraCrawlerOptionData = extraCrawlerDataMap.get(optionKey.substring(2));
-        log.trace("extraCrawlerOptionData = {}", extraCrawlerOptionData);
+        if(extraCrawlerOptionData != null)
+        log.debug2("{} = {}", optionKey,extraCrawlerOptionData);
 
         switch (optionKey) {
           case DEBUG_KEY:
@@ -148,6 +149,7 @@ public class WgetCommandLineBuilder implements CmdLineCrawler.CommandLineBuilder
           case DNS_TIMEOUT_KEY:
           case CONNECT_TIMEOUT_KEY:
           case READ_TIMEOUT_KEY:
+          case WAIT_RETRY_KEY:
             StringCommandOption.process(optionKey, extraCrawlerOptionData, command);
             break;
           case USER_AGENT_KEY:

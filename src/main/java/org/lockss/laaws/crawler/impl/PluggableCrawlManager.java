@@ -140,7 +140,7 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
   private CrawlEventHandler crawlEventHandler;
   private PluginManager lockssPluginMgr;
   private int maxRetries;
-  private long minRetryDelay;
+  private long retryDelay;
   private long connectTimeout;
   private long readTimeout;
   private long fetchDelay;
@@ -202,8 +202,8 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
         newConfig.getBoolean(CrawlManagerImpl.PARAM_CRAWL_STARTER_ENABLED, CrawlManagerImpl.DEFAULT_CRAWL_STARTER_ENABLED);
       maxRetries = newConfig.getInt(BaseCrawler.PARAM_MAX_RETRY_COUNT,
           BaseCrawler.DEFAULT_MAX_RETRY_COUNT);
-      minRetryDelay = newConfig.getLong(BaseCrawler.PARAM_MIN_RETRY_DELAY,
-          BaseCrawler.DEFAULT_MIN_RETRY_DELAY);
+      retryDelay = newConfig.getLong(BaseCrawler.PARAM_DEFAULT_RETRY_DELAY,
+          BaseCrawler.DEFAULT_DEFAULT_RETRY_DELAY);
       connectTimeout = newConfig.getTimeInterval(BaseCrawler.PARAM_CONNECT_TIMEOUT,
           BaseCrawler.DEFAULT_CONNECT_TIMEOUT);
       readTimeout = newConfig.getTimeInterval(BaseCrawler.PARAM_DATA_TIMEOUT,
@@ -232,8 +232,8 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
     return maxRetries;
   }
 
-  public long getMinRetryDelay() {
-    return minRetryDelay;
+  public long getRetryDelay() {
+    return retryDelay;
   }
 
   public long getConnectTimeout() {

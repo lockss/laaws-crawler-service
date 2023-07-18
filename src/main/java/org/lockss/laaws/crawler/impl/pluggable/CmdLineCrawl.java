@@ -250,7 +250,7 @@ public class CmdLineCrawl extends PluggableCrawl {
             }
             log.log(Level.toLevel(errorLogLevel),line);
           }
-          else if(type.equals("INPUT")) {
+          else if(type.equals("OUTPUT")) {
             if(line.endsWith(":")) {
               pre=line;
             }

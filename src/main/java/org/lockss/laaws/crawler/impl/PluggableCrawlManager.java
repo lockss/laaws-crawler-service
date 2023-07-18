@@ -43,6 +43,7 @@ import org.lockss.laaws.crawler.model.CrawlerConfig;
 import org.lockss.log.L4JLogger;
 import org.lockss.plugin.ArchivalUnit;
 import org.lockss.plugin.PluginManager;
+import org.lockss.plugin.base.BaseArchivalUnit;
 import org.lockss.util.ClassUtil;
 import org.lockss.util.ListUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
@@ -138,6 +139,11 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
   private CrawlManagerImpl lockssCrawlMgr;
   private CrawlEventHandler crawlEventHandler;
   private PluginManager lockssPluginMgr;
+  private int maxRetries;
+  private long minRetryDelay;
+  private long connectTimeout;
+  private long readTimeout;
+  private long fetchDelay;
 
 
   public void startService() {
@@ -194,8 +200,17 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
         newConfig.getBoolean(CrawlManagerImpl.PARAM_CRAWLER_ENABLED, CrawlManagerImpl.DEFAULT_CRAWLER_ENABLED);
       crawlStarterEnabled =
         newConfig.getBoolean(CrawlManagerImpl.PARAM_CRAWL_STARTER_ENABLED, CrawlManagerImpl.DEFAULT_CRAWL_STARTER_ENABLED);
-
+      maxRetries = newConfig.getInt(BaseCrawler.PARAM_MAX_RETRY_COUNT,
+          BaseCrawler.DEFAULT_MAX_RETRY_COUNT);
+      minRetryDelay = newConfig.getLong(BaseCrawler.PARAM_MIN_RETRY_DELAY,
+          BaseCrawler.DEFAULT_MIN_RETRY_DELAY);
+      connectTimeout = newConfig.getTimeInterval(BaseCrawler.PARAM_CONNECT_TIMEOUT,
+          BaseCrawler.DEFAULT_CONNECT_TIMEOUT);
+      readTimeout = newConfig.getTimeInterval(BaseCrawler.PARAM_DATA_TIMEOUT,
+          BaseCrawler.DEFAULT_DATA_TIMEOUT);
     }
+    fetchDelay = newConfig.getTimeInterval(BaseArchivalUnit.PARAM_MIN_FETCH_DELAY,
+        BaseArchivalUnit.DEFAULT_FETCH_DELAY);
     log.info("setConfig: crawlerEnabled:{} starterEnabled:{}",crawlerEnabled,crawlStarterEnabled);
     if (changedKeys.contains(PREFIX)) {
       crawlerIds = newConfig.getList(CRAWLER_IDS, defaultCrawlerIds);
@@ -212,6 +227,25 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
       }
       crawlerConfigMap = updateConfigMap(newConfig);
     }
+  }
+  public int getMaxRetries() {
+    return maxRetries;
+  }
+
+  public long getMinRetryDelay() {
+    return minRetryDelay;
+  }
+
+  public long getConnectTimeout() {
+    return connectTimeout;
+  }
+
+  public long getReadTimeout() {
+    return readTimeout;
+  }
+
+  public long getFetchDelay() {
+    return fetchDelay;
   }
 
   /**

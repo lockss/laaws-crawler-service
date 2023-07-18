@@ -47,6 +47,7 @@ public class WgetCommandOptions {
 
   /** Download parameters */
   public static final String TRIES_KEY= "--tries";//=NUMBER set number of retries to NUMBER (0 unlimits)."
+  public static final String WAIT_RETRY_KEY= "--waitretry"; //how long to wait between retries.
   public static final String TIMEOUT_KEY = "--timeout";
   public static final String DNS_TIMEOUT_KEY = "--dns-timeout";//=SECS  set the DNS lookup timeout to SECS.
   public static final String CONNECT_TIMEOUT_KEY = "--connect-timeout";//=SECS set the connect timeout to SECS.
@@ -96,6 +97,7 @@ public class WgetCommandOptions {
         add(QUIET_KEY);
         add(VERBOSE_KEY);
         add(TRIES_KEY);
+        add(WAIT_RETRY_KEY);
         add(TIMEOUT_KEY);
         add(DNS_TIMEOUT_KEY);
         add(CONNECT_TIMEOUT_KEY);

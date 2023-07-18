@@ -25,13 +25,18 @@
  */
 package org.lockss.laaws.crawler.impl.pluggable;
 
+import java.util.*;
+import org.lockss.config.AuConfiguration;
 import org.lockss.config.Configuration;
+import org.lockss.config.ConfigManager;
+import org.lockss.db.DbException;
 import org.lockss.laaws.crawler.impl.ApiUtils;
 import org.lockss.laaws.crawler.impl.PluggableCrawlManager;
 import org.lockss.laaws.crawler.model.CrawlerConfig;
 import org.lockss.laaws.crawler.utils.ExecutorUtils;
 import org.lockss.log.L4JLogger;
 import org.lockss.plugin.ArchivalUnit;
+import org.lockss.plugin.CachedUrl;
 import org.lockss.util.ClassUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.crawler.CrawlJob;
@@ -43,9 +48,6 @@ import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -53,7 +55,6 @@ import java.util.concurrent.TimeUnit;
 import static org.lockss.laaws.crawler.impl.PluggableCrawlManager.ATTR_CRAWLER_ID;
 import static org.lockss.laaws.crawler.impl.PluggableCrawlManager.ENABLED;
 import static org.lockss.laaws.crawler.utils.ExecutorUtils.DEFAULT_EXECUTOR_SPEC;
-import static org.lockss.laaws.crawler.utils.ExecutorUtils.EXEC_PREFIX;
 
 /**
  * A Base implementation of a CmdLineCrawler.
@@ -66,15 +67,23 @@ public class CmdLineCrawler implements PluggableCrawler {
   /**
    * Controls the number of AUs running cmd line crawls
    */
-  public static final String PARAM_CMDLINE_CRAWL_EXECUTOR_SPEC =
-      EXEC_PREFIX + "cmdLineCrawl.spec";
+  public static final String ATTR_CRAWL_EXECUTOR_SPEC="executor.spec";
   public static final String DEFAULT_CMDLINE_CRAWL_EXECUTOR_SPEC = "10;2";
+
+  public static final String ATTR_EXCLUDE_STATUS_PATTERN = "excludeStatusPattern";
+  public static final String DEFAULT_EXCLUDE_STATUS_PATTERN = "(4|5)..";
 
   public static final String ATTR_OUTPUT_LOG_LEVEL = "outputLogLevel";
   public static final String DEFAULT_OUTPUT_LOG_LEVEL = "INFO";
 
   public static final String ATTR_ERROR_LOG_LEVEL = "errorLogLevel";
   public static final String DEFAULT_ERROR_LOG_LEVEL = "ERROR";
+
+  public static final String ATTR_JOIN_OUTPUT_STREAMS = "joinOutputStreams";
+  public static final String DEFAULT_JOIN_OUTPUT_STREAMS= "true";
+
+  private static final String START_URL_KEY = "start_urls";
+  private static final String URL_STEMS_KEY = "url_stems";
 
   /**
    * The Configuration for this crawler.
@@ -86,11 +95,15 @@ public class CmdLineCrawler implements PluggableCrawler {
    */
   protected String outputLogLevel;
 
-
   /**
    * The level to use when logging error from a process
    */
   protected String errorLogLevel;
+
+  /**
+   * The http response codes to exclude from warc import.
+   */
+  protected String excludeStatusPattern;
 
   /**
    * The map of crawls for this crawler.
@@ -173,19 +186,13 @@ public class CmdLineCrawler implements PluggableCrawler {
         log.error("Unable to instantiate CommandLineBuilder: {} for Crawler {} ", builderClassName, crawlerId);
       }
     }
-    String qspec= attr.get(PREFIX+crawlerId+".executor.spec");
-    if(qspec == null) qspec = DEFAULT_EXECUTOR_SPEC;
+    String qspec= attr.getOrDefault(ATTR_CRAWL_EXECUTOR_SPEC,DEFAULT_EXECUTOR_SPEC);
+
     initCrawlScheduler(qspec);
-
-    outputLogLevel= attr.get(PREFIX+crawlerId+ATTR_OUTPUT_LOG_LEVEL);
-    if(outputLogLevel == null) outputLogLevel = DEFAULT_OUTPUT_LOG_LEVEL;
-
-    errorLogLevel= attr.get(PREFIX+crawlerId+ATTR_ERROR_LOG_LEVEL);
-    if(outputLogLevel == null) outputLogLevel = DEFAULT_OUTPUT_LOG_LEVEL;
-
-    if (outputLogLevel.equals(errorLogLevel)) {
-      joinOutputStreams = true;
-    }
+    excludeStatusPattern= attr.getOrDefault(ATTR_EXCLUDE_STATUS_PATTERN,DEFAULT_EXCLUDE_STATUS_PATTERN);
+    outputLogLevel= attr.getOrDefault(ATTR_OUTPUT_LOG_LEVEL,DEFAULT_OUTPUT_LOG_LEVEL);
+    errorLogLevel= attr.getOrDefault(ATTR_ERROR_LOG_LEVEL,DEFAULT_ERROR_LOG_LEVEL);
+    joinOutputStreams = Boolean.parseBoolean(attr.getOrDefault(ATTR_JOIN_OUTPUT_STREAMS,DEFAULT_JOIN_OUTPUT_STREAMS));
   }
 
   @Override
@@ -284,9 +291,72 @@ public class CmdLineCrawler implements PluggableCrawler {
     BufferedInputStream bis = new BufferedInputStream(Files.newInputStream(warcFile.toPath()));
     ensureRepo();
     log.debug2("Calling Repository with warc for auid {}", auId);
-    v2Repo.addArtifacts(namespace, auId, bis, LockssRepository.ArchiveType.WARC, isCompressed);
+    v2Repo.addArtifacts(namespace, auId, bis, LockssRepository.ArchiveType.WARC, isCompressed, false, excludeStatusPattern);
     log.debug2("Returned from call to repo");
   }
+
+
+  public void updateAuConfig(ArchivalUnit au, boolean isRepairCrawl, List<String>reqUrls,
+                             List<String> crawlStems) throws IOException {
+    log.debug("updating config for {}", au.getName());
+    ConfigManager cm = pcManager.getConfigManager();
+    AuConfiguration au_config;
+    try {
+      au_config = cm.retrieveArchivalUnitConfiguration(au.getAuId());
+      if(!isRepairCrawl) {
+        log.debug2("Updating AuConfig for start urls.");
+        updateAuConfigItem(au_config, START_URL_KEY, getCheckedStartUrls(au,reqUrls));
+      }
+      log.debug2("Updating AuConfig for url stems: {}", reqUrls);
+      updateAuConfigItem(au_config, URL_STEMS_KEY, crawlStems);
+      cm.storeArchivalUnitConfiguration(au_config, true);
+    }
+    catch (DbException dbe) {
+      throw new IOException("Unable update AU configuration",dbe);
+    }
+  }
+
+  List<String> getCheckedStartUrls(ArchivalUnit au, List<String> inUrls) {
+    List<String> outUrls = new ArrayList<>();
+    if(inUrls != null && !inUrls.isEmpty()) {
+      for(String url : inUrls) {
+        outUrls.add(checkStartUrl(au, url));
+      }
+    }
+    return outUrls;
+  }
+
+  String checkStartUrl(ArchivalUnit au, String startUrl) {
+    if(!startUrl.endsWith("/")) {
+      CachedUrl cu = au.makeCachedUrl(startUrl);
+      if(!cu.hasContent()) {
+        String newUrl = startUrl + "/";
+        cu = au.makeCachedUrl(newUrl);
+        if(cu.hasContent()) return newUrl;
+      }
+    }
+    return startUrl;
+  }
+
+  void updateAuConfigItem(AuConfiguration auConfig, String key, List<String> updateList) {
+    Map<String, String> configMap = auConfig.getAuConfig();
+    List<String> configList;
+    String config_str = configMap.get(key);
+    if(config_str != null) {
+      configList = new ArrayList<>(Arrays.asList(config_str.split(";")));
+      log.debug2("Current config string: {} a list of {} elements.", config_str, configList.size());
+    }
+    else {
+      configList = new ArrayList<>();
+    }
+    for(String elem: updateList) {
+      if(!configList.contains(elem)) {
+        configList.add(elem);
+      }
+    }
+    auConfig.putAuConfigItem(key,String.join(";", configList));
+  }
+
 
   protected void initCrawlScheduler(String reqSpec) {
     crawlQueueExecutor = ExecutorUtils.createOrReConfigureExecutor(crawlQueueExecutor,
@@ -341,7 +411,6 @@ public class CmdLineCrawler implements PluggableCrawler {
 
     @Override
     public void run() {
-
       cmdLineCrawl.getRunnable().run();
     }
   }

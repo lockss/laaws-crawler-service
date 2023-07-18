@@ -22,8 +22,10 @@ import org.lockss.plugin.ArchivalUnit;
 import org.lockss.plugin.AuUtil;
 import org.lockss.state.AuState;
 import org.lockss.util.MimeUtil;
+import org.lockss.util.StringUtil;
 import org.lockss.util.UrlUtil;
 import org.lockss.util.io.FileUtil;
+import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.crawler.CrawlJob;
 import org.lockss.util.rest.crawler.JobStatus;
 
@@ -51,6 +53,12 @@ public class CmdLineCrawl extends PluggableCrawl {
   protected static Pattern bytesPattern= Pattern.compile("\\[[0-9]+/[0-9]+]", Pattern.CASE_INSENSITIVE);
   private static final String ERROR_STR = " ERROR ";
 
+  List<String> stems = new ArrayList<>();
+  List<String> reqUrls;
+  CrawlerStatus crawlerStatus;
+  AuState auState;
+  boolean isRepairCrawl = false;
+
   /**
    * Instantiates a new Cmd line crawl.
    *
@@ -60,13 +68,15 @@ public class CmdLineCrawl extends PluggableCrawl {
   public CmdLineCrawl(CmdLineCrawler crawler, ArchivalUnit au, CrawlJob crawlJob) {
     super(crawler.getCrawlerConfig(), au, crawlJob);
     this.crawler = crawler;
+    String jobId = crawlJob.getJobId();
     threadName = crawlDesc.getCrawlKind() + ":"
       + crawlDesc.getCrawlerId() +
-      ":" + crawlJob.getJobId();
+      ":" + jobId.substring(0, Integer.min(6, jobId.length() - 1));
     final Configuration currentConfig = ConfigManager.getCurrentConfig();
     outputLogLevel = crawler.getOutputLogLevel();
     errorLogLevel = crawler.getErrorLogLevel();
-
+    isRepairCrawl = crawlJob.getCrawlDesc().getCrawlKind() == CrawlDesc.CrawlKindEnum.REPAIR;
+    reqUrls = crawlDesc.getCrawlList();
   }
 
 
@@ -77,7 +87,7 @@ public class CmdLineCrawl extends PluggableCrawl {
     try {
       js.setStatusCode(JobStatus.StatusCodeEnum.ACTIVE);
       js.setMsg("Active.");
-      tmpDir = FileUtil.createTempDir("laaws-pluggable-crawler", "");
+      tmpDir = FileUtil.createTempDir(crawlDesc.getCrawlerId(), "");
       command = crawler.getCmdLineBuilder().buildCommandLine(getCrawlDesc(), tmpDir);
     }
     catch (IOException ioe) {
@@ -93,6 +103,7 @@ public class CmdLineCrawl extends PluggableCrawl {
     JobStatus status = getJobStatus();
     status.setStatusCode(JobStatus.StatusCodeEnum.ABORTED);
     status.setMsg("Crawl Aborted.");
+    deleteTmpDir();
     return getCrawlerStatus();
   }
 
@@ -127,6 +138,8 @@ public class CmdLineCrawl extends PluggableCrawl {
   public List<String> getCommand() {
     return command;
   }
+  protected List<String> getReqUrls() {return reqUrls; }
+  protected  List<String> getStems() { return stems;}
 
   public LockssRunnable getRunnable() {
     return new LockssRunnable(threadName) {
@@ -134,19 +147,21 @@ public class CmdLineCrawl extends PluggableCrawl {
       @Override
       public void lockssRun() {
         log.debug2("{} started", this);
-        CrawlerStatus crawlerStatus = getCrawlerStatus();
-        AuState aus = AuUtil.getAuState(crawlerStatus.getAu());
+        crawlerStatus = getCrawlerStatus();
+        auState = AuUtil.getAuState(crawlerStatus.getAu());
         boolean joinOutputStreams = crawler.isJoinOutputStreams();
         try {
-          aus.newCrawlStarted();
+          auState.newCrawlStarted();
           nowRunning();
           crawlerStatus = startCrawl();
           ProcessBuilder builder = new ProcessBuilder();
+          builder.directory(tmpDir);
           builder.command(command);
           if (joinOutputStreams) {
             builder.redirectErrorStream(true);
           }
-          log.debug("Starting crawl process with command {}...", String.join(" ", command));
+          log.debug("Starting crawl process in {} with command {}...",
+                    tmpDir, String.join(" ", command));
           Process process = builder.start();
           StreamGobbler outputGobbler = new StreamGobbler(process.getInputStream(), "OUTPUT");
           outputGobbler.start();
@@ -157,17 +172,22 @@ public class CmdLineCrawl extends PluggableCrawl {
           }
           crawlerStatus.signalCrawlStarted();
           int exitCode = process.waitFor();
-          log.debug("Completed crawl process: exitCode = {}", exitCode);
           if (crawler.didCrawlSucceed(exitCode)) {
+            log.info("Crawl process succeeded with exitCode {}", exitCode);
             Collection<File> warcFiles = getWarcFiles("*.warc.gz");
-            log.debug2("Found {} warcFiles after crawl.", warcFiles.size());
+            log.info("Importing {} into repository.",
+                     StringUtil.numberOfUnits(warcFiles.size(), "warcfile"));
+            crawlerStatus.setCrawlStatus(Crawler.STATUS_ACTIVE, "Storing");
             for (File warc : warcFiles) {
               crawler.storeInRepository(crawlerStatus.getAuId(), warc, true);
             }
+            crawler.updateAuConfig(getAu(), isRepairCrawl, getReqUrls(), getStems());
             crawlerStatus.setCrawlStatus(Crawler.STATUS_SUCCESSFUL);
+            log.info("Content stored, crawl complete.");
 
           }
           else {
+            log.info("Crawl process failed with exitCode {}", exitCode);
             crawlerStatus.setCrawlStatus(
               Crawler.STATUS_ERROR, "crawl exited with code: " + exitCode);
           }
@@ -182,28 +202,31 @@ public class CmdLineCrawl extends PluggableCrawl {
         }
         finally {
           ApiUtils.getPluggableCrawlManager().handleCrawlComplete(crawlerStatus);
-          aus.newCrawlFinished(crawlerStatus.getCrawlStatus(),null);
+          auState.newCrawlFinished(crawlerStatus.getCrawlStatus(),null);
           crawlerStatus.signalCrawlEnded();
           setThreadName(threadName + ": idle");
-          log.info("Deleting tree at {}", tmpDir);
-          boolean isDeleted=true;
-          if(tmpDir!= null) {
-            isDeleted = FileUtil.delTree(tmpDir);
-          }
-          log.trace("isDeleted = {}", isDeleted);
-          if (!isDeleted) {
-            log.warn("Temporary directory {} cannot be deleted after processing", tmpDir);
-          }
+          deleteTmpDir();
           log.debug2("{} terminating", this);
         }
       }
     };
   }
 
+  private void deleteTmpDir() {
+    log.debug("Deleting tree at {}", tmpDir);
+    boolean isDeleted=true;
+    if(tmpDir!= null) {
+      isDeleted = FileUtil.delTree(tmpDir);
+    }
+    log.trace("isDeleted = {}", isDeleted);
+    if (!isDeleted) {
+      log.warn("Temporary directory {} cannot be deleted after processing", tmpDir);
+    }
+  }
+
   private class StreamGobbler extends Thread {
     InputStream is;
     String type;
-
     private StreamGobbler(InputStream is, String type) {
       this.is = is;
       this.type = type;
@@ -269,6 +292,12 @@ public class CmdLineCrawl extends PluggableCrawl {
     // check for success
     Matcher matcher = successPattern.matcher(msg_line);
     if(matcher.matches()) {
+      try {
+        String stem = UrlUtil.getUrlPrefix(url);
+        if(!stems.contains(stem)) stems.add(stem);
+      } catch (MalformedURLException e) {
+        log.error("Found malformed url: " + url);
+      }
       long bytesFetched = extractBytes(msg_line);
       crawlerStatus.signalUrlFetched(url);
       crawlerStatus.addContentBytesFetched(bytesFetched);

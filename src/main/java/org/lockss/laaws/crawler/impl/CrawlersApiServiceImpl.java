@@ -69,14 +69,8 @@ public class CrawlersApiServiceImpl extends BaseSpringApiServiceImpl implements 
       // Yes: Notify the client.
       return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
     }
-
-    CrawlManagerImpl cmi = getCrawlManager();
-    log.trace("cmi = {}", cmi);
-
-    if (cmi == null) {
-      return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
-    CrawlerConfig config = pluggableCrawlManager.getCrawlerConfig(crawler);
+    PluggableCrawlManager pcm = getPluggableCrawlManager();
+    CrawlerConfig config = pcm.getCrawlerConfig(crawler);
     log.trace("config = {}", config);
 
     if (config == null) {

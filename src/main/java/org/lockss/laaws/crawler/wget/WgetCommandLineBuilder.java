@@ -31,13 +31,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 package org.lockss.laaws.crawler.wget;
 
-import static org.lockss.laaws.crawler.wget.WgetCommandOptions.*;
-
-import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
 import org.lockss.app.LockssDaemon;
 import org.lockss.laaws.crawler.impl.pluggable.CmdLineCrawler;
 import org.lockss.laaws.crawler.impl.pluggable.command.BooleanCommandOption;
@@ -48,6 +41,14 @@ import org.lockss.log.L4JLogger;
 import org.lockss.util.FileUtil;
 import org.lockss.util.ListUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+import static org.lockss.laaws.crawler.wget.WgetCommandOptions.*;
 
 /**
  * The builder of a wget command line.
@@ -85,7 +86,7 @@ public class WgetCommandLineBuilder implements CmdLineCrawler.CommandLineBuilder
     FileUtil.ensureDirExists(tmpDir);
     List<String> command = new ArrayList<>();
     command.add("wget");
-    command.add("--directory-prefix="+tmpDir);
+    command.add("--directory-prefix=./");
     if(crawlDesc.getCrawlKind().equals(CrawlDesc.CrawlKindEnum.NEWCONTENT)){
       command.add("-r");
     }
@@ -102,9 +103,9 @@ public class WgetCommandLineBuilder implements CmdLineCrawler.CommandLineBuilder
     }
 
     // fixed output information
-    File warc = new File(tmpDir, WARC_FILE_NAME);
-    command.add(WARC_FILE_KEY + "=" + warc.getAbsolutePath());
-    command.add(WARC_TEMPDIR_KEY + "=" + tmpDir.getAbsolutePath());
+    //File warc = new File(tmpDir, WARC_FILE_NAME);
+    command.add(WARC_FILE_KEY + "=" + WARC_FILE_NAME);
+    command.add(WARC_TEMPDIR_KEY + "=./");
     // add parameters from request.
     Map<String, Object> extraCrawlerDataMap = crawlDesc.getExtraCrawlerData();
     if (extraCrawlerDataMap != null) {
@@ -186,6 +187,7 @@ public class WgetCommandLineBuilder implements CmdLineCrawler.CommandLineBuilder
         }
       }
     }
+    addMissingParams(command);
     // input information
     List<String> crawlList = crawlDesc.getCrawlList();
     log.trace("crawlList = {}", crawlList);
@@ -206,5 +208,33 @@ public class WgetCommandLineBuilder implements CmdLineCrawler.CommandLineBuilder
 
     log.debug2("command = {}", command);
     return command;
+  }
+
+  void addMissingParams(List<String> command) {
+    if(wgetCrawler == null) return;
+    if(!hasKey(command,CONNECT_TIMEOUT_KEY)) {
+      command.add(CONNECT_TIMEOUT_KEY+"="+wgetCrawler.getConnectTimeout());
+    }
+    if(!hasKey(command,READ_TIMEOUT_KEY)) {
+      command.add(READ_TIMEOUT_KEY+"="+wgetCrawler.getReadTimeout());
+    }
+    if(!hasKey(command,WAIT_KEY)) {
+      command.add(WAIT_KEY+"="+wgetCrawler.getFetchDelay());
+    }
+    if(!hasKey(command,TRIES_KEY)) {
+      command.add(TRIES_KEY+"="+wgetCrawler.getMaxRetries());
+    }
+    if(!hasKey(command,WAIT_RETRY_KEY)) {
+      command.add(WAIT_RETRY_KEY+"="+wgetCrawler.getRetryDelay());
+    }
+  }
+
+  boolean hasKey(List<String> commands, String key) {
+    for(String cmd: commands) {
+      if (cmd.startsWith(key+"=")) {
+        return true;
+      }
+    }
+    return false;
   }
 }

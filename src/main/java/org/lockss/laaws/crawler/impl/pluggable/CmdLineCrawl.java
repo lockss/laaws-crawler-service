@@ -110,6 +110,12 @@ public class CmdLineCrawl extends PluggableCrawl {
       lockssRunnable.interruptThread();
       lockssRunnable = null;
     }
+    else if(crawlerStatus != null) {
+      crawlerStatus.setCrawlStatus(Crawler.STATUS_ABORTED, "Request removed from queue.");
+      ApiUtils.getPluggableCrawlManager().handleCrawlComplete(crawlerStatus);
+      auState.newCrawlFinished(crawlerStatus.getCrawlStatus(),null);
+      crawlerStatus.signalCrawlEnded();
+    }
     return getCrawlerStatus();
   }
 
@@ -204,6 +210,8 @@ public class CmdLineCrawl extends PluggableCrawl {
               Crawler.STATUS_ERROR, "Exception thrown: " + ioe.getMessage());
         }
         catch (InterruptedException ignore) {
+          crawlerStatus.setCrawlStatus(
+              Crawler.STATUS_ABORTED, "Crawl Interrupted");
           // no action
         }
         finally {

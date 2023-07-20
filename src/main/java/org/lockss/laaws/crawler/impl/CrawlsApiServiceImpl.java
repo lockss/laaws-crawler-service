@@ -30,6 +30,7 @@ import org.lockss.app.LockssDaemon;
 import org.lockss.crawler.CrawlerStatus;
 import org.lockss.laaws.crawler.api.CrawlsApi;
 import org.lockss.laaws.crawler.api.CrawlsApiDelegate;
+import org.lockss.laaws.crawler.impl.pluggable.PluggableCrawler;
 import org.lockss.laaws.crawler.model.CrawlPager;
 import org.lockss.laaws.crawler.model.CrawlStatus;
 import org.lockss.laaws.crawler.model.UrlInfo;
@@ -50,6 +51,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.NotFoundException;
 
 import static org.lockss.laaws.crawler.impl.ApiUtils.*;
+import static org.lockss.util.rest.crawler.CrawlDesc.CLASSIC_CRAWLER_ID;
 
 /**
  * Service for accessing crawls.
@@ -94,9 +96,17 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
 
       CrawlerStatus crawlerStatus = getCrawlerStatus(jobId);
       log.debug2("crawlerStatus = {}", crawlerStatus);
+      String crawlerId = crawlerStatus.getCrawlerId();
 
       if (crawlerStatus.isCrawlWaiting() || crawlerStatus.isCrawlActive()) {
-        getLockssCrawlManager().deleteCrawl(crawlerStatus.getAu());
+        if(crawlerId.equals(CLASSIC_CRAWLER_ID))
+          getLockssCrawlManager().deleteCrawl(crawlerStatus.getAu());
+        else {
+          PluggableCrawler crawler = getPluggableCrawlManager().getCrawler(crawlerStatus.getCrawlerId());
+          if(crawler != null) {
+            crawler.stopCrawl(jobId);
+          }
+        }
       }
       return new ResponseEntity<>(ApiUtils.makeCrawlStatus(crawlerStatus), HttpStatus.OK);
     }

@@ -79,6 +79,9 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
    */
   public static final String DEFAULT_CRAWL_DB_PATH = "data/db";
 
+  public static final String PARAM_REQUEUE_ON_RESTART = PREFIX + "requeueOnRestart";
+
+  public static boolean DEFAULT_REQUEUE_ON_RESTART = false;
   /**
    * The constant DB_FILENAME.
    */
@@ -144,6 +147,7 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
   private long connectTimeout;
   private long readTimeout;
   private long fetchDelay;
+  private boolean starting;
 
 
   public void startService() {
@@ -169,6 +173,7 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
     try {
       initDb(new File(dbDir, DB_FILENAME));
       log.info("crawl manager db inited!");
+      starting = true;
    } catch (Exception e) {
       throw new RuntimeException(e);
     }
@@ -226,6 +231,14 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
         pluggableCrawlers.get(key).disable(false);
       }
       crawlerConfigMap = updateConfigMap(newConfig);
+      if(starting) {
+        boolean requeue = newConfig.getBoolean(PARAM_REQUEUE_ON_RESTART,DEFAULT_REQUEUE_ON_RESTART);
+        if(requeue) {
+          log.info("Requeueing crawls from previous session.");
+          restartCrawls();
+        }
+        starting = false;
+      }
     }
   }
   public int getMaxRetries() {

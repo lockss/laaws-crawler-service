@@ -17,6 +17,7 @@ import org.lockss.crawler.CrawlerStatus;
 import org.lockss.daemon.Crawler;
 import org.lockss.daemon.LockssRunnable;
 import org.lockss.laaws.crawler.impl.ApiUtils;
+import org.lockss.laaws.crawler.impl.pluggable.CmdLineCrawler.RunnableCrawlJob;
 import org.lockss.log.L4JLogger;
 import org.lockss.plugin.ArchivalUnit;
 import org.lockss.plugin.AuUtil;
@@ -58,6 +59,8 @@ public class CmdLineCrawl extends PluggableCrawl {
   CrawlerStatus crawlerStatus;
   AuState auState;
   boolean isRepairCrawl = false;
+  RunnableCrawlJob runnableJob;
+  private LockssRunnable lockssRunnable;
 
   /**
    * Instantiates a new Cmd line crawl.
@@ -92,7 +95,6 @@ public class CmdLineCrawl extends PluggableCrawl {
     }
     catch (IOException ioe) {
       log.error("Unable to create output directory for crawl:", ioe);
-
       js.setStatusCode(JobStatus.StatusCodeEnum.ERROR);
     }
     return cs;
@@ -104,6 +106,10 @@ public class CmdLineCrawl extends PluggableCrawl {
     status.setStatusCode(JobStatus.StatusCodeEnum.ABORTED);
     status.setMsg("Crawl Aborted.");
     deleteTmpDir();
+    if(lockssRunnable != null) {
+      lockssRunnable.interruptThread();
+      lockssRunnable = null;
+    }
     return getCrawlerStatus();
   }
 
@@ -142,7 +148,7 @@ public class CmdLineCrawl extends PluggableCrawl {
   protected  List<String> getStems() { return stems;}
 
   public LockssRunnable getRunnable() {
-    return new LockssRunnable(threadName) {
+    lockssRunnable = new LockssRunnable(threadName) {
 
       @Override
       public void lockssRun() {
@@ -210,6 +216,7 @@ public class CmdLineCrawl extends PluggableCrawl {
         }
       }
     };
+    return lockssRunnable;
   }
 
   private void deleteTmpDir() {

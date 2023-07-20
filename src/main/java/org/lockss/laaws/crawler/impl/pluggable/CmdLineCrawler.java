@@ -203,24 +203,40 @@ public class CmdLineCrawler implements PluggableCrawler {
   @Override
   public PluggableCrawl requestCrawl(ArchivalUnit au, CrawlJob crawlJob) {
     //check to see if we have already queued a job to crawl this au
-
-    if (!pcManager.isEligibleForCrawl(crawlJob.getCrawlDesc().getAuId())) {
+    if (!isElgibleForCrawl(crawlJob.getCrawlDesc().getAuId())) {
       log.warn("Crawl request {} ignored! au is not eligible for crawl.", crawlJob);
       return null;
     }
     CmdLineCrawl clCrawl = new CmdLineCrawl(this, au, crawlJob);
     crawlMap.put(crawlJob.getJobId(), clCrawl);
-    crawlQueueExecutor.submit(new RunnableCrawlJob(crawlJob, clCrawl));
+    clCrawl.runnableJob = new RunnableCrawlJob(crawlJob, clCrawl);
+    crawlQueueExecutor.submit(clCrawl.runnableJob);
     JobStatus status = crawlJob.getJobStatus();
     status.setStatusCode(StatusCodeEnum.QUEUED);
     status.setMsg("Pending.");
     return clCrawl;
   }
-
+  public boolean isElgibleForCrawl(String auId)
+  {
+    for(CmdLineCrawl crawl: crawlMap.values()) {
+      if(crawl.getAuId().equals(auId)) {
+        if(!crawl.isRepairCrawl) {
+          JobStatus status = crawl.getJobStatus();
+          switch (status.getStatusCode()) {
+            case QUEUED:
+            case ACTIVE:
+              return false;
+          }
+        }
+      }
+    }
+    return true;
+  }
   @Override
   public PluggableCrawl stopCrawl(String crawlId) {
     CmdLineCrawl clCrawl = crawlMap.remove(crawlId);
     if (clCrawl != null) {
+      crawlQueueExecutor.remove(clCrawl.runnableJob);
       clCrawl.stopCrawl();
     }
     return clCrawl;

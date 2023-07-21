@@ -79,6 +79,9 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
    */
   public static final String DEFAULT_CRAWL_DB_PATH = "data/db";
 
+  public static final String PARAM_REQUEUE_ON_RESTART = PREFIX + "requeueOnRestart";
+
+  public static boolean DEFAULT_REQUEUE_ON_RESTART = false;
   /**
    * The constant DB_FILENAME.
    */
@@ -140,10 +143,11 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
   private CrawlEventHandler crawlEventHandler;
   private PluginManager lockssPluginMgr;
   private int maxRetries;
-  private long minRetryDelay;
+  private long retryDelay;
   private long connectTimeout;
   private long readTimeout;
   private long fetchDelay;
+  private boolean starting;
 
 
   public void startService() {
@@ -169,6 +173,7 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
     try {
       initDb(new File(dbDir, DB_FILENAME));
       log.info("crawl manager db inited!");
+      starting = true;
    } catch (Exception e) {
       throw new RuntimeException(e);
     }
@@ -202,8 +207,8 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
         newConfig.getBoolean(CrawlManagerImpl.PARAM_CRAWL_STARTER_ENABLED, CrawlManagerImpl.DEFAULT_CRAWL_STARTER_ENABLED);
       maxRetries = newConfig.getInt(BaseCrawler.PARAM_MAX_RETRY_COUNT,
           BaseCrawler.DEFAULT_MAX_RETRY_COUNT);
-      minRetryDelay = newConfig.getLong(BaseCrawler.PARAM_MIN_RETRY_DELAY,
-          BaseCrawler.DEFAULT_MIN_RETRY_DELAY);
+      retryDelay = newConfig.getLong(BaseCrawler.PARAM_DEFAULT_RETRY_DELAY,
+          BaseCrawler.DEFAULT_DEFAULT_RETRY_DELAY);
       connectTimeout = newConfig.getTimeInterval(BaseCrawler.PARAM_CONNECT_TIMEOUT,
           BaseCrawler.DEFAULT_CONNECT_TIMEOUT);
       readTimeout = newConfig.getTimeInterval(BaseCrawler.PARAM_DATA_TIMEOUT,
@@ -226,14 +231,22 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
         pluggableCrawlers.get(key).disable(false);
       }
       crawlerConfigMap = updateConfigMap(newConfig);
+      if(starting) {
+        boolean requeue = newConfig.getBoolean(PARAM_REQUEUE_ON_RESTART,DEFAULT_REQUEUE_ON_RESTART);
+        if(requeue) {
+          log.info("Requeueing crawls from previous session.");
+          restartCrawls();
+        }
+        starting = false;
+      }
     }
   }
   public int getMaxRetries() {
     return maxRetries;
   }
 
-  public long getMinRetryDelay() {
-    return minRetryDelay;
+  public long getRetryDelay() {
+    return retryDelay;
   }
 
   public long getConnectTimeout() {

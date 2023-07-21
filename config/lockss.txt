@@ -102,9 +102,11 @@ org.lockss.crawlerservice.wget.successCode=0;8
 org.lockss.crawlerservice.wget.opt.wait=0.5
 #network timeouts
 #org.lockss.crawlerservice.wget.opt.timeout
-#org.lockss.crawlerservice.wget.opt.dns-timeout
 #org.lockss.crawlerservice.wget.opt.connect-timeout
 #org.lockss.crawlerservice.wget.opt.read-timeout
+#the number of retries and the wait between retries
+#org.lockss.crawlerservice.wget.opt.tries
+#org.lockss.crawlerservice.wget.opt.waitretry
 # warc details
 org.lockss.crawlerservice.wget.opt.warc-keep-log=off
 org.lockss.crawlerservice.wget.opt.content-on-error=off

@@ -4,9 +4,11 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.lockss.crawler.CrawlerStatus;
 import org.lockss.laaws.crawler.impl.PluggableCrawlManager;
 import org.lockss.laaws.crawler.model.CrawlerConfig;
 import org.lockss.plugin.ArchivalUnit;
+import org.lockss.state.AuState;
 import org.lockss.util.rest.repo.LockssRepository;
 import org.lockss.util.ListUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
@@ -142,11 +144,16 @@ class TestCmdLineCrawler extends LockssTestCase5 {
   @Test
   @DisplayName("Should return null when the au is not eligible for crawl")
   void requestCrawlWhenAuIsNotEligibleForCrawlThenReturnNull() {
-    when(pluggableCrawlManager.isEligibleForCrawl(DEF_AU_ID)).thenReturn(false);
     CrawlJob crawlJob = makeMockCrawlJob(DEF_AU_ID,DEF_CRAWLER_ID);
     ArchivalUnit au = mock(ArchivalUnit.class);
     when(au.getName()).thenReturn(DEF_AU_ID);
     when(au.getAuId()).thenReturn(DEF_AU_ID);
+    CmdLineCrawl clCrawl = new CmdLineCrawl(cmdLineCrawler, au, crawlJob);
+    cmdLineCrawler.crawlMap.put(crawlJob.getJobId(), clCrawl);
+    JobStatus status = crawlJob.getJobStatus();
+    status.setStatusCode(JobStatus.StatusCodeEnum.QUEUED);
+    status.setMsg("Pending.");
+    JobStatus js = crawlJob.getJobStatus();
     PluggableCrawl pluggableCrawl = cmdLineCrawler.requestCrawl(au,crawlJob);
     assertNull(pluggableCrawl);
   }
@@ -202,6 +209,7 @@ class TestCmdLineCrawler extends LockssTestCase5 {
     when(crawlDesc.getCrawlerId()).thenReturn(crawlerId);
     return crawlDesc;
   }
+
 
   static class TestCommandLineBuilder implements CmdLineCrawler.CommandLineBuilder {
 

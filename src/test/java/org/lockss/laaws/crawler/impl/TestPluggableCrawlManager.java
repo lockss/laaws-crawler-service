@@ -11,6 +11,7 @@ import org.lockss.test.ConfigurationUtil;
 import org.lockss.util.ListUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.crawler.CrawlJob;
+import org.lockss.util.rest.crawler.JobStatus;
 import org.lockss.util.test.LockssTestCase5;
 import org.lockss.util.time.TimeBase;
 import java.io.File;
@@ -120,7 +121,18 @@ class TestPluggableCrawlManager  extends LockssTestCase5 {
 
     @Test
     @DisplayName(
-      "Should return false when there is a crawl job with the given auid and no end date")
+        "Should return true when there is are no crawls in the queue")
+    void
+    isElgibleForCrawlEmptyQueue() {
+        pluggableCrawlManager.initDb(dbFile);
+        testRepository = pluggableCrawlManager.getPluggableCrawls();
+        CrawlJob crawlJob = makeCrawlJob("au1", "job1");
+        Assertions.assertTrue(pluggableCrawlManager.isEligibleForCrawl("au1"));
+    }
+
+    @Test
+    @DisplayName(
+      "Should return false when there is a crawl job with the given auid and state is QUEUED")
     void
     isEligibleForCrawlNoEnd() {
         pluggableCrawlManager.initDb(dbFile);
@@ -305,7 +317,7 @@ class TestPluggableCrawlManager  extends LockssTestCase5 {
         return new CrawlJob()
           .jobId(jobId)
           .requestDate(TimeBase.nowMs())
-          .crawlDesc(cd);
+          .crawlDesc(cd).jobStatus(new JobStatus());
     }
 
 }

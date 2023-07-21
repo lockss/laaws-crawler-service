@@ -46,7 +46,9 @@ import org.lockss.laaws.crawler.model.JobPager;
 import org.lockss.laaws.crawler.utils.ContinuationToken;
 import org.lockss.log.L4JLogger;
 import org.lockss.plugin.ArchivalUnit;
+import org.lockss.plugin.AuUtil;
 import org.lockss.spring.base.BaseSpringApiServiceImpl;
+import org.lockss.state.AuState;
 import org.lockss.util.RateLimiter;
 import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.crawler.CrawlJob;
@@ -471,12 +473,14 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
     String auId = crawlDesc.getAuId();
     PluggableCrawlManager pcMgr = getPluggableCrawlManager();
     Collection<String> urls = crawlDesc.getCrawlList();
-    if(!pcMgr.isEligibleForCrawl(auId)) {
+    ArchivalUnit au = getPluginManager().getAuFromId(crawlDesc.getAuId());
+    AuState austate = AuUtil.getAuState(au);
+    if(austate.isCrawlActive()) {
       msg = "AU has active crawl or queued crawl";
       logCrawlError(msg, crawlJob);
       return HttpStatus.BAD_REQUEST;
     }
-    ArchivalUnit au = getPluginManager().getAuFromId(crawlDesc.getAuId());
+
     if (urls == null || urls.isEmpty()) {
       // try to get the urls from the au.
       if((au != null)) {

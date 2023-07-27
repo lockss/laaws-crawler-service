@@ -1590,6 +1590,10 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     crawlStatus = runTestDeleteCrawlById(jobId, CONTENT_ADMIN, HttpStatus.OK);
     assertEquals(jobId, crawlStatus.getJobId());
 
+    CrawlStatus crawlStatus2 = runTestDeleteCrawlById("not a job id",
+                                                      USER_ADMIN,
+                                                      HttpStatus.NOT_FOUND);
+
     log.debug2("Done");
   }
 

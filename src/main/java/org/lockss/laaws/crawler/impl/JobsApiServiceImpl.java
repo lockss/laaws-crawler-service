@@ -476,7 +476,7 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
     ArchivalUnit au = getPluginManager().getAuFromId(crawlDesc.getAuId());
     AuState austate = AuUtil.getAuState(au);
     if(austate.isCrawlActive()) {
-      msg = "AU has active crawl or queued crawl";
+      msg = "AU has active crawl";
       logCrawlError(msg, crawlJob);
       return HttpStatus.BAD_REQUEST;
     }

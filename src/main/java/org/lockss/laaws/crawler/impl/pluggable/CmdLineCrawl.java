@@ -105,10 +105,12 @@ public class CmdLineCrawl extends PluggableCrawl {
     JobStatus status = getJobStatus();
     status.setStatusCode(JobStatus.StatusCodeEnum.ABORTED);
     status.setMsg("Crawl Aborted.");
-    deleteTmpDir();
     if(lockssRunnable != null) {
       lockssRunnable.interruptThread();
       lockssRunnable = null;
+      if (crawlerStatus != null) {
+        crawlerStatus.setCrawlStatus(Crawler.STATUS_ABORTED, "Crawl Aborted");
+      }
     }
     else if(crawlerStatus != null) {
       crawlerStatus.setCrawlStatus(Crawler.STATUS_ABORTED, "Request removed from queue.");
@@ -116,6 +118,8 @@ public class CmdLineCrawl extends PluggableCrawl {
       auState.newCrawlFinished(crawlerStatus.getCrawlStatus(),null);
       crawlerStatus.signalCrawlEnded();
     }
+    deleteTmpDir();                     // should be deferred; crawl
+                                        // may still be running
     return getCrawlerStatus();
   }
 
@@ -210,8 +214,10 @@ public class CmdLineCrawl extends PluggableCrawl {
               Crawler.STATUS_ERROR, "Exception thrown: " + ioe.getMessage());
         }
         catch (InterruptedException ignore) {
-          crawlerStatus.setCrawlStatus(
-              Crawler.STATUS_ABORTED, "Crawl Interrupted");
+          if (crawlerStatus.getCrawlStatus() != Crawler.STATUS_ABORTED) {
+            crawlerStatus.setCrawlStatus(Crawler.STATUS_ABORTED,
+                                         "Crawl Interrupted");
+          }
           // no action
         }
         finally {

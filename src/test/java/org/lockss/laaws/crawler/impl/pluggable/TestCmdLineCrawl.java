@@ -36,9 +36,11 @@ class TestCmdLineCrawl extends LockssTestCase5 {
   private static final String BASIC_URL = "https://www.example.com/wrapper/test1.html";
   private JobStatus QueuedStatus = new JobStatus().statusCode(JobStatus.StatusCodeEnum.QUEUED).msg("Pending");
   private JobStatus ActiveStatus = new JobStatus().statusCode(JobStatus.StatusCodeEnum.ACTIVE).msg("Active");
-  private JobStatus AbortedStatus = new JobStatus().statusCode(JobStatus.StatusCodeEnum.ABORTED).msg("Aborted");
+  private JobStatus AbortedStatus = new JobStatus().statusCode(JobStatus.StatusCodeEnum.ABORTED).msg("Crawl Aborted.");
   private JobStatus SuccessStatus = new JobStatus().statusCode(JobStatus.StatusCodeEnum.SUCCESSFUL).msg("Successful");
   File tmpDir;
+  static String UNCOMPRESSED_WARC_FILE_EXT = ".warc";
+  static String COMPRESSED_WARC_FILE_EXT = ".warc.gz";
 
   @BeforeEach
   public void beforeEach() throws IOException {
@@ -58,45 +60,50 @@ class TestCmdLineCrawl extends LockssTestCase5 {
     CmdLineCrawler crawler = makeMockCrawler();
     CmdLineCrawl crawl = makeMockCrawl(crawler);
     crawl.tmpDir = tmpDir;
-    assertEquals(0,crawl.getWarcFiles("warc").size());
+    assertEquals(0,crawl.getWarcFiles(ListUtil.list(UNCOMPRESSED_WARC_FILE_EXT)).size());
   }
 
   @Test
-  @DisplayName("Should return a list of warc file names when the tmpdir is not empty")
-  void getWarcFileNamesWhenTmpDirIsNotEmptyThenReturnListOfWarcFiles() throws Exception {
-    CmdLineCrawler crawler = makeMockCrawler();
-    CmdLineCrawl crawl = makeMockCrawl(crawler);
-    //add a mock warc file
-    crawl.tmpDir = tmpDir;
-    List<String> expected = new ArrayList<>();
-    for(int ix =0; ix < 3; ix++) {
-      expected.add(FileUtil.createTempFile("mock", ".warc", tmpDir).getName());
-    }
-    when(crawl.getWarcFileNames("warc")).thenCallRealMethod();
-    List<String> warcs = crawl.getWarcFileNames("warc");
-    assertNotNull(warcs);
-    assertEquals(3,warcs.size());
-    assertTrue(warcs.containsAll(expected));
-  }
-
- @Test
   @DisplayName("Should return a list of warc files when the tmpdir is not empty")
   void getWarcFilesWhenTmpDirIsNotEmptyThenReturnListOfWarcFiles() throws Exception {
     CmdLineCrawler crawler = makeMockCrawler();
     CmdLineCrawl crawl = makeMockCrawl(crawler);
     //add a mock warc file
     crawl.tmpDir = tmpDir;
-    List<File> expected = new ArrayList<>();
+   List<File> uncompressed = new ArrayList<>();
+   List<File> compressed = new ArrayList<>();
     for(int ix =0; ix < 3; ix++) {
-      expected.add(FileUtil.createTempFile("mock", ".warc", tmpDir));
+      uncompressed.add(FileUtil.createTempFile("mock", UNCOMPRESSED_WARC_FILE_EXT, tmpDir));
+      compressed.add(FileUtil.createTempFile("mock", COMPRESSED_WARC_FILE_EXT, tmpDir));
     }
-    when(crawl.getWarcFiles(".warc")).thenCallRealMethod();
-    Collection<File> warcs = crawl.getWarcFiles("*.warc");
-    assertNotNull(warcs);
-    assertEquals(3,warcs.size());
-    for(int ix=0; ix < 3; ix++) {
-      assertTrue(warcs.contains(expected.get(ix)));
-    }
+
+   // check getting the compressed files only
+   List<String> exts = ListUtil.list("*"+UNCOMPRESSED_WARC_FILE_EXT);
+   Collection<File> warcs = crawl.getWarcFiles(exts);
+   assertNotNull(warcs);
+   assertEquals(3,warcs.size());
+   for(int ix=0; ix < 3; ix++) {
+     assertTrue(warcs.contains(uncompressed.get(ix)));
+   }
+
+   // now check getting only uncompressed files
+   exts = ListUtil.list("*"+COMPRESSED_WARC_FILE_EXT);
+   warcs = crawl.getWarcFiles(exts);
+   assertNotNull(warcs);
+   assertEquals(3,warcs.size());
+   for(int ix=0; ix < 3; ix++) {
+     assertTrue(warcs.contains(compressed.get(ix)));
+   }
+
+   //finally check getting both uncompressed and compressed warcs.
+   exts = ListUtil.list("*"+UNCOMPRESSED_WARC_FILE_EXT,"*"+COMPRESSED_WARC_FILE_EXT);
+   warcs = crawl.getWarcFiles(exts);
+   assertNotNull(warcs);
+   assertEquals(6,warcs.size());
+   for(int ix=0; ix < 3; ix++) {
+     assertTrue(warcs.contains(uncompressed.get(ix)));
+     assertTrue(warcs.contains(compressed.get(ix)));
+   }
   }
 
   @Test
@@ -104,10 +111,29 @@ class TestCmdLineCrawl extends LockssTestCase5 {
   void stopCrawlShouldSetMessageToCrawlAborted() {
     CmdLineCrawler crawler = makeMockCrawler();
     CmdLineCrawl crawl = makeMockCrawl(crawler);
-    crawl.getCrawlStatus().setJobStatus(ActiveStatus);
+    crawl.getJobStatus().statusCode(ActiveStatus.getStatusCode()).msg(ActiveStatus.getMsg());
     crawl.stopCrawl();
-    assertEquals(JobStatus.StatusCodeEnum.ABORTED, crawl.getJobStatus().getStatusCode());
-    assertEquals("Crawl Aborted.", crawl.getJobStatus().getMsg());
+    assertEquals(AbortedStatus.getStatusCode(), crawl.getJobStatus().getStatusCode());
+    assertEquals(AbortedStatus.getMsg(), crawl.getJobStatus().getMsg());
+    //should set status in queued crawls.
+    crawl = makeMockCrawl(crawler);
+    crawl.getJobStatus().statusCode(QueuedStatus.getStatusCode()).msg(QueuedStatus.getMsg());
+    crawl.stopCrawl();
+    assertEquals(AbortedStatus.getStatusCode(), crawl.getJobStatus().getStatusCode());
+    assertEquals(AbortedStatus.getMsg(), crawl.getJobStatus().getMsg());
+
+  }
+
+  @Test
+  @DisplayName("Should not set the message to crawl aborted, when crawl is not active or pending")
+  void stopCrawlShouldNotSetMessageToCrawlAborted() {
+    CmdLineCrawler crawler = makeMockCrawler();
+    CmdLineCrawl crawl = makeMockCrawl(crawler);
+    crawl.getJobStatus().statusCode(SuccessStatus.getStatusCode()).msg(SuccessStatus.getMsg());
+    crawl.stopCrawl();
+    assertEquals(SuccessStatus.getStatusCode(), crawl.getJobStatus().getStatusCode());
+    assertEquals(SuccessStatus.getMsg(), crawl.getJobStatus().getMsg());
+
   }
 
   @Test
@@ -154,9 +180,10 @@ class TestCmdLineCrawl extends LockssTestCase5 {
   CmdLineCrawl makeMockCrawl(CmdLineCrawler crawler) {
     CrawlJob crawlJob = mock(CrawlJob.class);
     CrawlDesc crawlDesc = mock(CrawlDesc.class);
+    JobStatus js = new JobStatus().statusCode(JobStatus.StatusCodeEnum.QUEUED).msg("queued");
     when(crawlJob.getCrawlDesc()).thenReturn(crawlDesc);
     when(crawlJob.getJobId()).thenReturn(DEF_JOB_ID);
-    when(crawlJob.getJobStatus()).thenReturn(new JobStatus().statusCode(JobStatus.StatusCodeEnum.QUEUED).msg("queued"));
+    when(crawlJob.getJobStatus()).thenReturn(js);
     when(crawlDesc.getAuId()).thenReturn("AU_ID");
     when(crawlDesc.getCrawlDepth()).thenReturn(1);
     when(crawlDesc.getPriority()).thenReturn(1);

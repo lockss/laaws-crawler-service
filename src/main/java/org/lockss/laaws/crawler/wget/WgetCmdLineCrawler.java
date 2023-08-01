@@ -42,6 +42,8 @@ import org.lockss.util.Constants;
 import org.lockss.util.NumberUtil;
 import org.lockss.util.StringUtil;
 
+import static org.lockss.laaws.crawler.wget.WgetCommandOptions.NO_WARC_COMPRESSION_KEY;
+
 /**
  * The type Wget cmd line crawler.
  */
@@ -76,6 +78,9 @@ List<Integer>  successCodes;
       configOptions.add(getOutputLevel());
     }
     setSuccessCodes(attrs.get(ATTR_SUCCESS_CODE));
+    if(!compressWarc) {
+      configOptions.add(NO_WARC_COMPRESSION_KEY);
+    }
     // the remainder of the wget parameters are --foo
     for (String attr : attrs.keySet()) {
       if(attr.startsWith("opt.")) {

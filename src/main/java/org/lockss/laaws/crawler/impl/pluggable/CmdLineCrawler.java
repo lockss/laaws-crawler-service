@@ -38,12 +38,13 @@ import org.lockss.log.L4JLogger;
 import org.lockss.plugin.ArchivalUnit;
 import org.lockss.plugin.CachedUrl;
 import org.lockss.util.ClassUtil;
+import org.lockss.util.Constants;
 import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.crawler.CrawlJob;
 import org.lockss.util.rest.crawler.JobStatus;
 import org.lockss.util.rest.crawler.JobStatus.StatusCodeEnum;
 import org.lockss.util.rest.repo.LockssRepository;
-
+import org.lockss.util.StringUtil;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.IOException;
@@ -82,6 +83,12 @@ public class CmdLineCrawler implements PluggableCrawler {
   public static final String ATTR_JOIN_OUTPUT_STREAMS = "joinOutputStreams";
   public static final String DEFAULT_JOIN_OUTPUT_STREAMS= "true";
 
+  public static final String ATTR_PROC_EXIT_WAIT = "procExitWait";
+  public static final long DEFAULT_PROC_EXIT_WAIT = 10 * Constants.MINUTE;
+
+  public static final String ATTR_COMPRESS_WARC="compressWarc";
+  public static final String DEFAULT_COMPRESS_WARC="false";
+
   private static final String START_URL_KEY = "start_urls";
   private static final String URL_STEMS_KEY = "url_stems";
 
@@ -104,6 +111,11 @@ public class CmdLineCrawler implements PluggableCrawler {
    * The http response codes to exclude from warc import.
    */
   protected String excludeStatusPattern;
+
+  protected  boolean compressWarc;
+
+
+  protected long procExitWait;
 
   /**
    * The map of crawls for this crawler.
@@ -193,11 +205,30 @@ public class CmdLineCrawler implements PluggableCrawler {
     outputLogLevel= attr.getOrDefault(ATTR_OUTPUT_LOG_LEVEL,DEFAULT_OUTPUT_LOG_LEVEL);
     errorLogLevel= attr.getOrDefault(ATTR_ERROR_LOG_LEVEL,DEFAULT_ERROR_LOG_LEVEL);
     joinOutputStreams = Boolean.parseBoolean(attr.getOrDefault(ATTR_JOIN_OUTPUT_STREAMS,DEFAULT_JOIN_OUTPUT_STREAMS));
+    compressWarc = Boolean.parseBoolean(attr.getOrDefault(ATTR_COMPRESS_WARC,DEFAULT_COMPRESS_WARC));
+    procExitWait = DEFAULT_PROC_EXIT_WAIT;
+    String procWaitStr = attr.get(ATTR_PROC_EXIT_WAIT);
+    if(!StringUtil.isNullString(procWaitStr)) {
+      try {
+        procExitWait = StringUtil.parseTimeInterval(procWaitStr);
+      }
+      catch(NumberFormatException nfe) {
+        log.error("The value of the param {} for {} is invalid: using default.",ATTR_PROC_EXIT_WAIT,crawlerId);
+      }
+    }
   }
 
   @Override
   public CrawlerConfig getCrawlerConfig() {
     return config;
+  }
+
+  public long getProcExitWait() {
+    return procExitWait;
+  }
+
+  public boolean isCompressedWarc() {
+    return compressWarc;
   }
 
   @Override
@@ -221,12 +252,7 @@ public class CmdLineCrawler implements PluggableCrawler {
     for(CmdLineCrawl crawl: crawlMap.values()) {
       if(crawl.getAuId().equals(auId)) {
         if(!crawl.isRepairCrawl) {
-          JobStatus status = crawl.getJobStatus();
-          switch (status.getStatusCode()) {
-            case QUEUED:
-            case ACTIVE:
-              return false;
-          }
+          return pcManager.isEligibleForCrawl(auId);
         }
       }
     }

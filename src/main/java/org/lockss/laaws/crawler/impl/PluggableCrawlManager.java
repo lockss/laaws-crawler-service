@@ -30,6 +30,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.dizitart.no2.IndexOptions;
 import org.dizitart.no2.IndexType;
 import org.dizitart.no2.Nitrite;
+import org.dizitart.no2.WriteResult;
 import org.dizitart.no2.objects.Cursor;
 import org.dizitart.no2.objects.ObjectRepository;
 import org.lockss.app.BaseLockssDaemonManager;
@@ -51,6 +52,7 @@ import org.lockss.util.rest.crawler.CrawlJob;
 import org.lockss.util.rest.crawler.JobStatus;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -148,6 +150,8 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
   private long readTimeout;
   private long fetchDelay;
   private boolean starting;
+  List<CrawlJob> interruptedCrawls = new ArrayList<>();
+  private boolean requeueOnStart;
 
 
   public void startService() {
@@ -172,8 +176,26 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
     // initialize the database
     try {
       initDb(new File(dbDir, DB_FILENAME));
-      log.info("crawl manager db inited!");
-      starting = true;
+      log.info("crawl manager db inited! Checking for interrupted crawls.");
+      Cursor<CrawlJob> cursor = pluggableCrawls.find();
+      for (CrawlJob job : cursor) {
+        JobStatus js = job.getJobStatus();
+        // if the job never ended - we need to send it back to the crawler.
+        if (js.getStatusCode() == JobStatus.StatusCodeEnum.QUEUED ||
+            js.getStatusCode() == JobStatus.StatusCodeEnum.ACTIVE) {
+          interruptedCrawls.add(job);
+        }
+      }
+      if(requeueOnStart) {
+        log.info("Requeueing crawls from previous session.");
+        restartCrawls();
+      }
+      else {
+        //mark any crawls that would be requeued as INTERRUPTED.
+        log.info("Setting pending and running crawls to INTERRUPTED ");
+        markInterruptedCrawls();
+      }
+      interruptedCrawls.clear();
    } catch (Exception e) {
       throw new RuntimeException(e);
     }
@@ -231,14 +253,8 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
         pluggableCrawlers.get(key).disable(false);
       }
       crawlerConfigMap = updateConfigMap(newConfig);
-      if(starting) {
-        boolean requeue = newConfig.getBoolean(PARAM_REQUEUE_ON_RESTART,DEFAULT_REQUEUE_ON_RESTART);
-        if(requeue) {
-          log.info("Requeueing crawls from previous session.");
-          restartCrawls();
-        }
-        starting = false;
-      }
+      requeueOnStart = newConfig.getBoolean(PARAM_REQUEUE_ON_RESTART,DEFAULT_REQUEUE_ON_RESTART);
+
     }
   }
   public int getMaxRetries() {
@@ -284,9 +300,7 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
       return true;
     }
     for (CrawlJob crawlJob : jobCursor) {
-      if (crawlJob.getEndDate() != null) {
-        return true;
-      }
+      log.debug("Checking job {}", crawlJob);
       if(crawlJob.getJobStatus() != null) {
         JobStatus status = crawlJob.getJobStatus();
         JobStatus.StatusCodeEnum statusCode = status.getStatusCode();
@@ -298,7 +312,7 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
         log.debug("CrawlJob {} misssing a jobStatus", crawlJob);
       }
     }
-    return false;
+    return true;
   }
 
   /**
@@ -370,7 +384,10 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
     if (cursor.size() <= 0) {
       throw new IllegalStateException("Update to jobId " + jobId + " No such job exists.");
     }
-    pluggableCrawls.update((eq("jobId", jobId)),crawlJob);
+    WriteResult result = pluggableCrawls.update((eq("jobId", jobId)),crawlJob);
+    if(result.getAffectedCount() <= 0) {
+      log.error("Attempt to update db for with crawljob {} failed",jobId);
+    }
     crawlServiceDb.commit();
   }
 
@@ -378,20 +395,23 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
    * restart unfinished crawls.
    */
   public void restartCrawls() {
-    Cursor<CrawlJob> cursor = pluggableCrawls.find();
-    for (CrawlJob job : cursor) {
-      // if the job never ended - we need to send it back to the crawler.
-      if (job.getEndDate() == null) {
-        CrawlDesc desc = job.getCrawlDesc();
-        PluggableCrawler crawler = pluggableCrawlers.get(desc.getCrawlerId());
-        if (crawler != null && crawler.isCrawlerEnabled()) {
-          ArchivalUnit au = getLockssPluginMgr().getAuFromId(desc.getAuId());
-          PluggableCrawl crawl = crawler.requestCrawl(au,job);
-        }
+    for (CrawlJob job : interruptedCrawls) {
+      CrawlDesc desc = job.getCrawlDesc();
+      PluggableCrawler crawler = pluggableCrawlers.get(desc.getCrawlerId());
+      if (crawler != null && crawler.isCrawlerEnabled()) {
+        ArchivalUnit au = getLockssPluginMgr().getAuFromId(desc.getAuId());
+        PluggableCrawl crawl = crawler.requestCrawl(au,job);
       }
     }
   }
-
+  public void markInterruptedCrawls() {
+    for (CrawlJob job : interruptedCrawls) {
+      JobStatus js = job.getJobStatus();
+        js.statusCode(JobStatus.StatusCodeEnum.INTERRUPTED).msg("Interrupted by Service Exit.");
+        pluggableCrawls.update((eq("jobId", job.getJobId())),job);
+    }
+    crawlServiceDb.commit();
+  }
   /**
    * Delete all crawls.
    */

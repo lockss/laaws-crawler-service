@@ -129,6 +129,8 @@ class TestPluggableCrawlManager  extends LockssTestCase5 {
         CrawlJob crawlJob = makeCrawlJob("au1", "job1");
         Assertions.assertTrue(pluggableCrawlManager.isEligibleForCrawl("au1"));
     }
+    private JobStatus QueuedStatus = new JobStatus().statusCode(JobStatus.StatusCodeEnum.QUEUED).msg("Pending");
+    private JobStatus SuccessStatus = new JobStatus().statusCode(JobStatus.StatusCodeEnum.SUCCESSFUL).msg("Successful");
 
     @Test
     @DisplayName(
@@ -141,10 +143,11 @@ class TestPluggableCrawlManager  extends LockssTestCase5 {
         pluggableCrawlManager.addCrawlJob(crawlJob);
         crawlJob.setStartDate(TimeBase.nowMs());
         crawlJob.setEndDate(null);
+        crawlJob.setJobStatus(QueuedStatus);
         pluggableCrawlManager.updateCrawlJob(crawlJob);
         Assertions.assertFalse(pluggableCrawlManager.isEligibleForCrawl("au1"));
-        crawlJob.setStartDate(TimeBase.nowMs());
         crawlJob.setEndDate(TimeBase.nowMs());
+        crawlJob.setJobStatus(SuccessStatus);
         pluggableCrawlManager.updateCrawlJob(crawlJob);
         Assertions.assertTrue(pluggableCrawlManager.isEligibleForCrawl("au1"));
     }

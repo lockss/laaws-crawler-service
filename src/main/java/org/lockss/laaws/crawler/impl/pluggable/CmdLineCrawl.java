@@ -22,6 +22,7 @@ import org.lockss.log.L4JLogger;
 import org.lockss.plugin.ArchivalUnit;
 import org.lockss.plugin.AuUtil;
 import org.lockss.state.AuState;
+import org.lockss.util.ListUtil;
 import org.lockss.util.MimeUtil;
 import org.lockss.util.StringUtil;
 import org.lockss.util.UrlUtil;
@@ -29,6 +30,7 @@ import org.lockss.util.io.FileUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.crawler.CrawlJob;
 import org.lockss.util.rest.crawler.JobStatus;
+import org.lockss.util.time.Deadline;
 
 /**
  * A class to wrap a single CommandLineCrawl
@@ -103,19 +105,29 @@ public class CmdLineCrawl extends PluggableCrawl {
   @Override
   public CrawlerStatus stopCrawl() {
     JobStatus status = getJobStatus();
+    JobStatus.StatusCodeEnum statusCode = status.getStatusCode();
+    if(statusCode != JobStatus.StatusCodeEnum.ACTIVE && statusCode != JobStatus.StatusCodeEnum.QUEUED) {
+      //we are already done with this crawl so return.
+      return getCrawlerStatus();
+    }
     status.setStatusCode(JobStatus.StatusCodeEnum.ABORTED);
     status.setMsg("Crawl Aborted.");
-    deleteTmpDir();
     if(lockssRunnable != null) {
       lockssRunnable.interruptThread();
+      if (crawlerStatus != null) {
+        crawlerStatus.setCrawlStatus(Crawler.STATUS_ABORTED, "Crawl Aborted");
+      }
+      lockssRunnable.waitExited(Deadline.in(crawler.getProcExitWait()));
       lockssRunnable = null;
     }
     else if(crawlerStatus != null) {
+      // we weren't actually running.
       crawlerStatus.setCrawlStatus(Crawler.STATUS_ABORTED, "Request removed from queue.");
       ApiUtils.getPluggableCrawlManager().handleCrawlComplete(crawlerStatus);
       auState.newCrawlFinished(crawlerStatus.getCrawlStatus(),null);
       crawlerStatus.signalCrawlEnded();
     }
+    deleteTmpDir();
     return getCrawlerStatus();
   }
 
@@ -128,18 +140,8 @@ public class CmdLineCrawl extends PluggableCrawl {
     return tmpDir;
   }
 
-  public Collection<File> getWarcFiles(String extension) {
-    return FileUtils.listFiles(tmpDir, new WildcardFileFilter(extension), null);
-  }
-
-  public List<String>  getWarcFileNames(String extension) {
-    try {
-      return FileUtil.listDirFilesWithExtension(tmpDir,extension);
-    }
-    catch (IOException e) {
-      log.warn("CmdLine crawl did not return any results.");
-      return null;
-    }
+  public Collection<File> getWarcFiles(List<String> exts) {
+    return FileUtils.listFiles(tmpDir, new WildcardFileFilter(exts), null);
   }
 
   /**
@@ -150,6 +152,7 @@ public class CmdLineCrawl extends PluggableCrawl {
   public List<String> getCommand() {
     return command;
   }
+
   protected List<String> getReqUrls() {return reqUrls; }
   protected  List<String> getStems() { return stems;}
 
@@ -186,22 +189,23 @@ public class CmdLineCrawl extends PluggableCrawl {
           int exitCode = process.waitFor();
           if (crawler.didCrawlSucceed(exitCode)) {
             log.info("Crawl process succeeded with exitCode {}", exitCode);
-            Collection<File> warcFiles = getWarcFiles("*.warc.gz");
+            Collection<File> warcFiles = getWarcFiles(ListUtil.list("*.warc.gz","*.warc"));
             log.info("Importing {} into repository.",
                      StringUtil.numberOfUnits(warcFiles.size(), "warcfile"));
             crawlerStatus.setCrawlStatus(Crawler.STATUS_ACTIVE, "Storing");
             for (File warc : warcFiles) {
-              crawler.storeInRepository(crawlerStatus.getAuId(), warc, true);
+              crawler.storeInRepository(crawlerStatus.getAuId(), warc,crawler.isCompressedWarc() );
             }
             crawler.updateAuConfig(getAu(), isRepairCrawl, getReqUrls(), getStems());
             crawlerStatus.setCrawlStatus(Crawler.STATUS_SUCCESSFUL);
             log.info("Content stored, crawl complete.");
-
+            deleteTmpDir();
           }
           else {
             log.info("Crawl process failed with exitCode {}", exitCode);
             crawlerStatus.setCrawlStatus(
               Crawler.STATUS_ERROR, "crawl exited with code: " + exitCode);
+            deleteTmpDir();
           }
         }
         catch (IOException ioe) {
@@ -210,16 +214,18 @@ public class CmdLineCrawl extends PluggableCrawl {
               Crawler.STATUS_ERROR, "Exception thrown: " + ioe.getMessage());
         }
         catch (InterruptedException ignore) {
-          crawlerStatus.setCrawlStatus(
-              Crawler.STATUS_ABORTED, "Crawl Interrupted");
+          if (crawlerStatus.getCrawlStatus() != Crawler.STATUS_ABORTED) {
+            crawlerStatus.setCrawlStatus(Crawler.STATUS_ABORTED,
+                                         "Crawl Interrupted");
+          }
           // no action
         }
         finally {
-          ApiUtils.getPluggableCrawlManager().handleCrawlComplete(crawlerStatus);
+          log.debug2("finishing crawl status updates...");
           auState.newCrawlFinished(crawlerStatus.getCrawlStatus(),null);
           crawlerStatus.signalCrawlEnded();
+          ApiUtils.getPluggableCrawlManager().handleCrawlComplete(crawlerStatus);
           setThreadName(threadName + ": idle");
-          deleteTmpDir();
           log.debug2("{} terminating", this);
         }
       }

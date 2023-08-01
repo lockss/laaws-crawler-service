@@ -471,12 +471,13 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
     log.debug2("crawlDesc = {}", crawlDesc);
     String msg;
     String auId = crawlDesc.getAuId();
+    boolean isRepair = crawlDesc.getCrawlKind() == CrawlDesc.CrawlKindEnum.NEWCONTENT;
     PluggableCrawlManager pcMgr = getPluggableCrawlManager();
     Collection<String> urls = crawlDesc.getCrawlList();
     ArchivalUnit au = getPluginManager().getAuFromId(crawlDesc.getAuId());
     AuState austate = AuUtil.getAuState(au);
-    if(austate.isCrawlActive()) {
-      msg = "AU has active crawl or queued crawl";
+    if(!isRepair && !pcMgr.isEligibleForCrawl(auId)) {
+      msg = "AU has queued or active crawl";
       logCrawlError(msg, crawlJob);
       return HttpStatus.BAD_REQUEST;
     }
@@ -535,7 +536,10 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
   }
 
   static CrawlJob makeCrawlJob(CrawlerStatus cs) {
-    CrawlJob crawlJob = new CrawlJob();
+    CrawlJob crawlJob = getPluggableCrawlManager().getCrawlJob(cs.getKey());
+    if(crawlJob == null) {
+      crawlJob = new CrawlJob();
+    }
     updateCrawlJob(crawlJob, cs);
     return crawlJob;
   }
@@ -548,6 +552,7 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
     crawlJob.jobStatus(makeJobStatus(cs));
     crawlJob.startDate(cs.getStartTime());
     crawlJob.endDate(cs.getEndTime());
+    crawlJob.result(ApiUtils.makeCrawlLink(cs.getKey()));
   }
 
 

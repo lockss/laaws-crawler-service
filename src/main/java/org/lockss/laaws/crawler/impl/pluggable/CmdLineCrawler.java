@@ -252,12 +252,7 @@ public class CmdLineCrawler implements PluggableCrawler {
     for(CmdLineCrawl crawl: crawlMap.values()) {
       if(crawl.getAuId().equals(auId)) {
         if(!crawl.isRepairCrawl) {
-          JobStatus status = crawl.getJobStatus();
-          switch (status.getStatusCode()) {
-            case QUEUED:
-            case ACTIVE:
-              return false;
-          }
+          return pcManager.isEligibleForCrawl(auId);
         }
       }
     }

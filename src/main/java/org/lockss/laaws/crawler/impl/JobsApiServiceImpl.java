@@ -471,11 +471,12 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
     log.debug2("crawlDesc = {}", crawlDesc);
     String msg;
     String auId = crawlDesc.getAuId();
+    boolean isRepair = crawlDesc.getCrawlKind() == CrawlDesc.CrawlKindEnum.NEWCONTENT;
     PluggableCrawlManager pcMgr = getPluggableCrawlManager();
     Collection<String> urls = crawlDesc.getCrawlList();
     ArchivalUnit au = getPluginManager().getAuFromId(crawlDesc.getAuId());
     AuState austate = AuUtil.getAuState(au);
-    if(austate.isCrawlActive()) {
+    if(!isRepair && !pcMgr.isEligibleForCrawl(auId)) {
       msg = "AU has queued or active crawl";
       logCrawlError(msg, crawlJob);
       return HttpStatus.BAD_REQUEST;

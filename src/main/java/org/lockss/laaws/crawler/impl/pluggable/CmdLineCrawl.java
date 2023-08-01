@@ -221,9 +221,10 @@ public class CmdLineCrawl extends PluggableCrawl {
           // no action
         }
         finally {
-          ApiUtils.getPluggableCrawlManager().handleCrawlComplete(crawlerStatus);
+          log.debug2("finishing crawl status updates...");
           auState.newCrawlFinished(crawlerStatus.getCrawlStatus(),null);
           crawlerStatus.signalCrawlEnded();
+          ApiUtils.getPluggableCrawlManager().handleCrawlComplete(crawlerStatus);
           setThreadName(threadName + ": idle");
           log.debug2("{} terminating", this);
         }

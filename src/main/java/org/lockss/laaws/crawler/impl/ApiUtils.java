@@ -298,14 +298,7 @@ public class ApiUtils {
   }
   public static String makeCrawlLink(String jobId) {
     final Map<String, Object> uriVariables = new HashMap<>();
-    UriComponentsBuilder builder = getServletUrlBuilder();
-    if(builder != null) {
-      builder.replaceQuery(null);
-      builder.replacePath(CRAWL_URI);
-    }
-    else {
-      builder = UriComponentsBuilder.fromPath(CRAWL_URI);
-    }
+    UriComponentsBuilder builder = UriComponentsBuilder.fromPath(CRAWL_URI);
     uriVariables.put("jobId", jobId);
     String path = builder.buildAndExpand(uriVariables).toUriString();
     return path;

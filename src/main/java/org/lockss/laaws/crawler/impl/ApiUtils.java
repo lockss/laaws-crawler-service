@@ -10,11 +10,14 @@ import org.lockss.laaws.crawler.utils.ContinuationToken;
 import org.lockss.log.L4JLogger;
 import org.lockss.repository.RepoSpec;
 import org.lockss.repository.RepositoryManager;
+import org.lockss.util.UrlUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.crawler.JobStatus;
 import org.lockss.util.rest.repo.LockssRepository;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.springframework.web.util.UriComponentsBuilder;
+
+import java.net.MalformedURLException;
 import java.util.*;
 
 import javax.ws.rs.NotFoundException;
@@ -26,6 +29,7 @@ public class ApiUtils {
   private static final L4JLogger log = L4JLogger.getLogger();
   // A template URI for returning a counter for a specific URL list (eg. found
   // or parsed URLs).
+  private static final String CRAWL_URI = "crawls/{jobId}";
   private static final String COUNTER_URI = "crawls/{jobId}/{counterName}";
   // A template URI for returning a counter for a list of URLs of a specific
   // mimeType.
@@ -291,6 +295,20 @@ public class ApiUtils {
       log.warn(errMsg);
       throw new IllegalArgumentException(errMsg);
     }
+  }
+  public static String makeCrawlLink(String jobId) {
+    final Map<String, Object> uriVariables = new HashMap<>();
+    UriComponentsBuilder builder = getServletUrlBuilder();
+    if(builder != null) {
+      builder.replaceQuery(null);
+      builder.replacePath(CRAWL_URI);
+    }
+    else {
+      builder = UriComponentsBuilder.fromPath(CRAWL_URI);
+    }
+    uriVariables.put("jobId", jobId);
+    String path = builder.buildAndExpand(uriVariables).toUriString();
+    return path;
   }
 
   /**

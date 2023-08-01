@@ -33,6 +33,7 @@
 package org.lockss.laaws.crawler.wget;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.lockss.laaws.crawler.wget.WgetCommandOptions.NO_WARC_COMPRESSION_KEY;
 import static org.mockito.Mockito.*;
 
 import java.util.*;
@@ -140,7 +141,7 @@ public class TestWgetCmdLineCrawler {
 
     // Verify that the config options were added correctly
     List<String> expectedConfigOptions =
-        ListUtil.list("--debug", "--recursive=true", "--level=inf");
+        ListUtil.list("--debug", "--no-warc-compression","--recursive=true", "--level=inf");
     assertEquals(expectedConfigOptions, wgetCmdLineCrawler.getConfigOptions());
   }
 
@@ -166,7 +167,7 @@ public class TestWgetCmdLineCrawler {
     assertEquals("--quiet", wgetCmdLineCrawler.getOutputLevel());
     assertEquals(ListUtil.list(0), wgetCmdLineCrawler.getSuccessCodes());
     assertEquals(
-        ListUtil.list("--quiet", "--recursive=true", "--level=inf"),
+        ListUtil.list("--quiet", "--no-warc-compression","--recursive=true", "--level=inf"),
         wgetCmdLineCrawler.getConfigOptions());
   }
 
@@ -193,7 +194,8 @@ public class TestWgetCmdLineCrawler {
     assertEquals(CLASSIC_CRAWLER_ID, wgetCmdLineCrawler.getCrawlerId());
     assertNull(wgetCmdLineCrawler.getOutputLevel());
     assertEquals(ListUtil.list(0), wgetCmdLineCrawler.getSuccessCodes());
-    assertEquals(Collections.EMPTY_LIST, wgetCmdLineCrawler.getConfigOptions());
+    assertNotNull(wgetCmdLineCrawler.getConfigOptions());
+    assertEquals(NO_WARC_COMPRESSION_KEY, wgetCmdLineCrawler.getConfigOptions().get(0));
   }
 
   @Test
@@ -235,7 +237,7 @@ public class TestWgetCmdLineCrawler {
     assertEquals(expectedSuccessCodes, wgetCmdLineCrawler.getSuccessCodes());
     assertEquals("--debug", wgetCmdLineCrawler.getOutputLevel());
     List<String> expectedConfigOptions =
-        ListUtil.list("--debug", "--header=Authorization: Basic QWxhZGRpbjpvcGVuIHNlc2FtZQ==");
+        ListUtil.list("--debug", "--no-warc-compression","--header=Authorization: Basic QWxhZGRpbjpvcGVuIHNlc2FtZQ==");
     assertEquals(expectedConfigOptions, wgetCmdLineCrawler.getConfigOptions());
   }
 }

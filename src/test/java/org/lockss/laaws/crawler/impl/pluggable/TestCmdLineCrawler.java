@@ -22,6 +22,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static org.lockss.laaws.crawler.impl.pluggable.CmdLineCrawler.ATTR_COMPRESSED_WARC_FILE_EXTENSION;
+import static org.lockss.laaws.crawler.impl.pluggable.CmdLineCrawler.ATTR_COMPRESS_WARC;
+import static org.lockss.laaws.crawler.impl.pluggable.CmdLineCrawler.ATTR_UNCOMPRESSED_WARC_FILE_EXTENSION;
+import static org.lockss.laaws.crawler.impl.pluggable.CmdLineCrawler.ATTR_UNSUPPORTED_PARAMS;
 import static org.mockito.Mockito.*;
 
 class TestCmdLineCrawler extends LockssTestCase5 {
@@ -167,9 +171,17 @@ class TestCmdLineCrawler extends LockssTestCase5 {
     attr.put(ATTR_CRAWLER_ID, "classic");
     attr.put(ATTR_CRAWLING_ENABLED, "true");
     attr.put(ATTR_STARTER_ENABLED, "true");
+    attr.put(ATTR_COMPRESSED_WARC_FILE_EXTENSION,".wgz");
+    attr.put(ATTR_UNCOMPRESSED_WARC_FILE_EXTENSION,".w");
+    attr.put(ATTR_UNSUPPORTED_PARAMS, "--wait;--no-warc-compression");
+    attr.put(ATTR_COMPRESS_WARC,"false");
     crawlerConfig.setAttributes(attr);
     cmdLineCrawler.updateCrawlerConfig(crawlerConfig);
     assertEquals(crawlerConfig, cmdLineCrawler.getCrawlerConfig());
+    assertEquals("*.w",cmdLineCrawler.warcFileFilter);
+    assertEquals(2, cmdLineCrawler.unsupportedParams.size());
+    assertTrue(cmdLineCrawler.unsupportedParams.contains("--wait"));
+    assertTrue(cmdLineCrawler.unsupportedParams.contains("--no-warc-compression"));
   }
 
   @Test

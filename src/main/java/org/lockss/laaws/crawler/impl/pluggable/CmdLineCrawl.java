@@ -189,7 +189,7 @@ public class CmdLineCrawl extends PluggableCrawl {
           int exitCode = process.waitFor();
           if (crawler.didCrawlSucceed(exitCode)) {
             log.info("Crawl process succeeded with exitCode {}", exitCode);
-            Collection<File> warcFiles = getWarcFiles(ListUtil.list("*.warc.gz","*.warc"));
+            Collection<File> warcFiles = getWarcFiles(ListUtil.list(crawler.getWarcFileFilter()));
             log.info("Importing {} into repository.",
                      StringUtil.numberOfUnits(warcFiles.size(), "warcfile"));
             crawlerStatus.setCrawlStatus(Crawler.STATUS_ACTIVE, "Storing");

@@ -31,6 +31,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 package org.lockss.laaws.crawler.wget;
 
+import java.util.Collections;
 import org.lockss.app.LockssDaemon;
 import org.lockss.laaws.crawler.impl.pluggable.CmdLineCrawler;
 import org.lockss.laaws.crawler.impl.pluggable.command.BooleanCommandOption;
@@ -61,6 +62,7 @@ public class WgetCommandLineBuilder implements CmdLineCrawler.CommandLineBuilder
   public static final List<String> DEFAULT_CONFIG =
       ListUtil.fromCSV(DELETE_AFTER_KEY);
   private final WgetCmdLineCrawler wgetCrawler;
+  private  List<String> excluded = Collections.EMPTY_LIST;
 
   WgetCommandLineBuilder() {
     super();
@@ -69,6 +71,7 @@ public class WgetCommandLineBuilder implements CmdLineCrawler.CommandLineBuilder
 
   WgetCommandLineBuilder(WgetCmdLineCrawler crawler) {
     wgetCrawler = crawler;
+    excluded = crawler.getUnsupportedParams();
   }
 
   /**
@@ -103,7 +106,6 @@ public class WgetCommandLineBuilder implements CmdLineCrawler.CommandLineBuilder
     }
 
     // fixed output information
-    //File warc = new File(tmpDir, WARC_FILE_NAME);
     command.add(WARC_FILE_KEY + "=" + WARC_FILE_NAME);
     command.add(WARC_TEMPDIR_KEY + "=./");
     // add parameters from request.
@@ -112,80 +114,84 @@ public class WgetCommandLineBuilder implements CmdLineCrawler.CommandLineBuilder
       log.trace("extraCrawlerDataMap = {}", extraCrawlerDataMap);
       for (String optionKey : ALL_KEYS) {
         log.trace("optionKey = {}", optionKey);
+        if (excluded.contains(optionKey)) {
+          log.debug("Skipping excluded command option {}", optionKey);
+        }
+        else {
+          Object extraCrawlerOptionData = extraCrawlerDataMap.get(optionKey.substring(2));
+          if (extraCrawlerOptionData != null)
+            log.debug2("{} = {}", optionKey, extraCrawlerOptionData);
 
-        Object extraCrawlerOptionData = extraCrawlerDataMap.get(optionKey.substring(2));
-        if(extraCrawlerOptionData != null)
-        log.debug2("{} = {}", optionKey,extraCrawlerOptionData);
-
-        switch (optionKey) {
-          case DEBUG_KEY:
-          case QUIET_KEY:
-          case VERBOSE_KEY:
-          case NO_PARENT_KEY:
-          case DELETE_AFTER_KEY:
-          case NO_DIRECTORIES_KEY:
-          case PAGE_REQUISITES_KEY:
-          case RECURSIVE_KEY:
-          case SPAN_HOSTS_KEY:
-          case SPIDER_KEY:
-          case WARC_CDX_KEY:
-          case NO_WARC_COMPRESSION_KEY:
-          case MIRROR_KEY:
-            BooleanCommandOption.process(optionKey, extraCrawlerOptionData, command);
-            break;
-          case DOMAINS_KEY:
-          case EXCLUDE_DIRECTORIES_KEY:
-          case INCLUDE_DIRECTORIES_KEY:
-            ListStringCommandOption.process(optionKey, extraCrawlerOptionData, command);
-            break;
-          case ACCEPT_REGEX_KEY:
-          case LEVEL_KEY:
-          case REJECT_REGEX_KEY:
-          case WAIT_KEY:
-          case WARC_FILE_KEY:
-          case WARC_MAX_SIZE_KEY:
-          case TRIES_KEY:
-          case TIMEOUT_KEY:
-          case DNS_TIMEOUT_KEY:
-          case CONNECT_TIMEOUT_KEY:
-          case READ_TIMEOUT_KEY:
-          case WAIT_RETRY_KEY:
-            StringCommandOption.process(optionKey, extraCrawlerOptionData, command);
-            break;
-          case USER_AGENT_KEY:
-            StringCommandOption userAgentOption =
+          switch (optionKey) {
+            case DEBUG_KEY:
+            case QUIET_KEY:
+            case VERBOSE_KEY:
+            case NO_PARENT_KEY:
+            case DELETE_AFTER_KEY:
+            case NO_DIRECTORIES_KEY:
+            case PAGE_REQUISITES_KEY:
+            case RECURSIVE_KEY:
+            case SPAN_HOSTS_KEY:
+            case SPIDER_KEY:
+            case WARC_CDX_KEY:
+            case NO_WARC_COMPRESSION_KEY:
+            case MIRROR_KEY:
+              BooleanCommandOption.process(optionKey, extraCrawlerOptionData, command);
+              break;
+            case DOMAINS_KEY:
+            case EXCLUDE_DIRECTORIES_KEY:
+            case INCLUDE_DIRECTORIES_KEY:
+              ListStringCommandOption.process(optionKey, extraCrawlerOptionData, command);
+              break;
+            case ACCEPT_REGEX_KEY:
+            case LEVEL_KEY:
+            case REJECT_REGEX_KEY:
+            case WAIT_KEY:
+            case WARC_FILE_KEY:
+            case WARC_MAX_SIZE_KEY:
+            case TRIES_KEY:
+            case TIMEOUT_KEY:
+            case DNS_TIMEOUT_KEY:
+            case CONNECT_TIMEOUT_KEY:
+            case READ_TIMEOUT_KEY:
+            case WAIT_RETRY_KEY:
               StringCommandOption.process(optionKey, extraCrawlerOptionData, command);
-            if (userAgentOption.getValue() == null) {
-              String userAgent = LockssDaemon.getUserAgent();
-              log.trace("userAgent = {}", userAgent);
-              command.add(USER_AGENT_KEY+"=\""+userAgent+"\"");
-            }
-            break;
-          case HEADER_KEY:
-          case WARC_HEADER_KEY:
-            Object jsonObject = extraCrawlerDataMap.get(optionKey.substring(2));
-            log.trace("jsonObject = {}", jsonObject);
+              break;
+            case USER_AGENT_KEY:
+              StringCommandOption userAgentOption =
+                StringCommandOption.process(optionKey, extraCrawlerOptionData, command);
+              if (userAgentOption.getValue() == null) {
+                String userAgent = LockssDaemon.getUserAgent();
+                log.trace("userAgent = {}", userAgent);
+                command.add(USER_AGENT_KEY + "=\"" + userAgent + "\"");
+              }
+              break;
+            case HEADER_KEY:
+            case WARC_HEADER_KEY:
+              Object jsonObject = extraCrawlerDataMap.get(optionKey.substring(2));
+              log.trace("jsonObject = {}", jsonObject);
 
-            if (jsonObject != null) {
-              List<String> headers = (List<String>) jsonObject;
-              log.trace("headers = {}", headers);
+              if (jsonObject != null) {
+                List<String> headers = (List<String>) jsonObject;
+                log.trace("headers = {}", headers);
 
-              if (!headers.isEmpty()) {
-                for (String header : headers) {
-                  log.trace("header = {}", header);
+                if (!headers.isEmpty()) {
+                  for (String header : headers) {
+                    log.trace("header = {}", header);
 
-                  StringCommandOption.process(optionKey, header, command);
+                    StringCommandOption.process(optionKey, header, command);
+                  }
                 }
               }
-            }
-            break;
-          case INPUT_FILE_KEY:
-          case WARC_DEDUP_KEY:
-          case APPEND_LOG_KEY:
-            FileCommandOption.process(optionKey, extraCrawlerOptionData, tmpDir, command);
-            break;
-          default:
-            log.warn("Ignored unexpected option '{}'", optionKey);
+              break;
+            case INPUT_FILE_KEY:
+            case WARC_DEDUP_KEY:
+            case APPEND_LOG_KEY:
+              FileCommandOption.process(optionKey, extraCrawlerOptionData, tmpDir, command);
+              break;
+            default:
+              log.warn("Ignored unexpected option '{}'", optionKey);
+          }
         }
       }
     }
@@ -234,7 +240,7 @@ public class WgetCommandLineBuilder implements CmdLineCrawler.CommandLineBuilder
   boolean hasKey(List<String> commands, String key) {
     for(String cmd: commands) {
       if (cmd.startsWith(key+"=")) {
-        return true;
+        return !excluded.contains(key);
       }
     }
     return false;

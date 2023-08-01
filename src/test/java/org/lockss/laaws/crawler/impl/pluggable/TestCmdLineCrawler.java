@@ -144,6 +144,7 @@ class TestCmdLineCrawler extends LockssTestCase5 {
   @Test
   @DisplayName("Should return null when the au is not eligible for crawl")
   void requestCrawlWhenAuIsNotEligibleForCrawlThenReturnNull() {
+    when(pluggableCrawlManager.isEligibleForCrawl(DEF_AU_ID)).thenReturn(false);
     CrawlJob crawlJob = makeMockCrawlJob(DEF_AU_ID,DEF_CRAWLER_ID);
     ArchivalUnit au = mock(ArchivalUnit.class);
     when(au.getName()).thenReturn(DEF_AU_ID);

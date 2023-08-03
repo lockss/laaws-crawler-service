@@ -70,8 +70,8 @@ public abstract class PluggableCrawl {
    * @param crawlerConfig the crawler config
    * @param crawlJob      the crawl job
    */
-  public PluggableCrawl(CrawlerConfig crawlerConfig, ArchivalUnit au,
-                        CrawlJob crawlJob) {
+  protected PluggableCrawl(CrawlerConfig crawlerConfig, ArchivalUnit au,
+                           CrawlJob crawlJob) {
     this.crawlerConfig = crawlerConfig;
     this.crawlJob = crawlJob;
     this.crawlDesc = crawlJob.getCrawlDesc();

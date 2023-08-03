@@ -59,7 +59,7 @@ public static final String ATTR_OUTPUT_LEVEL ="outputLevel";
   /**
    * The Success codes.
    */
-List<Integer>  successCodes;
+ List<Integer>  successCodes;
   /** The Output level. */
   String outputLevel;
 

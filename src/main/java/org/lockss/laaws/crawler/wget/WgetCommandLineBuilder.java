@@ -64,6 +64,8 @@ public class WgetCommandLineBuilder implements CmdLineCrawler.CommandLineBuilder
   private final WgetCmdLineCrawler wgetCrawler;
   private  List<String> excluded = Collections.EMPTY_LIST;
 
+  private boolean useCompressed = true;
+
   WgetCommandLineBuilder() {
     super();
     wgetCrawler = null;
@@ -72,6 +74,7 @@ public class WgetCommandLineBuilder implements CmdLineCrawler.CommandLineBuilder
   WgetCommandLineBuilder(WgetCmdLineCrawler crawler) {
     wgetCrawler = crawler;
     excluded = crawler.getUnsupportedParams();
+    useCompressed =crawler.useCompressWarc() && !excluded.contains(NO_WARC_COMPRESSION_KEY);
   }
 
   /**
@@ -115,7 +118,7 @@ public class WgetCommandLineBuilder implements CmdLineCrawler.CommandLineBuilder
       for (String optionKey : ALL_KEYS) {
         log.trace("optionKey = {}", optionKey);
         if (excluded.contains(optionKey)) {
-          log.debug("Skipping excluded command option {}", optionKey);
+          log.info("Skipping requested command option {}, this option is not supported.", optionKey);
         }
         else {
           Object extraCrawlerOptionData = extraCrawlerDataMap.get(optionKey.substring(2));
@@ -240,9 +243,9 @@ public class WgetCommandLineBuilder implements CmdLineCrawler.CommandLineBuilder
   boolean hasKey(List<String> commands, String key) {
     for(String cmd: commands) {
       if (cmd.startsWith(key+"=")) {
-        return !excluded.contains(key);
+        return true;
       }
     }
-    return false;
+    return excluded.contains(key);
   }
 }

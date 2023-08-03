@@ -41,6 +41,7 @@ import org.lockss.plugin.ArchivalUnit;
 import org.lockss.plugin.CachedUrl;
 import org.lockss.util.ClassUtil;
 import org.lockss.util.Constants;
+import org.lockss.util.ListUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.crawler.CrawlJob;
 import org.lockss.util.rest.crawler.JobStatus;
@@ -88,7 +89,7 @@ public class CmdLineCrawler implements PluggableCrawler {
   public static final String ATTR_PROC_EXIT_WAIT = "procExitWait";
   public static final long DEFAULT_PROC_EXIT_WAIT = 10 * Constants.MINUTE;
 
-  public static final String ATTR_COMPRESS_WARC="compressWarc";
+  public static final String ATTR_COMPRESS_WARC="preferCompressedWarcs";
   public static final String DEFAULT_COMPRESS_WARC="false";
 
   public static final String ATTR_COMPRESSED_WARC_FILE_EXTENSION = "compressedWarcExt";
@@ -126,7 +127,7 @@ public class CmdLineCrawler implements PluggableCrawler {
 
   protected  boolean compressWarc;
 
-  protected String warcFileFilter;
+  protected List<String> warcFileFilter;
 
   protected long procExitWait;
 
@@ -224,14 +225,8 @@ public class CmdLineCrawler implements PluggableCrawler {
     compressWarc = Boolean.parseBoolean(attr.getOrDefault(ATTR_COMPRESS_WARC,DEFAULT_COMPRESS_WARC));
     compressedWarcExtension = attr.getOrDefault(ATTR_COMPRESSED_WARC_FILE_EXTENSION, DEFAULT_COMPRESSED_WARC_FILE_EXTENSION);
     uncompressedWarcExtension = attr.getOrDefault(ATTR_UNCOMPRESSED_WARC_FILE_EXTENSION, DEFAULT_UNCOMPRESSED_WARC_FILE_EXTENSION);
-    if(compressWarc) {
-      warcFileFilter = "*"+compressedWarcExtension;
-    }
-    else {
-      warcFileFilter = "*"+uncompressedWarcExtension;
-    }
+    warcFileFilter = ListUtil.list("*"+compressedWarcExtension,"*"+uncompressedWarcExtension);
     String unsupported = attr.getOrDefault(ATTR_UNSUPPORTED_PARAMS, "");
-
     if(!StringUtil.isNullString(unsupported)) {
       unsupportedParams =  Stream.of(unsupported.split(";"))
         .map(String::trim)
@@ -261,16 +256,24 @@ public class CmdLineCrawler implements PluggableCrawler {
     return procExitWait;
   }
 
-  public boolean isCompressedWarc() {
-    return compressWarc;
+  public List<String> getWarcFileFilter() {
+    return warcFileFilter;
   }
 
-  public String getWarcFileFilter() {
-    return warcFileFilter;
+  public String getCompressedWarcExtension() {
+    return compressedWarcExtension;
+  }
+
+  public String getUncompressedWarcExtension() {
+    return uncompressedWarcExtension;
   }
 
   public List<String> getUnsupportedParams() {
     return unsupportedParams;
+  }
+
+  public boolean useCompressWarc() {
+    return compressWarc;
   }
 
   @Override
@@ -371,12 +374,16 @@ public class CmdLineCrawler implements PluggableCrawler {
     pcManager = pluggableCrawlManager;
   }
 
+  public PluggableCrawlManager getPluggableCrawlManager() {
+    return pcManager;
+  }
+
   public void storeInRepository (String auId, File warcFile, boolean isCompressed) throws IOException {
     try (BufferedInputStream bis = new BufferedInputStream(
       Files.newInputStream(warcFile.toPath()))) {
       ensureRepo();
       log.debug2("Calling Repository with warc for auid {}", auId);
-      v2Repo.addArtifacts(namespace, auId, bis, LockssRepository.ArchiveType.WARC, isCompressed, false, excludeStatusPattern);
+      v2Repo.addArtifacts(namespace, auId, bis, LockssRepository.ArchiveType.WARC, false, excludeStatusPattern);
     }
     log.debug2("Returned from call to repo");
   }
@@ -510,4 +517,9 @@ public class CmdLineCrawler implements PluggableCrawler {
       throw new IOException("Unable to store warc artifacts - Repository is not ready for connections.");
     }
   }
-}
+// Test support
+  void setCrawlQueueExecutor(ThreadPoolExecutor executor) {
+    crawlQueueExecutor = executor;
+  }
+ }
+

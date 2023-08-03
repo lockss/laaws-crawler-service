@@ -111,7 +111,6 @@ org.lockss.crawlerservice.wget.opt.wait=0.5
 # warc details
 org.lockss.crawlerservice.wget.opt.warc-keep-log=off
 org.lockss.crawlerservice.wget.opt.content-on-error=off
-#org.lockss.crawlerservice.wget.opt.no-warc-compression=false
 rg.lockss.repository.v2Repository=volatile:testRepo
 #org.lockss.plugin.jms.enable=true
 

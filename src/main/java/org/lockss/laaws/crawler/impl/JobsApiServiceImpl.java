@@ -171,8 +171,6 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
     String crawlerId = crawlDesc.getCrawlerId();
     CrawlDesc.CrawlKindEnum crawlKind = crawlDesc.getCrawlKind();
 
-    ArchivalUnit au = getPluginManager().getAuFromId(crawlDesc.getAuId());
-
     try {
       // Check whether the service has not been fully initialized.
       if (!waitReady()) {
@@ -186,14 +184,15 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
         logCrawlError(UNKNOWN_CRAWLER_MESSAGE + crawlerId, crawlJob);
         return new ResponseEntity<>(crawlJob, HttpStatus.BAD_REQUEST);
       }
+      ArchivalUnit au = getPluginManager().getAuFromId(crawlDesc.getAuId());
+      if (au == null) {
+        logCrawlError(NO_SUCH_AU_ERROR_MESSAGE, crawlJob);
+        return new ResponseEntity<>(crawlJob, HttpStatus.NOT_FOUND);
+      }
       // Determine which crawler to use.
       if (crawlerId.equals(CLASSIC_CRAWLER_ID)) {
         // Get the Archival Unit to be crawled.
         // Handle a missing Archival Unit.
-        if (au == null) {
-          logCrawlError(NO_SUCH_AU_ERROR_MESSAGE, crawlJob);
-          return new ResponseEntity<>(crawlJob, HttpStatus.NOT_FOUND);
-        }
         // Determine which kind of crawl is being requested.
         switch (crawlKind) {
           case NEWCONTENT:
@@ -216,7 +215,7 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
         switch (crawlKind) {
           case NEWCONTENT:
           case REPAIR:
-            httpStatus = startExternalCrawl(crawlJob);
+            httpStatus = startExternalCrawl(au, crawlJob);
             break;
           default:
             httpStatus = HttpStatus.BAD_REQUEST;
@@ -464,7 +463,7 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
     return HttpStatus.ACCEPTED;
   }
 
-  HttpStatus startExternalCrawl(CrawlJob crawlJob) {
+  HttpStatus startExternalCrawl(ArchivalUnit au, CrawlJob crawlJob) {
     CrawlDesc crawlDesc = crawlJob.getCrawlDesc();
     log.debug2("crawlDesc = {}", crawlDesc);
     String msg;
@@ -472,7 +471,6 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
     boolean isRepair = crawlDesc.getCrawlKind() == CrawlDesc.CrawlKindEnum.NEWCONTENT;
     PluggableCrawlManager pcMgr = getPluggableCrawlManager();
     Collection<String> urls = crawlDesc.getCrawlList();
-    ArchivalUnit au = getPluginManager().getAuFromId(crawlDesc.getAuId());
     AuState austate = AuUtil.getAuState(au);
     if(!isRepair && !pcMgr.isEligibleForCrawl(auId)) {
       logCrawlError(AU_HAS_QUEUED_OR_ACTIVE_CRAWL, crawlJob);

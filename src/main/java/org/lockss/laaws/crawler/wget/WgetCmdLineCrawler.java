@@ -59,7 +59,7 @@ public static final String ATTR_OUTPUT_LEVEL ="outputLevel";
   /**
    * The Success codes.
    */
-List<Integer>  successCodes;
+ List<Integer>  successCodes;
   /** The Output level. */
   String outputLevel;
 
@@ -78,7 +78,7 @@ List<Integer>  successCodes;
       configOptions.add(getOutputLevel());
     }
     setSuccessCodes(attrs.get(ATTR_SUCCESS_CODE));
-    if(!compressWarc) {
+    if(!compressWarc && !unsupportedParams.contains(NO_WARC_COMPRESSION_KEY)) {
       configOptions.add(NO_WARC_COMPRESSION_KEY);
     }
     // the remainder of the wget parameters are --foo
@@ -86,7 +86,9 @@ List<Integer>  successCodes;
       if(attr.startsWith("opt.")) {
         String opt = attr.replace("opt.","--");
         String val = attrs.get(attr);
-        configOptions.add(opt + "=" + val);
+        if (!unsupportedParams.contains(opt)) {
+          configOptions.add(opt + "=" + val);
+        }
      }
     }
   }

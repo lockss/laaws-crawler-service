@@ -1,9 +1,20 @@
 package org.lockss.laaws.crawler.impl.pluggable;
 
-import static org.lockss.laaws.crawler.impl.pluggable.CmdLineCrawl.errorPattern;
-import static org.lockss.laaws.crawler.impl.pluggable.CmdLineCrawl.successPattern;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.lockss.crawler.CrawlerStatus;
+import org.lockss.laaws.crawler.impl.PluggableCrawlManager;
+import org.lockss.plugin.ArchivalUnit;
+import org.lockss.state.AuState;
+import org.lockss.util.FileUtil;
+import org.lockss.util.ListUtil;
+import org.lockss.util.MimeUtil;
+import org.lockss.util.rest.crawler.CrawlDesc;
+import org.lockss.util.rest.crawler.CrawlJob;
+import org.lockss.util.rest.crawler.JobStatus;
+import org.lockss.util.test.LockssTestCase5;
 
 import java.io.File;
 import java.io.IOException;
@@ -12,17 +23,12 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.regex.Matcher;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.lockss.plugin.ArchivalUnit;
-import org.lockss.util.FileUtil;
-import org.lockss.util.ListUtil;
-import org.lockss.util.rest.crawler.CrawlDesc;
-import org.lockss.util.rest.crawler.CrawlJob;
-import org.lockss.util.rest.crawler.JobStatus;
-import org.lockss.util.test.LockssTestCase5;
+
+import static org.lockss.laaws.crawler.impl.pluggable.CmdLineCrawl.errorPattern;
+import static org.lockss.laaws.crawler.impl.pluggable.CmdLineCrawl.successPattern;
+import static org.mockito.Matchers.anyString;
+import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.*;
 
 class TestCmdLineCrawl extends LockssTestCase5 {
   static final CrawlDesc.CrawlKindEnum NEWCONTENT = CrawlDesc.CrawlKindEnum.NEWCONTENT;
@@ -41,7 +47,14 @@ class TestCmdLineCrawl extends LockssTestCase5 {
   File tmpDir;
   static String UNCOMPRESSED_WARC_FILE_EXT = ".warc";
   static String COMPRESSED_WARC_FILE_EXT = ".warc.gz";
+  private static String URL_PREFIX= "https://assets.lockss.org/";
+  private static String SUCCESS_URL= "https://assets.lockss.org/javadoc/1.75/daemon/overview-frame.html";
+  private static String ERROR_URL="https://assets.lockss.org/robots.txt";
+  private static String SUCCESS_STR="2023-07-31 18:33:42 URL:https://assets.lockss.org/javadoc/1.75/daemon/overview-frame.html [9159/9159] -> \"./assets.lockss.org/javadoc/1.75/daemon/overview-frame.html.tmp\" [1]";
+  private static String ERROR_STR= "2023-07-31 18:33:41 ERROR 404: Not Found.";
+  private static String ERROR_PRE= "https://assets.lockss.org/robots.txt:";
 
+  
   @BeforeEach
   public void beforeEach() throws IOException {
     ensureTempTmpDir();
@@ -111,12 +124,15 @@ class TestCmdLineCrawl extends LockssTestCase5 {
   void stopCrawlShouldSetMessageToCrawlAborted() {
     CmdLineCrawler crawler = makeMockCrawler();
     CmdLineCrawl crawl = makeMockCrawl(crawler);
+    AuState auState = mock(AuState.class);
+    crawl.setAuState(auState);
     crawl.getJobStatus().statusCode(ActiveStatus.getStatusCode()).msg(ActiveStatus.getMsg());
     crawl.stopCrawl();
     assertEquals(AbortedStatus.getStatusCode(), crawl.getJobStatus().getStatusCode());
     assertEquals(AbortedStatus.getMsg(), crawl.getJobStatus().getMsg());
     //should set status in queued crawls.
     crawl = makeMockCrawl(crawler);
+    crawl.setAuState(auState);
     crawl.getJobStatus().statusCode(QueuedStatus.getStatusCode()).msg(QueuedStatus.getMsg());
     crawl.stopCrawl();
     assertEquals(AbortedStatus.getStatusCode(), crawl.getJobStatus().getStatusCode());
@@ -170,10 +186,42 @@ class TestCmdLineCrawl extends LockssTestCase5 {
     assertEquals(0,foundBytes);
   }
 
+  @Test
+  @DisplayName("Should correctly parse the line when the line contains an error pattern")
+  void parseLineWhenLineContainsErrorPattern() {
+    CmdLineCrawl cmdLineCrawl = makeMockCrawl(makeMockCrawler());
+    String mimeType = MimeUtil.getMimeTypeFromExtension("txt");
+    cmdLineCrawl.parseLine(ERROR_PRE, ERROR_STR);
+    CrawlerStatus status = cmdLineCrawl.getCrawlerStatus();
+    assertFalse(status.getUrlsFetched().contains(ERROR_URL));
+    assertFalse(cmdLineCrawl.getStems().contains(URL_PREFIX));
+    assertTrue(status.getMimeTypes().contains(mimeType));
+    assertTrue(status.getUrlsOfMimeType(mimeType).contains((ERROR_URL)));
+    assertTrue(status.getUrlsWithErrors().containsKey(ERROR_URL));
+    assertEquals(1,status.getNumUrlsWithErrors());
+    assertEquals("404: Not Found.", status.getErrorForUrl(ERROR_URL));
+  }
+
+  @Test
+  @DisplayName("Should correctly parse the line when the line contains a success pattern")
+  void parseLineWhenLineContainsSuccessPattern() {
+    CmdLineCrawl cmdLineCrawl = makeMockCrawl(makeMockCrawler());
+    String mimeType = MimeUtil.getMimeTypeFromExtension("html");
+    cmdLineCrawl.parseLine(null, SUCCESS_STR);
+    CrawlerStatus status = cmdLineCrawl.getCrawlerStatus();
+    assertEquals(status.getUrlsFetched().size(), 1);
+    assertTrue(status.getUrlsFetched().contains(SUCCESS_URL));
+    assertTrue(cmdLineCrawl.getStems().contains(URL_PREFIX));
+    assertTrue(status.getMimeTypes().contains(mimeType));
+    assertTrue(status.getUrlsOfMimeType(mimeType).contains((SUCCESS_URL)));
+  }
 
   CmdLineCrawler makeMockCrawler() {
     CmdLineCrawler crawler = mock(CmdLineCrawler.class);
+    PluggableCrawlManager pcm = mock(PluggableCrawlManager.class);
     when(crawler.getCmdLineBuilder()).thenReturn(new TestCommandLineBuilder());
+    when(crawler.getPluggableCrawlManager()).thenReturn(pcm );
+
     return crawler;
   }
 
@@ -204,6 +252,5 @@ class TestCmdLineCrawl extends LockssTestCase5 {
       return Arrays.asList(TEST_CMD_LINE);
     }
   }
-
 
 }

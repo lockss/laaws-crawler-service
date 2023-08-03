@@ -1,13 +1,6 @@
 package org.lockss.laaws.crawler.impl.pluggable;
 
 
-import java.io.*;
-import java.net.MalformedURLException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.filefilter.WildcardFileFilter;
 import org.apache.logging.log4j.Level;
@@ -22,7 +15,6 @@ import org.lockss.log.L4JLogger;
 import org.lockss.plugin.ArchivalUnit;
 import org.lockss.plugin.AuUtil;
 import org.lockss.state.AuState;
-import org.lockss.util.ListUtil;
 import org.lockss.util.MimeUtil;
 import org.lockss.util.StringUtil;
 import org.lockss.util.UrlUtil;
@@ -31,6 +23,14 @@ import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.crawler.CrawlJob;
 import org.lockss.util.rest.crawler.JobStatus;
 import org.lockss.util.time.Deadline;
+
+import java.io.*;
+import java.net.MalformedURLException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * A class to wrap a single CommandLineCrawl
@@ -53,16 +53,15 @@ public class CmdLineCrawl extends PluggableCrawl {
   protected static Pattern successPattern = Pattern.compile("[0-9]{4}-[0-9]{2}-[0-9]{2}.*[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,3})? URL:.* .*[^]]*] -> .*[^\"]*", Pattern.CASE_INSENSITIVE);
   protected static Pattern errorPattern = Pattern.compile(".*\\bERROR\\b.*", Pattern.CASE_INSENSITIVE);
   protected static Pattern urlPattern = Pattern.compile("((https?|ftp|gopher|telnet|file):((//)|(\\\\))+[\\w\\d:#@%/;$()~_?\\+-=\\\\\\.&]*)", Pattern.CASE_INSENSITIVE);
-  protected static Pattern bytesPattern= Pattern.compile("\\[[0-9]+/[0-9]+]", Pattern.CASE_INSENSITIVE);
+  protected static Pattern bytesPattern = Pattern.compile("\\[[0-9]+/[0-9]+]", Pattern.CASE_INSENSITIVE);
   private static final String ERROR_STR = " ERROR ";
 
   List<String> stems = new ArrayList<>();
   List<String> reqUrls;
-  CrawlerStatus crawlerStatus;
   AuState auState;
-  boolean isRepairCrawl = false;
+  boolean isRepairCrawl;
   RunnableCrawlJob runnableJob;
-  private LockssRunnable lockssRunnable;
+  LockssRunnable lockssRunnable;
 
   /**
    * Instantiates a new Cmd line crawl.
@@ -75,8 +74,8 @@ public class CmdLineCrawl extends PluggableCrawl {
     this.crawler = crawler;
     String jobId = crawlJob.getJobId();
     threadName = crawlDesc.getCrawlKind() + ":"
-      + crawlDesc.getCrawlerId() +
-      ":" + jobId.substring(0, Integer.min(6, jobId.length() - 1));
+        + crawlDesc.getCrawlerId() +
+        ":" + jobId.substring(0, Integer.min(6, jobId.length() - 1));
     final Configuration currentConfig = ConfigManager.getCurrentConfig();
     outputLogLevel = crawler.getOutputLogLevel();
     errorLogLevel = crawler.getErrorLogLevel();
@@ -94,8 +93,7 @@ public class CmdLineCrawl extends PluggableCrawl {
       js.setMsg("Active.");
       tmpDir = FileUtil.createTempDir(crawlDesc.getCrawlerId(), "");
       command = crawler.getCmdLineBuilder().buildCommandLine(getCrawlDesc(), tmpDir);
-    }
-    catch (IOException ioe) {
+    } catch (IOException ioe) {
       log.error("Unable to create output directory for crawl:", ioe);
       js.setStatusCode(JobStatus.StatusCodeEnum.ERROR);
     }
@@ -106,29 +104,42 @@ public class CmdLineCrawl extends PluggableCrawl {
   public CrawlerStatus stopCrawl() {
     JobStatus status = getJobStatus();
     JobStatus.StatusCodeEnum statusCode = status.getStatusCode();
-    if(statusCode != JobStatus.StatusCodeEnum.ACTIVE && statusCode != JobStatus.StatusCodeEnum.QUEUED) {
+    if (statusCode != JobStatus.StatusCodeEnum.ACTIVE && statusCode != JobStatus.StatusCodeEnum.QUEUED) {
       //we are already done with this crawl so return.
       return getCrawlerStatus();
     }
     status.setStatusCode(JobStatus.StatusCodeEnum.ABORTED);
     status.setMsg("Crawl Aborted.");
-    if(lockssRunnable != null) {
+    if (lockssRunnable != null) {
+      //Kill the external process.
+      if(crawlProcess != null)  crawlProcess.destroy();
       lockssRunnable.interruptThread();
       if (crawlerStatus != null) {
         crawlerStatus.setCrawlStatus(Crawler.STATUS_ABORTED, "Crawl Aborted");
       }
       lockssRunnable.waitExited(Deadline.in(crawler.getProcExitWait()));
+      log.debug("Exited!!");
       lockssRunnable = null;
-    }
-    else if(crawlerStatus != null) {
+    } else if (crawlerStatus != null) {
       // we weren't actually running.
       crawlerStatus.setCrawlStatus(Crawler.STATUS_ABORTED, "Request removed from queue.");
-      ApiUtils.getPluggableCrawlManager().handleCrawlComplete(crawlerStatus);
-      auState.newCrawlFinished(crawlerStatus.getCrawlStatus(),null);
+      crawler.getPluggableCrawlManager().handleCrawlComplete(crawlerStatus);
+      getAuState().newCrawlFinished(crawlerStatus.getCrawlStatus(), null);
       crawlerStatus.signalCrawlEnded();
     }
     deleteTmpDir();
     return getCrawlerStatus();
+  }
+
+  AuState getAuState() {
+    if(auState == null) {
+      auState = AuUtil.getAuState(crawlerStatus.getAu());
+    }
+    return auState;
+  }
+
+  void setAuState(AuState state) {
+    auState = state;
   }
 
   /**
@@ -153,8 +164,15 @@ public class CmdLineCrawl extends PluggableCrawl {
     return command;
   }
 
-  protected List<String> getReqUrls() {return reqUrls; }
-  protected  List<String> getStems() { return stems;}
+  protected List<String> getReqUrls() {
+    return reqUrls;
+  }
+
+  protected List<String> getStems() {
+    return stems;
+  }
+
+  Process crawlProcess;
 
   public LockssRunnable getRunnable() {
     lockssRunnable = new LockssRunnable(threadName) {
@@ -176,67 +194,65 @@ public class CmdLineCrawl extends PluggableCrawl {
             builder.redirectErrorStream(true);
           }
           log.debug("Starting crawl process in {} with command {}...",
-                    tmpDir, String.join(" ", command));
-          Process process = builder.start();
-          StreamGobbler outputGobbler = new StreamGobbler(process.getInputStream(), "OUTPUT");
+              tmpDir, String.join(" ", command));
+          crawlProcess = builder.start();
+          StreamGobbler outputGobbler = new StreamGobbler(crawlProcess.getInputStream(), "OUTPUT");
           outputGobbler.start();
 
-          if(!joinOutputStreams) {
-            StreamGobbler errorGobbler = new StreamGobbler(process.getErrorStream(), "ERROR");
+          if (!joinOutputStreams) {
+            StreamGobbler errorGobbler = new StreamGobbler(crawlProcess.getErrorStream(), "ERROR");
             errorGobbler.start();
           }
           crawlerStatus.signalCrawlStarted();
-          int exitCode = process.waitFor();
+          int exitCode = crawlProcess.waitFor();
           if (crawler.didCrawlSucceed(exitCode)) {
             log.info("Crawl process succeeded with exitCode {}", exitCode);
-            Collection<File> warcFiles = getWarcFiles(ListUtil.list("*.warc.gz","*.warc"));
+            Collection<File> warcFiles = getWarcFiles(crawler.getWarcFileFilter());
             log.info("Importing {} into repository.",
-                     StringUtil.numberOfUnits(warcFiles.size(), "warcfile"));
+                StringUtil.numberOfUnits(warcFiles.size(), "warcfile"));
             crawlerStatus.setCrawlStatus(Crawler.STATUS_ACTIVE, "Storing");
             for (File warc : warcFiles) {
-              crawler.storeInRepository(crawlerStatus.getAuId(), warc,crawler.isCompressedWarc() );
+              boolean isCompressed = FileUtil.getExtension(warc.getName()).equalsIgnoreCase((crawler.getCompressedWarcExtension()));
+              crawler.storeInRepository(crawlerStatus.getAuId(), warc, isCompressed);
             }
             crawler.updateAuConfig(getAu(), isRepairCrawl, getReqUrls(), getStems());
             crawlerStatus.setCrawlStatus(Crawler.STATUS_SUCCESSFUL);
             log.info("Content stored, crawl complete.");
             deleteTmpDir();
-          }
-          else {
+          } else {
             log.info("Crawl process failed with exitCode {}", exitCode);
             crawlerStatus.setCrawlStatus(
-              Crawler.STATUS_ERROR, "crawl exited with code: " + exitCode);
+                Crawler.STATUS_ERROR, "crawl exited with code: " + exitCode);
             deleteTmpDir();
           }
-        }
-        catch (IOException ioe) {
+        } catch (IOException ioe) {
           log.error("Exception caught running process", ioe);
           crawlerStatus.setCrawlStatus(
               Crawler.STATUS_ERROR, "Exception thrown: " + ioe.getMessage());
-        }
-        catch (InterruptedException ignore) {
+        } catch (InterruptedException ignore) {
           if (crawlerStatus.getCrawlStatus() != Crawler.STATUS_ABORTED) {
             crawlerStatus.setCrawlStatus(Crawler.STATUS_ABORTED,
-                                         "Crawl Interrupted");
+                "Crawl Interrupted");
           }
           // no action
-        }
-        finally {
+        } finally {
           log.debug2("finishing crawl status updates...");
-          auState.newCrawlFinished(crawlerStatus.getCrawlStatus(),null);
+          auState.newCrawlFinished(crawlerStatus.getCrawlStatus(), null);
           crawlerStatus.signalCrawlEnded();
           ApiUtils.getPluggableCrawlManager().handleCrawlComplete(crawlerStatus);
           setThreadName(threadName + ": idle");
           log.debug2("{} terminating", this);
+          lockssRunnable = null;
         }
       }
     };
     return lockssRunnable;
   }
 
-  private void deleteTmpDir() {
+  void deleteTmpDir() {
     log.debug("Deleting tree at {}", tmpDir);
-    boolean isDeleted=true;
-    if(tmpDir!= null) {
+    boolean isDeleted = true;
+    if (tmpDir != null) {
       isDeleted = FileUtil.delTree(tmpDir);
     }
     log.trace("isDeleted = {}", isDeleted);
@@ -245,9 +261,14 @@ public class CmdLineCrawl extends PluggableCrawl {
     }
   }
 
+  L4JLogger getLog() {
+    return log;
+  }
+
   private class StreamGobbler extends Thread {
     InputStream is;
     String type;
+
     private StreamGobbler(InputStream is, String type) {
       this.is = is;
       this.type = type;
@@ -262,10 +283,9 @@ public class CmdLineCrawl extends PluggableCrawl {
 
         while ((line = br.readLine()) != null) {
           if (type.equals("ERROR")) {
-            if(line.endsWith(":")) {
-              pre=line;
-            }
-            else {
+            if (line.endsWith(":")) {
+              pre = line;
+            } else {
               parseLine(pre, line);
               pre = null;
             }
@@ -282,8 +302,7 @@ public class CmdLineCrawl extends PluggableCrawl {
             log.log(Level.toLevel(outputLogLevel), line);
           }
         }
-      }
-      catch (IOException ioe) {
+      } catch (IOException ioe) {
         log.error("Exception thrown while reading stream output.", ioe);
       }
     }
@@ -291,31 +310,31 @@ public class CmdLineCrawl extends PluggableCrawl {
 
   public void parseLine(String pre, String line) {
     String msg_line = line;
-    if(pre != null)
-      msg_line = pre + " " +line;
+    if (pre != null) {
+      msg_line = StringUtil.removeTrailing(pre,":")+ " " + line;
+    }
     // extract any urls from the line (there s/b only one)
     List<String> urls = extractUrls(msg_line);
     // extract the url
-    if(urls.isEmpty()) return;
-    if(urls.size() > 1) {
-      log.warn ("Found multiple urls in message line: "+ msg_line);
+    if (urls.isEmpty()) return;
+    if (urls.size() > 1) {
+      log.warn("Found multiple urls in message line: " + msg_line);
     }
     String url = urls.get(0);
     // extract the file extension
     String ext = null;
     try {
       ext = UrlUtil.getFileExtension(url);
-    }
-    catch (MalformedURLException e) {
+    } catch (MalformedURLException e) {
       log.warn("Attempt to parse log line with malformed url.");
     }
 
     // check for success
     Matcher matcher = successPattern.matcher(msg_line);
-    if(matcher.matches()) {
+    if (matcher.matches()) {
       try {
         String stem = UrlUtil.getUrlPrefix(url);
-        if(!stems.contains(stem)) stems.add(stem);
+        if (!stems.contains(stem)) stems.add(stem);
       } catch (MalformedURLException e) {
         log.error("Found malformed url: " + url);
       }
@@ -323,21 +342,19 @@ public class CmdLineCrawl extends PluggableCrawl {
       crawlerStatus.signalUrlFetched(url);
       crawlerStatus.addContentBytesFetched(bytesFetched);
       if (ext != null) {
-        crawlerStatus.signalMimeTypeOfUrl(MimeUtil.getMimeTypeFromExtension(ext),url);
+        crawlerStatus.signalMimeTypeOfUrl(MimeUtil.getMimeTypeFromExtension(ext), url);
       }
-    }
-    else {
+    } else {
       //check for error
       matcher = errorPattern.matcher(msg_line);
-      if(matcher.matches()) {
+      if (matcher.matches()) {
         int idx = msg_line.indexOf(ERROR_STR);
-        String error = msg_line.substring(idx+ERROR_STR.length());
+        String error = msg_line.substring(idx + ERROR_STR.length());
         crawlerStatus.signalErrorForUrl(url, error);
         if (ext != null) {
-          crawlerStatus.signalMimeTypeOfUrl(MimeUtil.getMimeTypeFromExtension(ext),url);
+          crawlerStatus.signalMimeTypeOfUrl(MimeUtil.getMimeTypeFromExtension(ext), url);
         }
-      }
-      else {
+      } else {
         log.warn("Unknown pattern while parsing log line: " + line);
       }
     }
@@ -346,8 +363,7 @@ public class CmdLineCrawl extends PluggableCrawl {
   /**
    * Returns a list with all links contained in the input
    */
-  public static List<String> extractUrls(String text)
-  {
+  public static List<String> extractUrls(String text) {
     List<String> containedUrls = new ArrayList<String>();
     Matcher m = urlPattern.matcher(text);
 
@@ -360,10 +376,10 @@ public class CmdLineCrawl extends PluggableCrawl {
   public static long extractBytes(String str) {
     long bytes = 0;
     Matcher m = bytesPattern.matcher(str);
-    if(m.find()) {
+    if (m.find()) {
       // [nnn/nnn]
       String found = str.substring(m.start(0), m.end(0));
-      String bytestr = found.substring(1,found.indexOf("/"));
+      String bytestr = found.substring(1, found.indexOf("/"));
       bytes = Long.parseLong(bytestr);
     }
     return bytes;

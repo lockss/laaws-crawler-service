@@ -8,7 +8,12 @@ import org.lockss.crawler.CrawlerStatus;
 import org.lockss.laaws.crawler.impl.PluggableCrawlManager;
 import org.lockss.laaws.crawler.model.CrawlerConfig;
 import org.lockss.plugin.ArchivalUnit;
+import org.lockss.plugin.AuTestUtil;
+import org.lockss.plugin.AuUtil;
 import org.lockss.state.AuState;
+import org.lockss.test.MockArchivalUnit;
+import org.lockss.test.MockLockssDaemon;
+import org.lockss.test.MockPlugin;
 import org.lockss.util.rest.repo.LockssRepository;
 import org.lockss.util.ListUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
@@ -21,7 +26,12 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ThreadPoolExecutor;
 
+import static org.lockss.laaws.crawler.impl.pluggable.CmdLineCrawler.ATTR_COMPRESSED_WARC_FILE_EXTENSION;
+import static org.lockss.laaws.crawler.impl.pluggable.CmdLineCrawler.ATTR_COMPRESS_WARC;
+import static org.lockss.laaws.crawler.impl.pluggable.CmdLineCrawler.ATTR_UNCOMPRESSED_WARC_FILE_EXTENSION;
+import static org.lockss.laaws.crawler.impl.pluggable.CmdLineCrawler.ATTR_UNSUPPORTED_PARAMS;
 import static org.mockito.Mockito.*;
 
 class TestCmdLineCrawler extends LockssTestCase5 {
@@ -63,6 +73,7 @@ class TestCmdLineCrawler extends LockssTestCase5 {
     crawlerConfig.setCrawlerId(DEF_CRAWLER_ID);
     crawlerConfig.setAttributes(attrs);
     pluggableCrawlManager = mock(PluggableCrawlManager.class);
+
     lockssRepository = mock(LockssRepository.class);
     cmdLineCrawler = new CmdLineCrawler()
       .setCrawlManager(pluggableCrawlManager)
@@ -70,6 +81,7 @@ class TestCmdLineCrawler extends LockssTestCase5 {
       .setConfig(crawlerConfig)
       .setV2Repo(lockssRepository)
       .setCmdLineBuilder(new TestCommandLineBuilder());
+
     cmdLineCrawler.updateCrawlerConfig(crawlerConfig);
     when(pluggableCrawlManager.isEligibleForCrawl(DEF_AU_ID)).thenReturn(true);
   }
@@ -88,7 +100,6 @@ class TestCmdLineCrawler extends LockssTestCase5 {
     CrawlJob crawlJob = makeMockCrawlJob(DEF_AU_ID, DEF_CRAWLER_ID);
     ArchivalUnit au = mock(ArchivalUnit.class);
     when(au.getName()).thenReturn(DEF_AU_ID);
-    cmdLineCrawler.requestCrawl(au,crawlJob);
     cmdLineCrawler.deleteAllCrawls();
     assertEquals(0, cmdLineCrawler.crawlMap.size());
   }
@@ -113,7 +124,7 @@ class TestCmdLineCrawler extends LockssTestCase5 {
       when(lockssRepository.isReady()).thenReturn(true);
       cmdLineCrawler.storeInRepository(DEF_AU_ID, warcfile, false);
       verify(lockssRepository,times(1)).addArtifacts(anyString(),anyString(),anyObject(),
-        anyObject(),anyBoolean(),anyBoolean(),anyString());
+        anyObject(),anyBoolean(),anyString());
     }
     catch (IOException e) {
       fail("store Warc failed");
@@ -133,9 +144,13 @@ class TestCmdLineCrawler extends LockssTestCase5 {
   void stopCrawlShouldRemoveTheCrawlFromTheMap() {
     when(pluggableCrawlManager.isEligibleForCrawl(DEF_AU_ID)).thenReturn(true);
     CrawlJob crawlJob = makeMockCrawlJob(DEF_AU_ID,DEF_CRAWLER_ID);
+    AuState auState = mock(AuState.class);
     ArchivalUnit au = mock(ArchivalUnit.class);
+    AuState aus = mock(AuState.class);
+    cmdLineCrawler.setCrawlQueueExecutor(mock(ThreadPoolExecutor.class));
     when(au.getName()).thenReturn(DEF_AU_ID);
-    cmdLineCrawler.requestCrawl(au,crawlJob);
+    CmdLineCrawl crawl = (CmdLineCrawl)cmdLineCrawler.requestCrawl(au,crawlJob);
+    crawl.setAuState(aus);
     assertEquals(1, cmdLineCrawler.crawlMap.size());
     cmdLineCrawler.stopCrawl(DEF_JOB_ID);
     assertEquals(0, cmdLineCrawler.crawlMap.size());
@@ -147,9 +162,11 @@ class TestCmdLineCrawler extends LockssTestCase5 {
     when(pluggableCrawlManager.isEligibleForCrawl(DEF_AU_ID)).thenReturn(false);
     CrawlJob crawlJob = makeMockCrawlJob(DEF_AU_ID,DEF_CRAWLER_ID);
     ArchivalUnit au = mock(ArchivalUnit.class);
+    AuState auState = mock(AuState.class);
     when(au.getName()).thenReturn(DEF_AU_ID);
     when(au.getAuId()).thenReturn(DEF_AU_ID);
     CmdLineCrawl clCrawl = new CmdLineCrawl(cmdLineCrawler, au, crawlJob);
+    clCrawl.setAuState(auState);
     cmdLineCrawler.crawlMap.put(crawlJob.getJobId(), clCrawl);
     JobStatus status = crawlJob.getJobStatus();
     status.setStatusCode(JobStatus.StatusCodeEnum.QUEUED);
@@ -167,9 +184,17 @@ class TestCmdLineCrawler extends LockssTestCase5 {
     attr.put(ATTR_CRAWLER_ID, "classic");
     attr.put(ATTR_CRAWLING_ENABLED, "true");
     attr.put(ATTR_STARTER_ENABLED, "true");
+    attr.put(ATTR_COMPRESSED_WARC_FILE_EXTENSION,".wgz");
+    attr.put(ATTR_UNCOMPRESSED_WARC_FILE_EXTENSION,".w");
+    attr.put(ATTR_UNSUPPORTED_PARAMS, "--wait;--no-warc-compression");
+    attr.put(ATTR_COMPRESS_WARC,"false");
     crawlerConfig.setAttributes(attr);
     cmdLineCrawler.updateCrawlerConfig(crawlerConfig);
     assertEquals(crawlerConfig, cmdLineCrawler.getCrawlerConfig());
+    assertEquals(ListUtil.list("*.wgz","*.w"),cmdLineCrawler.warcFileFilter);
+    assertEquals(2, cmdLineCrawler.unsupportedParams.size());
+    assertTrue(cmdLineCrawler.unsupportedParams.contains("--wait"));
+    assertTrue(cmdLineCrawler.unsupportedParams.contains("--no-warc-compression"));
   }
 
   @Test
@@ -193,6 +218,7 @@ class TestCmdLineCrawler extends LockssTestCase5 {
   CrawlJob makeMockCrawlJob(String auId, String crawlerId) {
     CrawlJob crawlJob = mock(CrawlJob.class);
     CrawlDesc crawlDesc = makeMockCrawlDesc(auId, crawlerId);
+    AuState auState = mock(AuState.class);
     JobStatus js = new JobStatus();
     when(crawlJob.getCrawlDesc()).thenReturn(crawlDesc);
     when(crawlJob.getJobStatus()).thenReturn(js);
@@ -211,8 +237,7 @@ class TestCmdLineCrawler extends LockssTestCase5 {
     return crawlDesc;
   }
 
-
-  static class TestCommandLineBuilder implements CmdLineCrawler.CommandLineBuilder {
+    static class TestCommandLineBuilder implements CmdLineCrawler.CommandLineBuilder {
 
     @Override
     public List<String> buildCommandLine(CrawlDesc crawlDesc, File tmpDir) {

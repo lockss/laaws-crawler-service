@@ -82,6 +82,7 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
   private static final String NOT_INITIALIZED_MESSAGE = "The service has not been fully initialized";
   private static final String UNKNOWN_CRAWLER_MESSAGE = "No registered crawler with id:";
   private static final String UNKNOWN_CRAWL_TYPE = "Unknown crawl kind:";
+  public static final String AU_HAS_QUEUED_OR_ACTIVE_CRAWL = "AU has queued or active crawl";
 
   private final HttpServletRequest request;
 
@@ -226,11 +227,8 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
       return new ResponseEntity<>(crawlJob, httpStatus);
     }
     catch (Exception ex) {
-      String message = "Attempted crawl of '" + crawlDesc + "' failed.";
-      logCrawlError(message, crawlJob);
-      if (log.isDebugEnabled()) {
-        ex.printStackTrace();
-      }
+      String message = "Attempted crawl of '" + crawlDesc.getAuId() + "' failed:" +ex.getMessage();
+      logCrawlError(message, crawlJob,ex);
       return new ResponseEntity<>(crawlJob, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
@@ -477,8 +475,7 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
     ArchivalUnit au = getPluginManager().getAuFromId(crawlDesc.getAuId());
     AuState austate = AuUtil.getAuState(au);
     if(!isRepair && !pcMgr.isEligibleForCrawl(auId)) {
-      msg = "AU has queued or active crawl";
-      logCrawlError(msg, crawlJob);
+      logCrawlError(AU_HAS_QUEUED_OR_ACTIVE_CRAWL, crawlJob);
       return HttpStatus.BAD_REQUEST;
     }
 
@@ -529,7 +526,7 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
     }
     catch (RuntimeException e) {
       msg = "Can't enqueue crawl for AU ";
-      logCrawlError(msg, crawlJob);
+      logCrawlError(msg, crawlJob, e);
       return HttpStatus.INTERNAL_SERVER_ERROR;
     }
 
@@ -557,11 +554,16 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
 
 
   private void logCrawlError(String message, CrawlJob crawlJob) {
-    // Yes: Report the problem.
-    log.error(message);
+    logCrawlError(message, crawlJob, null);
+  }
+  private void logCrawlError(String message,CrawlJob crawlJob, Throwable ex) {
+    if(ex != null) {
+      log.error(message, ex);
+    } else {
+      log.error(message);
+    }
     log.error("crawlDesc = {}", crawlJob.getCrawlDesc());
     crawlJob.jobStatus(new JobStatus().statusCode(JobStatus.StatusCodeEnum.ERROR).msg(message));
     log.debug2("crawlJob = {}", crawlJob);
   }
-
 }

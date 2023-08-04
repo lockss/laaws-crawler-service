@@ -81,6 +81,7 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
   private static final String USE_FORCE_MESSAGE = "Use the 'force' parameter to override.";
   private static final String NOT_INITIALIZED_MESSAGE = "The service has not been fully initialized";
   private static final String UNKNOWN_CRAWLER_MESSAGE = "No registered crawler with id:";
+  private static final String DISABLED_CRAWLER_MESSAGE = "The requested crawler is disabled:";
   private static final String UNKNOWN_CRAWL_TYPE = "Unknown crawl kind:";
   public static final String AU_HAS_QUEUED_OR_ACTIVE_CRAWL = "AU has queued or active crawl";
 
@@ -497,6 +498,10 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
     PluggableCrawler crawler = pcMgr.getCrawler(crawlerId);
     if (crawler == null) {
       logCrawlError(UNKNOWN_CRAWLER_MESSAGE + crawlerId, crawlJob);
+      return HttpStatus.BAD_REQUEST;
+    }
+    if (!crawler.isCrawlerEnabled()) {
+      logCrawlError(DISABLED_CRAWLER_MESSAGE + crawlerId, crawlJob);
       return HttpStatus.BAD_REQUEST;
     }
     crawlJob.requestDate(TimeBase.nowMs());

@@ -27,5 +27,34 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-ARG LOCKSS_SPRING_VERSION
-FROM lockss/lockss-spring:${LOCKSS_SPRING_VERSION}
+#
+# SERVICE-LEVEL
+#
+
+# None
+
+#
+# SYSTEM-LEVEL
+#
+
+# Enable crawls of plugin registries only
+org.lockss.crawler.enabled=true
+org.lockss.daemon.crawlMode=NonPlugins
+# if false this will turn off all pluggable crawlers
+org.lockss.crawlerservice.pluggableEnabled=true
+# The path to the pluggable crawlmanager db
+org.lockss.crawlerservice.dbPath=./crawlerDb
+
+# The list of supported crawlers
+org.lockss.crawlerservice.crawlers=classic;wget
+
+# The lockss/default crawler
+org.lockss.crawlerservice.classic.enabled=true
+
+# The wget crawler
+org.lockss.crawlerservice.wget.enabled=true
+org.lockss.crawlerservice.wget.crawler=org.lockss.laaws.crawler.wget.WgetCmdLineCrawler
+org.lockss.crawlerservice.wget.successCode=0;8
+# Default is verbose set to no-verbose
+org.lockss.crawlerservice.wget.outputLevel=no-verbose
+org.lockss.crawlerservice.wget.opt.warc-keep-log=off

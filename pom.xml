@@ -1,10 +1,45 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+Copyright (c) 2000-2022, Board of Trustees of Leland Stanford Jr. University
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice,
+this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and the following disclaimer in the documentation
+and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors
+may be used to endorse or promote products derived from this software without
+specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
+
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
     <groupId>org.lockss</groupId>
     <artifactId>lockss-parent-pom</artifactId>
-    <version>1.9.0-SNAPSHOT</version>
+    <version>1.16.0</version>
+    <relativePath />
   </parent>
 
   <groupId>org.lockss.laaws</groupId>
@@ -12,22 +47,29 @@
   <version>1.0.0</version>
   <packaging>jar</packaging>
 
-  <name>crawler</name>
-  <description>LAAWS Crawler Service</description>
+  <name>laaws-crawler-service</name>
+  <description>LOCKSS Crawler Service</description>
 
   <properties>
-    <skipSpringBootRepackage>false</skipSpringBootRepackage>
-    <springServicePort>24620</springServicePort>
-    <!-- The main class to start by executing java -jar -->
-    <start-class>org.lockss.laaws.crawler.CrawlerApplication</start-class>
-    <skipDocker>false</skipDocker>
+    <!-- Is a Spring project -->
+    <build.java.spring.skip>false</build.java.spring.skip>
+    <build.java.package>org.lockss.laaws.crawler</build.java.package>
+    <build.java.mainClass>${build.java.package}.CrawlerApplication</build.java.mainClass>
+
+    <!-- Is a Docker project -->
+    <build.docker.skip>false</build.docker.skip>
+    <build.docker.dockerBuild.restPort>24660</build.docker.dockerBuild.restPort>
+    <build.docker.dockerBuild.uiPort>24661</build.docker.dockerBuild.uiPort>
+
+    <!-- Needs lockss-legacy repository for lockss-plugins -->
+    <!--repository.enabled.lockss-legacy>true</repository.enabled.lockss-legacy -->
   </properties>
 
   <dependencies>
     <dependency>
       <groupId>org.lockss</groupId>
       <artifactId>lockss-junit4-bundle</artifactId>
-      <version>${lockss.junit4.bundleVersion}</version>
+      <version>${version.lockss.lockss-junit4-bundle}</version>
       <type>pom</type>
       <scope>test</scope>
     </dependency>
@@ -35,123 +77,47 @@
     <dependency>
       <groupId>org.lockss</groupId>
       <artifactId>lockss-spring-bundle</artifactId>
-      <version>${lockss.spring.bundleVersion}</version>
+      <version>${version.lockss.lockss-spring-bundle}</version>
     </dependency>
 
     <dependency>
       <groupId>org.lockss</groupId>
-      <artifactId>lockss-core-bundle</artifactId>
-      <version>${lockss.core.bundleVersion}</version>
-      <type>pom</type>
+      <artifactId>lockss-spring-bundle</artifactId>
+      <version>${version.lockss.lockss-spring-bundle}</version>
+      <type>test-jar</type>
+      <scope>test</scope>
     </dependency>
 
     <dependency>
       <groupId>org.lockss</groupId>
       <artifactId>lockss-core-tests-bundle</artifactId>
-      <version>${lockss.core.bundleVersion}</version>
+      <version>${version.lockss.lockss-core-bundle}</version>
       <type>pom</type>
       <scope>test</scope>
     </dependency>
+
     <dependency>
-      <groupId>org.lockss</groupId>
-      <artifactId>lockss-plugins</artifactId>
-      <version>${lockss.plugins.version}</version>
+      <groupId>org.dizitart</groupId>
+      <artifactId>nitrite</artifactId>
+      <version>3.4.4</version>
+      <exclusions>
+        <exclusion>
+          <groupId>com.fasterxml.jackson.core</groupId>
+          <artifactId>jackson-annotations</artifactId>
+        </exclusion>
+      </exclusions>    </dependency>
+
+    <dependency>
+      <groupId>com.fasterxml.jackson.datatype</groupId>
+      <artifactId>jackson-datatype-jsr310</artifactId>
+      <version>${version.group.jackson}</version>
     </dependency>
+
     <dependency>
-      <groupId>org.mapstruct</groupId>
-      <artifactId>mapstruct-jdk8</artifactId>
-      <version>1.2.0.Final</version>
-    </dependency>    </dependencies>
+      <groupId>com.fasterxml.jackson.datatype</groupId>
+      <artifactId>jackson-datatype-jdk8</artifactId>
+      <version>${version.group.jackson}</version>
+    </dependency>
 
-  <build>
-    <sourceDirectory>src/main/java</sourceDirectory>
-    <plugins>
-      <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>build-helper-maven-plugin</artifactId>
-        <version>3.0.0</version>
-        <executions>
-          <execution>
-            <id>add-source</id>
-            <phase>generate-sources</phase>
-            <goals>
-              <goal>add-source</goal>
-            </goals>
-            <configuration>
-              <sources>
-                <source>src/generated</source>
-              </sources>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-
-      <plugin>
-        <groupId>io.swagger.codegen.v3</groupId>
-        <artifactId>swagger-codegen-maven-plugin</artifactId>
-        <version>3.0.2</version>
-        <executions>
-          <execution>
-            <id>generate-swagger-sources</id>
-            <phase>generate-sources</phase>
-            <goals>
-              <goal>generate</goal>
-            </goals>
-            <configuration>
-              <inputSpec>${project.basedir}/docs/swagger.yaml</inputSpec>
-              <language>spring</language>
-              <output>${project.basedir}</output>
-              <configOptions>
-                <basePackage>org.lockss.laaws.crawler</basePackage>
-                <apiPackage>org.lockss.laaws.crawler.api</apiPackage>
-                <configPackage>org.lockss.laaws.crawler.config</configPackage>
-                <invokerPackage>org.lockss.laaws.crawler</invokerPackage>
-                <modelPackage>org.lockss.laaws.crawler.model</modelPackage>
-                <hideGenerationTimestamp>true</hideGenerationTimestamp>
-                <java8>true</java8>
-                <delegatePattern>true</delegatePattern>
-                <sourceFolder>src/generated/java</sourceFolder>
-                <swaggerDocketConfig>true</swaggerDocketConfig>
-              </configOptions>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-
-      <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>exec-maven-plugin</artifactId>
-        <version>1.6.0</version>
-        <executions>
-          <execution>
-            <id>fix-generated-swagger-sources</id>
-            <phase>generate-sources</phase>
-            <goals>
-              <goal>exec</goal>
-            </goals>
-            <configuration>
-              <skip>${skipCodegenFix}</skip>
-              <workingDirectory>${project.basedir}</workingDirectory>
-              <executable>${project.basedir}/scripts/swaggerProcessing.sh</executable>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-    </plugins>
-  </build>
-
-  <repositories>
-    <repository>
-      <id>lockss-legacy</id>
-      <name>LOCKSS Legacy JARs</name>
-      <url>https://github.com/lockss/lockss-legacy-jars/raw/master/maven2</url>
-      <snapshots>
-        <enabled>false</enabled>
-      </snapshots>
-      <releases>
-        <enabled>true</enabled>
-      </releases>
-    </repository>
-  </repositories>
-
+  </dependencies>
 </project>

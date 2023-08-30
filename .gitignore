@@ -178,3 +178,11 @@ local.properties
 
 # .nfs files are created when an open file is removed but is still being accessed
 .nfs*
+
+.swagger-codegen/
+/TAGS
+/logs
+/cache/
+/cache
+/.idea
+/.surefire-*

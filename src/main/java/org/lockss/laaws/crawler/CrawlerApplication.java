@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Board of Trustees of Leland Stanford Jr. University,
+ * Copyright (c) 2018-2020 Board of Trustees of Leland Stanford Jr. University,
  * all rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -27,44 +27,54 @@
 package org.lockss.laaws.crawler;
 
 import static org.lockss.app.LockssApp.PARAM_START_PLUGINS;
+import static org.lockss.app.LockssApp.managerKey;
 import static org.lockss.app.ManagerDescs.*;
+
 import org.lockss.app.LockssApp;
 import org.lockss.app.LockssApp.AppSpec;
 import org.lockss.app.LockssApp.ManagerDesc;
 import org.lockss.app.LockssDaemon;
+import org.lockss.app.ServiceDescr;
+import org.lockss.crawler.CrawlManagerImpl;
+import org.lockss.laaws.crawler.impl.PluggableCrawlManager;
 import org.lockss.plugin.PluginManager;
 import org.lockss.spring.base.BaseSpringBootApplication;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.solr.SolrAutoConfiguration;
 import springfox.documentation.swagger2.annotations.EnableSwagger2;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-@SpringBootApplication
+/**
+ * The Spring-Boot application.
+ */
+@SpringBootApplication(exclude = {SolrAutoConfiguration.class})
 @EnableSwagger2
-public class CrawlerApplication extends BaseSpringBootApplication
-    implements CommandLineRunner {
-  private static final Logger logger = LoggerFactory.getLogger(CrawlerApplication.class);
+public class CrawlerApplication extends BaseSpringBootApplication implements CommandLineRunner {
 
-  LockssApp lockssApp;
+  public static final String PLUGGABLE_CRAWL_MANAGER = managerKey(PluggableCrawlManager.class);
+  private static final Logger logger = LoggerFactory.getLogger(CrawlerApplication.class);
+  public static ManagerDesc PLUGGABLE_CRAWL_MANAGER_DESC =
+    new ManagerDesc(PLUGGABLE_CRAWL_MANAGER,
+      "org.lockss.laaws.crawler.impl.PluggableCrawlManager");
 
   // Manager descriptors.  The order of this table determines the order in
   // which managers are initialized and started.
   private static final ManagerDesc[] myManagerDescs = {
-      ACCOUNT_MANAGER_DESC,
+    ACCOUNT_MANAGER_DESC,
       CONFIG_DB_MANAGER_DESC,
-      // start plugin manager after generic services
-      PLUGIN_MANAGER_DESC,
-      IDENTITY_MANAGER_DESC,
-      CRAWL_MANAGER_DESC,
-      REPOSITORY_MANAGER_DESC,
-      SERVLET_MANAGER_DESC,
-      PROXY_MANAGER_DESC,
-      PLATFORM_CONFIG_STATUS_DESC,
-      CONFIG_STATUS_DESC,
-      ARCHIVAL_UNIT_STATUS_DESC,
-      OVERVIEW_STATUS_DESC
+    // start plugin manager after generic services
+    PLUGIN_MANAGER_DESC,
+    STATE_MANAGER_DESC,
+    CRAWL_MANAGER_DESC,
+    PLUGGABLE_CRAWL_MANAGER_DESC,
+    REPOSITORY_MANAGER_DESC,
+    SERVLET_MANAGER_DESC,
+    CONFIG_STATUS_DESC,
+    ARCHIVAL_UNIT_STATUS_DESC,
+    OVERVIEW_STATUS_DESC
   };
 
   /**
@@ -73,7 +83,7 @@ public class CrawlerApplication extends BaseSpringBootApplication
    * @param args A String[] with the command line arguments.
    */
   public static void main(String[] args) {
-    logger.info("Starting the Crawler REST service...");
+    logger.info("Starting the application");
     configure();
 
     // Start the REST service.
@@ -89,16 +99,26 @@ public class CrawlerApplication extends BaseSpringBootApplication
     // Check whether there are command line arguments available.
     if (args != null && args.length > 0) {
       // Yes: Start the LOCKSS daemon.
-      logger.info("Starting the LOCKSS Metadata Query Service");
-      AppSpec spec = new AppSpec()
+      logger.info("Starting the LOCKSS Crawler Service");
+      try {
+        AppSpec spec = new AppSpec()
+          .setService(ServiceDescr.SVC_CRAWLER)
           .setName("Crawler Service")
           .setArgs(args)
+          .setSpringApplicatonContext(getApplicationContext())
           .setAppManagers(myManagerDescs)
+          .addAppConfig(CrawlManagerImpl.PARAM_ENABLE_JMS_SEND,"true")
           .addAppConfig(PARAM_START_PLUGINS, "true")
           .addAppConfig(PluginManager.PARAM_START_ALL_AUS, "true");
-      logger.info("Calling LockssApp.startStatic...");
-      lockssApp = LockssApp.startStatic(LockssDaemon.class, spec);
-    } else {
+        logger.info("Calling LockssApp.startStatic...");
+        LockssApp.startStatic(LockssDaemon.class, spec);
+      }
+      catch(Exception ex) {
+        logger.error("LockssApp.startStatic failed: ", ex);
+      }
+    }
+    else {
+      logger.info("No args provided, daemon not started.");
       // No: Do nothing. This happens when a test is started and before the
       // test setup has got a chance to inject the appropriate command line
       // parameters.

@@ -1,6 +1,6 @@
 <!--
 
-Copyright (c) 2000-2018 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2019 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -29,17 +29,30 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 --> 
-# laaws-crawlerservice [![Build Status](https://travis-ci.com/lockss/laaws-crawlerservice.svg?branch=master)](https://travis-ci.com/lockss/laaws-crawlerservice)
-The LAAWS Multi-Crawler REST Web Service.
+# LOCKSS Crawler Service [![Build Status](https://travis-ci.com/lockss/laaws-crawler-service.svg?branch=master)](https://travis-ci.com/lockss/laaws-crawler-service)
+This is the REST Web Service that provides support for multple crawlers.
 
+## Note on branches
+The `master` branch is for stable releases and the `develop` branch is for
+ongoing development.
+
+## Standard build and deployment
+The LOCKSS cluster, including this project, is normally built and deployed using
+the LOCKSS Installer, which uses `docker`.
+
+You can find more information about the installation of the LOCKSS system in the
+[LOCKSS system manual](https://lockss.github.io/software/manual).
+
+## Development build and deployment
 ### Clone the repo
-`git clone ssh://git@gitlab.lockss.org/laaws/laaws-crawlerservice.git`
+`git clone -b develop ssh://github.com/lockss/laaws-crawler-service.git`
 
 ### Create the Eclipse project (if so desired)
 `File` -> `Import...` -> `Maven` -> `Existing Maven Projects`
 
 ### Build the web service:
-`./scripts/buildService`
+In the home directory of this project, where this `README.md` file resides,
+run `mvn clean install`.
 
 This will run the tests as a pre-requisite for the build.
 
@@ -47,26 +60,19 @@ The result of the build is a so-called "uber JAR" file which includes the
 project code plus all its dependencies and which can be located via the symbolic
 link at
 
-`./target/current.jar`
+`./target/current-with-deps.jar`
 
 ### Run the web service:
-`./scripts/runService`
+Run the
+[LOCKSS Development Scripts](https://github.com/lockss/laaws-dev-scripts)
+project `bin/runservice` script in the home directory of this project, where
+this `README.md` file resides.
 
-This will use port 24660. To use another port, edit the value of the
-`server.port` property in file
-`src/main/resources/application.properties`.
+The log is at `./logs/app.log`.
 
-The log is at `./logs/config.log`
+The API is documented at <http://127.0.0.1:24660/swagger-ui.html>.
 
-### Build and run the web service:
-`./scripts/buildAndRunService`
+The status of the web service may be obtained at
+<http://127.0.0.1:24660/status>.
 
-This will use port 24660. To use another port, edit the value of the
-`server.port` property in file
-`src/main/resources/application.properties`.
-
-### API is documented at:
-#### http://localhost:24660/swagger-ui.html
-
-### The status of the web service may be obtained at:
-#### http://localhost:24660/status
+The administration UI of the web service is at <http://127.0.0.1:24661>.

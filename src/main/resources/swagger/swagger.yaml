@@ -149,33 +149,6 @@ paths:
           description: "Not Found"
         '500':
           description: "Internal Server Error"
-    delete:
-      summary: Remove or stop a crawl
-      tags:
-        - crawls
-      description: >-
-        Delete a crawl given the crawl identifier, stopping any current
-        processing, if necessary.
-      operationId: deleteCrawlById
-      parameters:
-        - name: jobId
-          in: path
-          description: The identifier used to identify a specific crawl.
-          required: true
-          type: string
-      responses:
-        '200':
-          description: The deleted crawl
-          schema:
-            $ref: '#/definitions/crawlStatus'
-        '401':
-          description: "Unauthorized"
-        '403':
-          description: Forbidden
-        '404':
-          description: "Not Found"
-        '500':
-          description: "Internal Server Error"
   '/crawls/{jobId}/fetched':
     get:
       tags:
@@ -484,6 +457,56 @@ paths:
           description: "Bad Request"
         '401':
           description: "Unauthorized"
+        '500':
+          description: "Internal Server Error"
+  '/jobs/{jobId}':
+    get:
+      tags:
+        - jobs
+      summary: Get the crawl status of this job
+      description: Get the crawl job with a given crawl id
+      operationId: getCrawlJob
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          type: string
+      responses:
+        '200':
+          description: The crawl Job of the requested crawl
+          schema:
+            $ref: '#/definitions/crawlJob'
+        '401':
+          description: "Unauthorized"
+        '404':
+          description: "Not Found"
+        '500':
+          description: "Internal Server Error"
+    delete:
+      summary: Remove or stop a crawl job.
+      tags:
+        - jobs
+      description: >-
+        Delete a crawl job with the given job id, stopping any current
+        processing, if necessary.
+      operationId: deleteCrawlJob
+      parameters:
+        - name: jobId
+          in: path
+          description: The identifier used to identify a specific crawl job.
+          required: true
+          type: string
+      responses:
+        '200':
+          description: The crawlJob of the deleted crawl.
+          schema:
+            $ref: '#/definitions/crawlJob'
+        '401':
+          description: "Unauthorized"
+        '403':
+          description: Forbidden
+        '404':
+          description: "Not Found"
         '500':
           description: "Internal Server Error"
   '/status':

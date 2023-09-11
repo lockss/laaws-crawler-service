@@ -70,62 +70,6 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
     this.request = request;
   }
 
-  /**
-   * Deletes a crawl previously added to the crawl queue, stopping the crawl if already running.
-   *
-   * @param jobId A String with the identifier assigned to the crawl when added.
-   * @return a {@code ResponseEntity<CrawlStatus>} with the status of the deleted crawl.
-   * @see CrawlsApi#deleteCrawlById
-   */
-  @Override
-  public ResponseEntity<CrawlStatus> deleteCrawlById(String jobId) {
-    log.debug2("jobId = {}", jobId);
-
-    CrawlStatus crawlStatus;
-    JobStatus jobStatus;
-    try {
-      // Check whether the service has not been fully initialized.
-      if (!waitReady()) {
-        // Yes: Report the problem.
-        log.error(NOT_INITIALIZED_MESSAGE);
-        log.error("jobId = {}", jobId);
-        jobStatus = new JobStatus().statusCode(StatusCodeEnum.ERROR).msg(NOT_INITIALIZED_MESSAGE);
-        crawlStatus = new CrawlStatus().jobId(jobId).jobStatus(jobStatus);
-        return new ResponseEntity<>(crawlStatus, HttpStatus.SERVICE_UNAVAILABLE);
-      }
-
-      CrawlerStatus crawlerStatus = getCrawlerStatus(jobId);
-      log.debug2("crawlerStatus = {}", crawlerStatus);
-      String crawlerId = crawlerStatus.getCrawlerId();
-
-      if (crawlerStatus.isCrawlWaiting() || crawlerStatus.isCrawlActive()) {
-        if(crawlerId.equals(CLASSIC_CRAWLER_ID))
-          getLockssCrawlManager().deleteCrawl(crawlerStatus.getAu());
-        else {
-          PluggableCrawler crawler = getPluggableCrawlManager().getCrawler(crawlerStatus.getCrawlerId());
-          if(crawler != null) {
-            crawler.stopCrawl(jobId);
-          }
-        }
-      }
-      return new ResponseEntity<>(ApiUtils.makeCrawlStatus(crawlerStatus), HttpStatus.OK);
-    }
-    catch (NotFoundException nfe) {
-      String message = "No crawl found for jobId '" + jobId + "'.";
-      log.warn(message);
-      HttpStatus httpStatus = HttpStatus.NOT_FOUND;
-      jobStatus = new JobStatus().statusCode(StatusCodeEnum.ERROR).msg(message);
-      crawlStatus = new CrawlStatus().jobId(jobId).jobStatus(jobStatus);
-      return new ResponseEntity<>(crawlStatus, httpStatus);
-    }
-    catch (Exception e) {
-      String message = "Cannot deleteCrawlById() for jobId = '" + jobId + "'";
-      log.error(message, e);
-      jobStatus = new JobStatus().statusCode(StatusCodeEnum.ERROR).msg(message);
-      crawlStatus = new CrawlStatus().jobId(jobId).jobStatus(jobStatus);
-      return new ResponseEntity<>(crawlStatus, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
-  }
 
   /**
    * Provides the status of a requested crawl.

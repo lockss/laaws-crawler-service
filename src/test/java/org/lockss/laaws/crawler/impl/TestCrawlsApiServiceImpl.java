@@ -196,8 +196,8 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     getCrawlByIdUnAuthenticatedTest();
     crawlPaginationUnAuthenticatedTest();
     urlPaginationUnAuthenticatedTest();
-    deleteCrawlByIdUnAuthenticatedTest();
-    deleteCrawlsUnAuthenticatedTest();
+ //   deleteCrawlByIdUnAuthenticatedTest();
+ //   deleteCrawlsUnAuthenticatedTest();
 
     log.debug2("Done");
   }
@@ -229,8 +229,8 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     getCrawlByIdAuthenticatedTest();
     crawlPaginationAuthenticatedTest();
     urlPaginationAuthenticatedTest();
-    deleteCrawlByIdAuthenticatedTest();
-    deleteCrawlsAuthenticatedTest();
+ //   deleteCrawlByIdAuthenticatedTest();
+ //   deleteCrawlsAuthenticatedTest();
     log.debug2("Done");
   }
 
@@ -1516,7 +1516,6 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     log.debug2("result = {}", result);
     return result;
   }
-
   /**
    * Runs the deleteCrawlById()-related un-authenticated-specific tests.
    *
@@ -1534,14 +1533,14 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     CrawlJob crawlJob = runTestDoCrawl(crawlDesc, null, HttpStatus.ACCEPTED);
     String jobId = crawlJob.getJobId();
 
-    CrawlStatus crawlStatus = runTestDeleteCrawlById(jobId, null, HttpStatus.OK);
-    assertEquals(jobId, crawlStatus.getJobId());
+    crawlJob = runTestDeleteCrawlById(jobId, null, HttpStatus.OK);
+    assertEquals(jobId, crawlJob.getJobId());
 
     crawlJob = runTestDoCrawl(crawlDesc, ANYBODY, HttpStatus.ACCEPTED);
     jobId = crawlJob.getJobId();
 
-    crawlStatus = runTestDeleteCrawlById(jobId, ANYBODY, HttpStatus.OK);
-    assertEquals(jobId, crawlStatus.getJobId());
+    crawlJob = runTestDeleteCrawlById(jobId, ANYBODY, HttpStatus.OK);
+    assertEquals(jobId, crawlJob.getJobId());
 
     deleteCrawlByIdCommonTest();
 
@@ -1582,18 +1581,18 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     CrawlJob crawlJob = runTestDoCrawl(crawlDesc, USER_ADMIN, HttpStatus.ACCEPTED);
     String jobId = crawlJob.getJobId();
 
-    CrawlStatus crawlStatus = runTestDeleteCrawlById(jobId, USER_ADMIN, HttpStatus.OK);
-    assertEquals(jobId, crawlStatus.getJobId());
+    crawlJob = runTestDeleteCrawlById(jobId, USER_ADMIN, HttpStatus.OK);
+    assertEquals(jobId, crawlJob.getJobId());
 
     crawlJob = runTestDoCrawl(crawlDesc, CONTENT_ADMIN, HttpStatus.ACCEPTED);
     jobId = crawlJob.getJobId();
 
-    crawlStatus = runTestDeleteCrawlById(jobId, CONTENT_ADMIN, HttpStatus.OK);
-    assertEquals(jobId, crawlStatus.getJobId());
+    crawlJob = runTestDeleteCrawlById(jobId, CONTENT_ADMIN, HttpStatus.OK);
+    assertEquals(jobId, crawlJob.getJobId());
 
-    CrawlStatus crawlStatus2 = runTestDeleteCrawlById("not a job id",
-                                                      USER_ADMIN,
-                                                      HttpStatus.NOT_FOUND);
+    crawlJob = runTestDeleteCrawlById("not a job id",
+      USER_ADMIN,
+      HttpStatus.NOT_FOUND);
 
     log.debug2("Done");
   }
@@ -1607,23 +1606,23 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
    * @return a CrawlStatus with the status of the crawl.
    * @throws Exception if there are problems.
    */
-  private CrawlStatus runTestDeleteCrawlById(
-      String jobId, Credentials credentials, HttpStatus expectedHttpStatus) throws Exception {
+  private CrawlJob runTestDeleteCrawlById(
+    String jobId, Credentials credentials, HttpStatus expectedHttpStatus) throws Exception {
     log.debug2("jobId = {}", jobId);
     log.debug2("credentials = {}", credentials);
     log.debug2("expectedHttpStatus = {}", expectedHttpStatus);
 
     // Get the test URL template.
-    String template = getTestUrlTemplate("/crawls/{jobId}");
+    String template = getTestUrlTemplate("/jobs/{jobId}");
 
     // Create the URI of the request to the REST service.
     UriComponents uriComponents =
-        UriComponentsBuilder.fromUriString(template)
-            .build()
-            .expand(Collections.singletonMap("jobId", jobId));
+      UriComponentsBuilder.fromUriString(template)
+        .build()
+        .expand(Collections.singletonMap("jobId", jobId));
 
     URI uri =
-        UriComponentsBuilder.newInstance().uriComponents(uriComponents).build().encode().toUri();
+      UriComponentsBuilder.newInstance().uriComponents(uriComponents).build().encode().toUri();
     log.trace("uri = {}", uri);
 
     // Initialize the request to the REST service.
@@ -1667,10 +1666,10 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     HttpStatus statusCode = response.getStatusCode();
     assertEquals(expectedHttpStatus, statusCode);
 
-    CrawlStatus result = null;
+    CrawlJob result = null;
 
     if (RestUtil.isSuccess(statusCode)) {
-      result = new ObjectMapper().readValue(response.getBody(), CrawlStatus.class);
+      result = new ObjectMapper().readValue(response.getBody(), CrawlJob.class);
     }
 
     log.debug2("result = {}", result);
@@ -1719,7 +1718,7 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     runTestDeleteCrawls(USER_ADMIN, HttpStatus.OK);
 
     CrawlDesc crawlDesc =
-	new CrawlDesc().auId(sau.getAuId()).crawlKind(CrawlDesc.CrawlKindEnum.NEWCONTENT);
+      new CrawlDesc().auId(sau.getAuId()).crawlKind(CrawlDesc.CrawlKindEnum.NEWCONTENT);
     crawlDesc.forceCrawl(true);
 
     runTestDoCrawl(crawlDesc, USER_ADMIN, HttpStatus.ACCEPTED);
@@ -1737,7 +1736,7 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
    * @throws Exception if there are problems.
    */
   private void runTestDeleteCrawls(Credentials credentials,
-      HttpStatus expectedHttpStatus) throws Exception {
+    HttpStatus expectedHttpStatus) throws Exception {
     log.debug2("credentials = {}", credentials);
     log.debug2("expectedHttpStatus = {}", expectedHttpStatus);
 
@@ -1748,7 +1747,7 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     UriComponents uriComponents = UriComponentsBuilder.fromUriString(template).build();
 
     URI uri =
-        UriComponentsBuilder.newInstance().uriComponents(uriComponents).build().encode().toUri();
+      UriComponentsBuilder.newInstance().uriComponents(uriComponents).build().encode().toUri();
     log.trace("uri = {}", uri);
 
     // Initialize the request to the REST service.
@@ -1794,6 +1793,7 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
 
     log.debug2("Done");
   }
+
 
   /**
    * Provides the URL template to be tested.

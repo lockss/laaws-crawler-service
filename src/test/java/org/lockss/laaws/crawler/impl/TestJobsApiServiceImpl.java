@@ -175,7 +175,7 @@ public class TestJobsApiServiceImpl extends SpringLockssTestCase4 {
 
     startAllAusIfNecessary();
 
-    runGetSwaggerDocsTest(getTestUrlTemplate("/v2/api-docs"));
+    runGetSwaggerDocsTest(getTestUrlTemplate("/v3/api-docs"));
     runMethodsNotAllowedUnAuthenticatedTest();
     getJobsUnAuthenticatedTest();
     queueJobUnAuthenticatedTest();
@@ -204,7 +204,7 @@ public class TestJobsApiServiceImpl extends SpringLockssTestCase4 {
 
     startAllAusIfNecessary();
 
-    runGetSwaggerDocsTest(getTestUrlTemplate("/v2/api-docs"));
+    runGetSwaggerDocsTest(getTestUrlTemplate("/v3/api-docs"));
     runMethodsNotAllowedAuthenticatedTest();
     getJobsAuthenticatedTest();
     queueJobAuthenticatedTest();
@@ -230,7 +230,7 @@ public class TestJobsApiServiceImpl extends SpringLockssTestCase4 {
     CommandLineRunner runner = appCtx.getBean(CommandLineRunner.class);
     runner.run(cmdLineArgs.toArray(new String[0]));
 
-    runGetSwaggerDocsTest(getTestUrlTemplate("/v2/api-docs"));
+    runGetSwaggerDocsTest(getTestUrlTemplate("/v3/api-docs"));
     runMethodsNotAllowedUnAuthenticatedTest();
     getJobsDisabledTest();
     log.debug2("Done");

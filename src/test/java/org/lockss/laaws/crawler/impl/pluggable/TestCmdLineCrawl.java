@@ -26,8 +26,6 @@ import java.util.regex.Matcher;
 
 import static org.lockss.laaws.crawler.impl.pluggable.CmdLineCrawl.errorPattern;
 import static org.lockss.laaws.crawler.impl.pluggable.CmdLineCrawl.successPattern;
-import static org.mockito.Matchers.anyString;
-import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.*;
 
 class TestCmdLineCrawl extends LockssTestCase5 {

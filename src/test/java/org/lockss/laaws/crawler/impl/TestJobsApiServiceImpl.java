@@ -57,8 +57,8 @@ import org.lockss.util.rest.crawler.JobStatus.StatusCodeEnum;
 import org.lockss.util.time.TimerUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.boot.web.client.RestTemplateBuilder;
-import org.springframework.boot.web.server.LocalServerPort;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.context.ApplicationContext;
@@ -91,7 +91,8 @@ public class TestJobsApiServiceImpl extends SpringLockssTestCase4 {
   // used for the tests.
   @Autowired ApplicationContext appCtx;
   // The port that Tomcat is using during this test.
-  @LocalServerPort private int port;
+  @LocalServerPort
+  private int port;
   private MySimulatedArchivalUnit sau;
   static BrokerService broker;
 
@@ -376,9 +377,10 @@ public class TestJobsApiServiceImpl extends SpringLockssTestCase4 {
         new TestRestTemplate(templateBuilder).exchange(uri, method, requestEntity, String.class);
 
     // Get the response status.
-    HttpStatus statusCode = response.getStatusCode();
-    assertFalse(RestUtil.isSuccess(statusCode));
-    assertEquals(expectedStatus, statusCode);
+    HttpStatusCode statusCode = response.getStatusCode();
+    HttpStatus status = HttpStatus.valueOf(statusCode.value());
+    assertFalse(RestUtil.isSuccess(status));
+    assertEquals(expectedStatus, status);
   }
 
   /** Runs the invalid method-related authentication-independent tests. */
@@ -479,12 +481,13 @@ public class TestJobsApiServiceImpl extends SpringLockssTestCase4 {
             .exchange(uri, HttpMethod.GET, requestEntity, String.class);
 
     // Get the response status.
-    HttpStatus statusCode = response.getStatusCode();
-    assertEquals(expectedHttpStatus, statusCode);
+    HttpStatusCode statusCode = response.getStatusCode();
+    HttpStatus status = HttpStatus.valueOf(statusCode.value());
+    assertEquals(expectedHttpStatus, status);
 
     JobPager result = null;
 
-    if (RestUtil.isSuccess(statusCode)) {
+    if (RestUtil.isSuccess(status)) {
       result = new ObjectMapper().readValue(response.getBody(), JobPager.class);
     }
 
@@ -995,8 +998,9 @@ public class TestJobsApiServiceImpl extends SpringLockssTestCase4 {
             .exchange(uri, HttpMethod.DELETE, requestEntity, Void.class);
 
     // Get the response status.
-    HttpStatus statusCode = response.getStatusCode();
-    assertEquals(expectedHttpStatus, statusCode);
+    HttpStatusCode statusCode = response.getStatusCode();
+    HttpStatus status = HttpStatus.valueOf(statusCode.value());
+    assertEquals(expectedHttpStatus, status);
 //    Void result = null;
 //
 //    if (RestUtil.isSuccess(statusCode)) {
@@ -1047,12 +1051,13 @@ public class TestJobsApiServiceImpl extends SpringLockssTestCase4 {
     ResponseEntity<String> response = runTestQueueJobWithWait(crawlDesc, credentials);
 
     // Get the response status.
-    HttpStatus statusCode = response.getStatusCode();
-    assertEquals(expectedHttpStatus, statusCode);
+    HttpStatusCode statusCode = response.getStatusCode();
+    HttpStatus status = HttpStatus.valueOf(statusCode.value());
+    assertEquals(expectedHttpStatus, status);
 
     CrawlJob result = null;
 
-    if (RestUtil.isSuccess(statusCode)) {
+    if (RestUtil.isSuccess(status)) {
       result = new ObjectMapper().readValue(response.getBody(), CrawlJob.class);
     }
 
@@ -1130,11 +1135,12 @@ public class TestJobsApiServiceImpl extends SpringLockssTestCase4 {
               .exchange(uri, HttpMethod.POST, requestEntity, String.class);
 
       // Get the response status.
-      HttpStatus statusCode = response.getStatusCode();
+      HttpStatusCode statusCode = response.getStatusCode();
+      HttpStatus status = HttpStatus.valueOf(statusCode.value());
 
       // Check whether the response status is not the one that corresponds to
       // the Archival Unit being crawled.
-      if (statusCode != HttpStatus.BAD_REQUEST) {
+      if (status != HttpStatus.BAD_REQUEST) {
         // Yes: No need to try again.
         break;
       }

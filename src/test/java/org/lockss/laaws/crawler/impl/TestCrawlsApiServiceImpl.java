@@ -56,8 +56,8 @@ import org.lockss.util.rest.repo.LockssRepository;
 import org.lockss.util.time.TimerUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.boot.web.client.RestTemplateBuilder;
-import org.springframework.boot.web.server.LocalServerPort;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.context.ApplicationContext;
@@ -103,7 +103,8 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
   private final Credentials ANYBODY = this.new Credentials("someUser", "somePassword");
 
   // The port that Tomcat is using during this test.
-  @LocalServerPort private int port;
+  @LocalServerPort
+  private int port;
 
   // The application Context used to specify the command line arguments to be
   // used for the tests.
@@ -461,9 +462,10 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
         new TestRestTemplate(templateBuilder).exchange(uri, method, requestEntity, String.class);
 
     // Get the response status.
-    HttpStatus statusCode = response.getStatusCode();
-    assertFalse(RestUtil.isSuccess(statusCode));
-    assertEquals(expectedStatus, statusCode);
+    HttpStatusCode statusCode = response.getStatusCode();
+    HttpStatus status = HttpStatus.valueOf(statusCode.value());
+    assertFalse(RestUtil.isSuccess(status));
+    assertEquals(expectedStatus, status);
   }
 
   /**
@@ -611,12 +613,13 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
             .exchange(uri, HttpMethod.GET, requestEntity, String.class);
 
     // Get the response status.
-    HttpStatus statusCode = response.getStatusCode();
-    assertEquals(expectedHttpStatus, statusCode);
+    HttpStatusCode statusCode = response.getStatusCode();
+    HttpStatus status = HttpStatus.valueOf(statusCode.value());
+    assertEquals(expectedHttpStatus, status);
 
     CrawlPager result = null;
 
-    if (RestUtil.isSuccess(statusCode)) {
+    if (RestUtil.isSuccess(status)) {
       result = new ObjectMapper().readValue(response.getBody(), CrawlPager.class);
     }
 
@@ -853,12 +856,13 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     ResponseEntity<String> response = runTestDoCrawlWithWait(crawlDesc, credentials);
 
     // Get the response status.
-    HttpStatus statusCode = response.getStatusCode();
-    assertEquals(expectedHttpStatus, statusCode);
+    HttpStatusCode statusCode = response.getStatusCode();
+    HttpStatus status = HttpStatus.valueOf(statusCode.value());
+    assertEquals(expectedHttpStatus, status);
 
     CrawlJob result = null;
 
-    if (RestUtil.isSuccess(statusCode)) {
+    if (RestUtil.isSuccess(status)) {
       result = new ObjectMapper().readValue(response.getBody(), CrawlJob.class);
     }
 
@@ -935,11 +939,12 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
               .exchange(uri, HttpMethod.POST, requestEntity, String.class);
 
       // Get the response status.
-      HttpStatus statusCode = response.getStatusCode();
+      HttpStatusCode statusCode = response.getStatusCode();
+      HttpStatus status = HttpStatus.valueOf(statusCode.value());
 
       // Check whether the response status is not the one that corresponds to
       // the Archival Unit being crawled.
-      if (statusCode != HttpStatus.BAD_REQUEST) {
+      if (status != HttpStatus.BAD_REQUEST) {
         // Yes: No need to try again.
         break;
       }
@@ -1118,12 +1123,13 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
             .exchange(uri, HttpMethod.GET, requestEntity, String.class);
 
     // Get the response status.
-    HttpStatus statusCode = response.getStatusCode();
-    assertEquals(expectedHttpStatus, statusCode);
+    HttpStatusCode statusCode = response.getStatusCode();
+    HttpStatus status = HttpStatus.valueOf(statusCode.value());
+    assertEquals(expectedHttpStatus, status);
 
     CrawlStatus result = null;
 
-    if (RestUtil.isSuccess(statusCode)) {
+    if (RestUtil.isSuccess(status)) {
       result = new ObjectMapper().readValue(response.getBody(), CrawlStatus.class);
     }
 
@@ -1504,12 +1510,13 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
             .exchange(uri, HttpMethod.GET, requestEntity, String.class);
 
     // Get the response status.
-    HttpStatus statusCode = response.getStatusCode();
-    assertEquals(expectedHttpStatus, statusCode);
+    HttpStatusCode statusCode = response.getStatusCode();
+    HttpStatus status = HttpStatus.valueOf(statusCode.value());
+    assertEquals(expectedHttpStatus, status);
 
     UrlPager result = null;
 
-    if (RestUtil.isSuccess(statusCode)) {
+    if (RestUtil.isSuccess(status)) {
       result = new ObjectMapper().readValue(response.getBody(), UrlPager.class);
     }
 
@@ -1663,12 +1670,13 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
             .exchange(uri, HttpMethod.DELETE, requestEntity, String.class);
 
     // Get the response status.
-    HttpStatus statusCode = response.getStatusCode();
-    assertEquals(expectedHttpStatus, statusCode);
+    HttpStatusCode statusCode = response.getStatusCode();
+    HttpStatus status = HttpStatus.valueOf(statusCode.value());
+    assertEquals(expectedHttpStatus, status);
 
     CrawlJob result = null;
 
-    if (RestUtil.isSuccess(statusCode)) {
+    if (RestUtil.isSuccess(status)) {
       result = new ObjectMapper().readValue(response.getBody(), CrawlJob.class);
     }
 
@@ -1788,8 +1796,9 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
             .exchange(uri, HttpMethod.DELETE, requestEntity, Void.class);
 
     // Get the response status.
-    HttpStatus statusCode = response.getStatusCode();
-    assertEquals(expectedHttpStatus, statusCode);
+    HttpStatusCode statusCode = response.getStatusCode();
+    HttpStatus status = HttpStatus.valueOf(statusCode.value());
+    assertEquals(expectedHttpStatus, status);
 
     log.debug2("Done");
   }

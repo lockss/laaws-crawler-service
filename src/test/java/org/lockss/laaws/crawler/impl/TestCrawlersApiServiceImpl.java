@@ -28,7 +28,6 @@ package org.lockss.laaws.crawler.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.lockss.app.LockssDaemon;
@@ -40,17 +39,17 @@ import org.lockss.spring.test.SpringLockssTestCase4;
 import org.lockss.util.rest.RestUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
-import org.springframework.boot.web.client.RestTemplateBuilder;
-import org.springframework.boot.web.server.LocalServerPort;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.context.ApplicationContext;
 import org.springframework.http.*;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.junit4.SpringRunner;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
+
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
@@ -86,7 +85,8 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
   private final Credentials ANYBODY = this.new Credentials("someUser", "somePassword");
 
   // The port that Tomcat is using during this test.
-  @LocalServerPort private int port;
+  @LocalServerPort
+  private int port;
 
   // The application Context used to specify the command line arguments to be
   // used for the tests.
@@ -367,9 +367,10 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
         new TestRestTemplate(templateBuilder).exchange(uri, method, requestEntity, String.class);
 
     // Get the response status.
-    HttpStatus statusCode = response.getStatusCode();
-    assertFalse(RestUtil.isSuccess(statusCode));
-    assertEquals(expectedStatus, statusCode);
+    HttpStatusCode statusCode = response.getStatusCode();
+    HttpStatus status = HttpStatus.valueOf(statusCode.value());
+    assertFalse(RestUtil.isSuccess(status));
+    assertEquals(expectedStatus, status);
   }
 
   /**
@@ -497,12 +498,13 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
             .exchange(uri, HttpMethod.GET, requestEntity, String.class);
 
     // Get the response status.
-    HttpStatus statusCode = response.getStatusCode();
-    assertEquals(expectedHttpStatus, statusCode);
+    HttpStatusCode statusCode = response.getStatusCode();
+    HttpStatus status = HttpStatus.valueOf(statusCode.value());
+    assertEquals(expectedHttpStatus, status);
 
     CrawlerStatuses result = null;
 
-    if (RestUtil.isSuccess(statusCode)) {
+    if (RestUtil.isSuccess(status)) {
       result = new ObjectMapper().readValue(response.getBody(), CrawlerStatuses.class);
     }
 
@@ -672,12 +674,13 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
             .exchange(uri, HttpMethod.GET, requestEntity, String.class);
 
     // Get the response status.
-    HttpStatus statusCode = response.getStatusCode();
-    assertEquals(expectedHttpStatus, statusCode);
+    HttpStatusCode statusCode = response.getStatusCode();
+    HttpStatus status = HttpStatus.valueOf(statusCode.value());
+    assertEquals(expectedHttpStatus, status);
 
     CrawlerConfig result = null;
 
-    if (RestUtil.isSuccess(statusCode)) {
+    if (RestUtil.isSuccess(status)) {
       result = new ObjectMapper().readValue(response.getBody(), CrawlerConfig.class);
     }
 

@@ -1,155 +1,136 @@
-# Copyright (c) 2000-2020, Board of Trustees of Leland Stanford Jr. University
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are met:
-#
-# 1. Redistributions of source code must retain the above copyright notice,
-# this list of conditions and the following disclaimer.
-#
-# 2. Redistributions in binary form must reproduce the above copyright notice,
-# this list of conditions and the following disclaimer in the documentation
-# and/or other materials provided with the distribution.
-#
-# 3. Neither the name of the copyright holder nor the names of its contributors
-# may be used to endorse or promote products derived from this software without
-# specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.
-
-swagger: "2.0"
+openapi: 3.0.3
 info:
   title: LOCKSS Crawler Service REST API
-  version: 2.0.0
   description: REST API of the LOCKSS Crawler Service
   contact:
     name: LOCKSS Support
-    url: 'https://www.lockss.org/'
+    url: https://www.lockss.org/
     email: lockss-support@lockss.org
   license:
     name: BSD-3-Clause
-    url: 'https://opensource.org/licenses/BSD-3-Clause'
-host: 'laaws.lockss.org:443'
-basePath: /
-tags:
-  - name: crawls
-    description: 'requests related to crawls'
-  - name: crawlers
-    description: 'requests related to crawlers'
-  - name: jobs
-    description: 'requests related to crawl jobs'
-  - name: ws
-    description: 'legacy SOAP endpoint'
-schemes:
-  - https
-produces:
-  - application/json
+    url: https://opensource.org/licenses/BSD-3-Clause
+  version: 2.0.0
+servers:
+- url: https://laaws.lockss.org:443/
 security:
-  - basicAuth: []
-
+- basicAuth: []
+tags:
+- name: crawls
+  description: requests related to crawls
+- name: crawlers
+  description: requests related to crawlers
+- name: jobs
+  description: requests related to crawl jobs
+- name: ws
+  description: legacy SOAP endpoint
 paths:
   /crawlers:
     get:
       tags:
-        - crawlers
+      - crawlers
       summary: Get the list of supported crawlers.
       description: Return the list of supported crawlers.
       operationId: getCrawlers
       responses:
-        '200':
+        200:
           description: The Status of supported Crawlers.
-          schema:
-            $ref: '#/definitions/crawlerStatuses'
-        '404':
-          description: No Such Crawler
-  '/crawlers/{crawlerId}':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/crawlerStatuses'
+        default:
+          description: The resulting error payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResult'
+  /crawlers/{crawlerId}:
     get:
       tags:
-        - crawlers
+      - crawlers
       summary: Return information about a crawler.
       description: Get information related to a installed crawler.
       operationId: getCrawlerConfig
       parameters:
-        - name: crawlerId
-          in: path
-          description: Identifier for the crawler
-          required: true
+      - name: crawlerId
+        in: path
+        description: Identifier for the crawler
+        required: true
+        schema:
           type: string
       responses:
-        '200':
+        200:
           description: Crawler Configuration Found
-          schema:
-            $ref: '#/definitions/crawlerConfig'
-        '401':
-          description: Access Denied.
-        '404':
-          description: No Such Crawler
-        '500':
-          description: "Internal Server Error"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/crawlerConfig'
+        default:
+          description: The resulting error payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResult'
   /crawls:
     get:
       tags:
-        - crawls
+      - crawls
       summary: Get the list of crawls.
       description: Get a list of crawls a pageful at a time as defined by limit.
       operationId: getCrawls
       parameters:
-        - name: limit
-          in: query
-          description: The number of jobs per page
-          required: false
+      - name: limit
+        in: query
+        description: The number of jobs per page
+        schema:
           type: integer
           default: 50
-        - name: continuationToken
-          in: query
-          description: The continuation token of the next page of crawl status data to be returned.
-          required: false
+      - name: continuationToken
+        in: query
+        description: The continuation token of the next page of crawl status data
+          to be returned.
+        schema:
           type: string
       responses:
-        '200':
+        200:
           description: The requested crawls
-          schema:
-            $ref: '#/definitions/crawlPager'
-        '400':
-          description: "Bad Request"
-        '401':
-          description: "Unauthorized"
-        '500':
-          description: "Internal Server Error"
-  '/crawls/{jobId}':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/crawlPager'
+        default:
+          description: The resulting error payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResult'
+  /crawls/{jobId}:
     get:
       tags:
-        - crawls
+      - crawls
       summary: Get the crawl status of this job
       description: Get the job represented by this crawl id
       operationId: getCrawlById
       parameters:
-        - name: jobId
-          in: path
-          required: true
+      - name: jobId
+        in: path
+        required: true
+        schema:
           type: string
       responses:
-        '200':
+        200:
           description: The crawl status of the requested crawl
-          schema:
-            $ref: '#/definitions/crawlStatus'
-        '401':
-          description: "Unauthorized"
-        '404':
-          description: "Not Found"
-        '500':
-          description: "Internal Server Error"
-  '/crawls/{jobId}/fetched':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/crawlStatus'
+        default:
+          description: The resulting error payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResult'
+  /crawls/{jobId}/fetched:
     get:
       tags:
       - crawls
@@ -157,33 +138,35 @@ paths:
       description: Get a list of fetched urls.
       operationId: getCrawlFetched
       parameters:
-        - name: jobId
-          in: path
-          required: true
+      - name: jobId
+        in: path
+        required: true
+        schema:
           type: string
-        - name: limit
-          in: query
-          description: The number of jobs per page.
+      - name: limit
+        in: query
+        description: The number of jobs per page.
+        schema:
           type: integer
-        - name: continuationToken
-          in: query
-          description: The continuation token of the next page of jobs to be\
-            \ returned.
+      - name: continuationToken
+        in: query
+        description: The continuation token of the next page of jobs to be returned.
+        schema:
           type: string
       responses:
-        '200':
+        200:
           description: The requested fetched urls.
-          schema:
-            $ref: '#/definitions/urlPager'
-        '400':
-          description: "Bad Request"
-        '401':
-          description: "Unauthorized"
-        '404':
-          description: "Not Found"
-        '500':
-          description: "Internal Server Error"
-  '/crawls/{jobId}/excluded':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/urlPager'
+        default:
+          description: The resulting error payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResult'
+  /crawls/{jobId}/excluded:
     get:
       tags:
       - crawls
@@ -191,33 +174,36 @@ paths:
       description: Get a list of excluded urls.
       operationId: getCrawlExcluded
       parameters:
-        - name: jobId
-          in: path
-          description: identifier used to identify a specific crawl.
-          required: true
+      - name: jobId
+        in: path
+        description: identifier used to identify a specific crawl.
+        required: true
+        schema:
           type: string
-        - name: limit
-          in: query
-          description: The number of jobs per page.
+      - name: limit
+        in: query
+        description: The number of jobs per page.
+        schema:
           type: integer
-        - name: continuationToken
-          in: query
-          description: The continuation token of the next page of urls to be returned.
+      - name: continuationToken
+        in: query
+        description: The continuation token of the next page of urls to be returned.
+        schema:
           type: string
       responses:
-        '200':
+        200:
           description: The requested excluded urls.
-          schema:
-            $ref: '#/definitions/urlPager'
-        '400':
-          description: "Bad Request"
-        '401':
-          description: "Unauthorized"
-        '404':
-          description: "Not Found"
-        '500':
-          description: "Internal Server Error"
-  '/crawls/{jobId}/notModified':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/urlPager'
+        default:
+          description: The resulting error payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResult'
+  /crawls/{jobId}/notModified:
     get:
       tags:
       - crawls
@@ -225,32 +211,35 @@ paths:
       description: Get a list of not modified urls.
       operationId: getCrawlNotModified
       parameters:
-        - name: jobId
-          in: path
-          required: true
+      - name: jobId
+        in: path
+        required: true
+        schema:
           type: string
-        - name: limit
-          in: query
-          description: The number of jobs per page.
+      - name: limit
+        in: query
+        description: The number of jobs per page.
+        schema:
           type: integer
-        - name: continuationToken
-          in: query
-          description: The continuation token of the next page of urls to be returned.
+      - name: continuationToken
+        in: query
+        description: The continuation token of the next page of urls to be returned.
+        schema:
           type: string
       responses:
-        '200':
+        200:
           description: The requested not modified urls.
-          schema:
-            $ref: '#/definitions/urlPager'
-        '400':
-          description: "Bad Request"
-        '401':
-          description: "Unauthorized"
-        '404':
-          description: "Not Found"
-        '500':
-          description: "Internal Server Error"
-  '/crawls/{jobId}/pending':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/urlPager'
+        default:
+          description: The resulting error payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResult'
+  /crawls/{jobId}/pending:
     get:
       tags:
       - crawls
@@ -258,32 +247,35 @@ paths:
       description: Get a list of pending urls.
       operationId: getCrawlPending
       parameters:
-        - name: jobId
-          in: path
-          required: true
+      - name: jobId
+        in: path
+        required: true
+        schema:
           type: string
-        - name: limit
-          in: query
-          description: The number of jobs per page.
+      - name: limit
+        in: query
+        description: The number of jobs per page.
+        schema:
           type: integer
-        - name: continuationToken
-          in: query
-          description: The continuation token of the next page of urls to be returned.
+      - name: continuationToken
+        in: query
+        description: The continuation token of the next page of urls to be returned.
+        schema:
           type: string
       responses:
-        '200':
+        200:
           description: The requested pending urls.
-          schema:
-            $ref: '#/definitions/urlPager'
-        '400':
-          description: "Bad Request"
-        '401':
-          description: "Unauthorized"
-        '404':
-          description: "Not Found"
-        '500':
-          description: "Internal Server Error"
-  '/crawls/{jobId}/parsed':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/urlPager'
+        default:
+          description: The resulting error payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResult'
+  /crawls/{jobId}/parsed:
     get:
       tags:
       - crawls
@@ -291,32 +283,35 @@ paths:
       description: Get a list of parsed urls.
       operationId: getCrawlParsed
       parameters:
-        - name: jobId
-          in: path
-          required: true
+      - name: jobId
+        in: path
+        required: true
+        schema:
           type: string
-        - name: limit
-          in: query
-          description: The number of jobs per page.
+      - name: limit
+        in: query
+        description: The number of jobs per page.
+        schema:
           type: integer
-        - name: continuationToken
-          in: query
-          description: The continuation token of the next page of urls to be returned.
+      - name: continuationToken
+        in: query
+        description: The continuation token of the next page of urls to be returned.
+        schema:
           type: string
       responses:
-        '200':
+        200:
           description: The requested parsed urls.
-          schema:
-            $ref: '#/definitions/urlPager'
-        '400':
-          description: "Bad Request"
-        '401':
-          description: "Unauthorized"
-        '404':
-          description: "Not Found"
-        '500':
-          description: "Internal Server Error"
-  '/crawls/{jobId}/errors':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/urlPager'
+        default:
+          description: The resulting error payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResult'
+  /crawls/{jobId}/errors:
     get:
       tags:
       - crawls
@@ -324,303 +319,327 @@ paths:
       description: Get a list of urls with errors.
       operationId: getCrawlErrors
       parameters:
-        - name: jobId
-          in: path
-          required: true
+      - name: jobId
+        in: path
+        required: true
+        schema:
           type: string
-        - name: limit
-          in: query
-          description: The number of jobs per page.
+      - name: limit
+        in: query
+        description: The number of jobs per page.
+        schema:
           type: integer
-        - name: continuationToken
-          in: query
-          description: "The continuation token of the next page of urls to be returned."
+      - name: continuationToken
+        in: query
+        description: The continuation token of the next page of urls to be returned.
+        schema:
           type: string
       responses:
-        '200':
+        200:
           description: The requested urls with errors.
-          schema:
-            $ref: '#/definitions/urlPager'
-        '400':
-          description: "Bad Request"
-        '401':
-          description: "Unauthorized"
-        '404':
-          description: "Not Found"
-        '500':
-          description: "Internal Server Error"
-  '/crawls/{jobId}/mimeType/{type}':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/urlPager'
+        default:
+          description: The resulting error payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResult'
+  /crawls/{jobId}/mimeType/{type}:
     get:
       tags:
-        - crawls
+      - crawls
       summary: A pageable list of urls of mimetype.
       description: Get a list of urls of mimetype.
       operationId: getCrawlByMimeType
       parameters:
-        - name: jobId
-          in: path
-          required: true
+      - name: jobId
+        in: path
+        required: true
+        schema:
           type: string
-        - name: type
-          in: path
-          required: true
+      - name: type
+        in: path
+        required: true
+        schema:
           type: string
-        - name: limit
-          in: query
-          description: The number of jobs per page.
+      - name: limit
+        in: query
+        description: The number of jobs per page.
+        schema:
           type: integer
-        - name: continuationToken
-          in: query
-          description: The continuation token of the next page of urls to be returned.
+      - name: continuationToken
+        in: query
+        description: The continuation token of the next page of urls to be returned.
+        schema:
           type: string
       responses:
-        '200':
+        200:
           description: The requested urls.
-          schema:
-            $ref: '#/definitions/urlPager'
-        '400':
-          description: "Bad Request"
-        '401':
-          description: "Unauthorized"
-        '404':
-          description: "Not Found"
-        '500':
-          description: "Internal Server Error"
-  '/jobs':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/urlPager'
+        default:
+          description: The resulting error payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResult'
+  /jobs:
     get:
       tags:
-        - jobs
+      - jobs
       summary: Get the list of crawl jobs.
-      description: Get a list of crawl jobs a pageful at a time as defined by the continuation token and limit.
+      description: Get a list of crawl jobs a pageful at a time as defined by the
+        continuation token and limit.
       operationId: getJobs
       parameters:
-        - name: limit
-          in: query
-          description: The number of jobs per page
-          required: false
+      - name: limit
+        in: query
+        description: The number of jobs per page
+        schema:
           type: integer
           default: 50
-        - name: continuationToken
-          in: query
-          description: The continuation token of the next page of jobs to be returned.
-          required: false
+      - name: continuationToken
+        in: query
+        description: The continuation token of the next page of jobs to be returned.
+        schema:
           type: string
       responses:
-        '200':
+        200:
           description: The requested crawls
-          schema:
-            $ref: '#/definitions/jobPager'
-        '400':
-          description: "Bad Request"
-        '401':
-          description: "Unauthorized"
-        '500':
-          description: "Internal Server Error"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/jobPager'
+        default:
+          description: The resulting error payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResult'
     post:
       tags:
-        - jobs
+      - jobs
       summary: Request a crawl as defined by the descriptor
-      description: Enqueue a new crawl job as defined by the crawl descriptor and return it.
+      description: Enqueue a new crawl job as defined by the crawl descriptor and
+        return it.
       operationId: queueJob
-      parameters:
-        - name: 'crawlDesc'
-          in: body
-          description: crawl request
-          required: true
-          schema:
-            $ref: '#/definitions/crawlDesc'
+      requestBody:
+        description: crawl request
+        content:
+          '*/*':
+            schema:
+              $ref: '#/components/schemas/crawlDesc'
+        required: true
       responses:
-        '202':
+        202:
           description: The crawl request has been queued for operation.
-          schema:
-            $ref: '#/definitions/crawlJob'
-        '400':
-          description: "Bad Request"
-        '401':
-          description: "Unauthorized"
-        '403':
-          description: "Forbidden"
-        '404':
-          description: "Not Found"
-        '500':
-          description: "Internal Server Error"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/crawlJob'
+        default:
+          description: The resulting error payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResult'
+      x-codegen-request-body-name: crawlDesc
     delete:
       tags:
-        - jobs
+      - jobs
       summary: Delete all of the currently queued and active jobs
       description: Halt and delete all of the currently queued and active crawl jobs
       operationId: deleteJobs
       responses:
-        '200':
+        200:
           description: All crawl jobs have been stopped and deleted.
-        '400':
-          description: "Bad Request"
-        '401':
-          description: "Unauthorized"
-        '500':
-          description: "Internal Server Error"
-  '/jobs/{jobId}':
+          content: {}
+        default:
+          description: The resulting error payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResult'
+  /jobs/{jobId}:
     get:
       tags:
-        - jobs
+      - jobs
       summary: Get the crawl status of this job
       description: Get the crawl job with a given crawl id
       operationId: getCrawlJob
       parameters:
-        - name: jobId
-          in: path
-          required: true
+      - name: jobId
+        in: path
+        required: true
+        schema:
           type: string
       responses:
-        '200':
+        200:
           description: The crawl Job of the requested crawl
-          schema:
-            $ref: '#/definitions/crawlJob'
-        '401':
-          description: "Unauthorized"
-        '404':
-          description: "Not Found"
-        '500':
-          description: "Internal Server Error"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/crawlJob'
+        default:
+          description: The resulting error payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResult'
     delete:
-      summary: Remove or stop a crawl job.
       tags:
-        - jobs
-      description: >-
-        Delete a crawl job with the given job id, stopping any current
+      - jobs
+      summary: Remove or stop a crawl job.
+      description: Delete a crawl job with the given job id, stopping any current
         processing, if necessary.
       operationId: deleteCrawlJob
       parameters:
-        - name: jobId
-          in: path
-          description: The identifier used to identify a specific crawl job.
-          required: true
+      - name: jobId
+        in: path
+        description: The identifier used to identify a specific crawl job.
+        required: true
+        schema:
           type: string
       responses:
-        '200':
+        200:
           description: The crawlJob of the deleted crawl.
-          schema:
-            $ref: '#/definitions/crawlJob'
-        '401':
-          description: "Unauthorized"
-        '403':
-          description: Forbidden
-        '404':
-          description: "Not Found"
-        '500':
-          description: "Internal Server Error"
-  '/status':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/crawlJob'
+        default:
+          description: The resulting error payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResult'
+  /status:
     get:
       tags:
-      - "status"
-      summary: "Get the status of the service"
-      description: "Get the status of the service"
-      operationId: "getStatus"
-      produces:
-      - "application/json"
+      - status
+      summary: Get the status of the service
+      description: Get the status of the service
+      operationId: getStatus
       responses:
         200:
-          description: "The status of the service"
-          schema:
-            $ref: "#/definitions/apiStatus"
-        401:
-          description: "Unauthorized"
-        500:
-          description: "Internal Server Error"
-  '/ws/crawls':
+          description: The status of the service
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/apiStatus'
+        default:
+          description: The resulting error payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResult'
+  /ws/crawls:
     get:
       tags:
-        - ws
+      - ws
       summary: Query for list of crawls based on subset defined by query string
       description: Query for crawls that meet a set of specified conditions
       operationId: getWsCrawls
-      produces:
-        - application/json
       parameters:
-        - name: 'crawlQuery'
-          in: query
-          description: The query that specifies the crawls to be returned
-          required: true
+      - name: crawlQuery
+        in: query
+        description: The query that specifies the crawls to be returned
+        required: true
+        schema:
           type: string
       responses:
-        '200':
+        200:
           description: Information about the requested crawls
-          schema:
-            $ref: '#/definitions/crawlWsResult'
-        '400':
-          description: Bad Request
-        '401':
-          description: Unauthorized
-        '500':
-          description: Internal Server Error
-securityDefinitions:
-  basicAuth:
-    description: "HTTP Basic Authentication. Works over `HTTP` and `HTTPS`"
-    type: "basic"
-definitions:
-  crawlerStatuses:
-    type: object
-    properties:
-      crawlerMap:
-        type: object
-        description: An map of crawler status objects
-        additionalProperties:
-          $ref: '#/definitions/crawlerStatus'
-    description: "The metadata generated for a single item"
-  mimeCounter:
-    description: A counter for mimeTypes seen during a crawl.
-    required:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/crawlWsResult'
+        default:
+          description: The resulting error payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResult'
+components:
+  schemas:
+    errorResult:
+      type: object
+      required:
+      - message
+      - code
+      properties:
+        message:
+          type: string
+        code:
+          type: integer
+        rootCause:
+          type: string
+    crawlerStatuses:
+      type: object
+      properties:
+        crawlerMap:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/crawlerStatus'
+          description: An map of crawler status objects
+      description: The metadata generated for a single item
+    mimeCounter:
+      required:
       - mimeType
-      - counts
-    type: object
-    properties:
-      mimeType:
-        description: The mime type to count.
-        type: string
-      count:
-        format: int32
-        description: The number of elements of mime type
-        type: integer
-      counterLink:
-        description: A link to the list of count elements or to a pager with\
-          \ count elements.
-        type: string
-  pageInfo:
-    description: The information related to pagination of content
-    required:
-      - curLink
+      type: object
+      properties:
+        mimeType:
+          type: string
+          description: The mime type to count.
+        count:
+          type: integer
+          description: The number of elements of mime type
+          format: int32
+        counterLink:
+          type: string
+          description: A link to the list of count elements or to a pager with
+            count elements.
+      description: A counter for mimeTypes seen during a crawl.
+    pageInfo:
+      required:
       - continuationToken
+      - curLink
       - resultsPerPage
       - totalCount
-    type: object
-    properties:
-      totalCount:
-        format: int32
-        description: The total number of elements to be paginated
-        type: integer
-      resultsPerPage:
-        format: int32
-        description: The number of results per page.
-        type: integer
-      continuationToken:
-        description: The continuation token.
-        type: string
-      curLink:
-        description: The link to the current page.
-        type: string
-      nextLink:
-        description: The link to the next page.
-        type: string
-  jobStatus:
-    description: A status which includes a code and a message.
-    required:
-    - statusCode
-    type: object
-    properties:
-      statusCode:
-        description: The numeric value for this status.
-        type: string
-        enum:
+      type: object
+      properties:
+        totalCount:
+          type: integer
+          description: The total number of elements to be paginated
+          format: int32
+        resultsPerPage:
+          type: integer
+          description: The number of results per page.
+          format: int32
+        continuationToken:
+          type: string
+          description: The continuation token.
+        curLink:
+          type: string
+          description: The link to the current page.
+        nextLink:
+          type: string
+          description: The link to the next page.
+      description: The information related to pagination of content
+    jobStatus:
+      required:
+      - statusCode
+      type: object
+      properties:
+        statusCode:
+          type: string
+          description: The numeric value for this status.
+          enum:
           - STATUS_UNKNOWN
           - STATUS_QUEUED
           - STATUS_ACTIVE
@@ -639,45 +658,45 @@ definitions:
           - STATUS_INELIGIBLE
           - STATUS_INACTIVE_REQUEST
           - STATUS_INTERRUPTED
-      msg:
-        description: A text message explaining this status.
-        type: string
-  apiStatus:
-    description: "The status information of the service"
-    type: "object"
-    required:
-      - "apiVersion"
-      - "ready"
-    properties:
-      apiVersion:
-        type: "string"
-        description: "The version of the API"
-      componentName:
-        type: "string"
-        description: "The name of the component"
-      componentVersion:
-        type: "string"
-        description: "The version of the component software"
-      lockssVersion:
-        type: "string"
-        description: "The version of the LOCKSS system"
-      ready:
-        type: "boolean"
-        description: "The indication of whether the service is available"
-      serviceName:
-        type: "string"
-        description: "The name of the service"
-      readyTime:
-        type: "integer"
-        format: "int64"
-        description: "The time the service last became ready."
-      reason:
-        type: "string"
-        description: "The reason the service isn't ready."
-      startupStatus:
-        description: "Enum indicating progress of plugin/AU processing at startup."
-        type: string
-        enum:
+        msg:
+          type: string
+          description: A text message explaining this status.
+      description: A status which includes a code and a message.
+    apiStatus:
+      required:
+      - apiVersion
+      - ready
+      type: object
+      properties:
+        apiVersion:
+          type: string
+          description: The version of the API
+        componentName:
+          type: string
+          description: The name of the component
+        componentVersion:
+          type: string
+          description: The version of the component software
+        lockssVersion:
+          type: string
+          description: The version of the LOCKSS system
+        ready:
+          type: boolean
+          description: The indication of whether the service is available
+        serviceName:
+          type: string
+          description: The name of the service
+        readyTime:
+          type: integer
+          description: The time the service last became ready.
+          format: int64
+        reason:
+          type: string
+          description: The reason the service isn't ready.
+        startupStatus:
+          type: string
+          description: Enum indicating progress of plugin/AU processing at startup.
+          enum:
           - NONE
           - PLUGINS_CRAWLING
           - PLUGINS_COLLECTED
@@ -685,420 +704,425 @@ definitions:
           - PLUGINS_LOADED
           - AUS_STARTING
           - AUS_STARTED
-  counter:
-    description: A counter for urls.
-    required:
+      description: The status information of the service
+    counter:
+      required:
       - count
       - itemsLink
-    properties:
-      count:
-        format: int32
-        description: The number of elements
-        type: integer
-      itemsLink:
-        description: A link to the list of count items or to a pager with count\
-          \ items.
-        type: string
-  crawlDesc:
-    description: A descriptor for a crawl.
-    required:
+      type: object
+      properties:
+        count:
+          type: integer
+          description: The number of elements
+          format: int32
+        itemsLink:
+          type: string
+          description: A link to the list of count items or to a pager with count\
+            \ items.
+      description: A counter for urls.
+    crawlDesc:
+      required:
       - auId
       - crawlKind
-    type: object
-    properties:
-      auId:
-        description: The identifier of the archival unit to be crawled.
-        type: string
-      crawlKind:
-        description: The kind of crawl being performed either 'newContent' or 'repair'.
-        type: string
-        enum:
+      type: object
+      properties:
+        auId:
+          type: string
+          description: The identifier of the archival unit to be crawled.
+        crawlKind:
+          type: string
+          description: The kind of crawl being performed either 'newContent' or 'repair'.
+          enum:
           - newContent
           - repair
-      crawlerId:
-        description: The crawler to be used for this crawl.
-        type: string
-        default: classic
-      forceCrawl:
-        description: An indication of whether the crawl is to be forced,\
-          \ suppressing conditions that might otherwise prevent the crawl from\
-          \ happening.
-        type: boolean
-        default: false
-      refetchDepth:
-        description: The refetch depth to use for a deep crawl.
-        type: integer
-        format: int32
-        default: -1
-      priority:
-        description: The priority for the crawl.
-        type: integer
-        format: int32
-        default: 0
-      crawlList:
-        type: array
-        description: The list of URLs to crawl.
-        items:
+        crawlerId:
           type: string
-      crawlDepth:
-        type: integer
-        format: int32
-        description: The depth to which the links should be followed. 0 means\
-          \ do not follow links.
-      extraCrawlerData:
-        type: object
-        description: A map of additional properties for a crawl on a given crawler.
-        additionalProperties:
+          description: The crawler to be used for this crawl.
+          default: classic
+        forceCrawl:
+          type: boolean
+          description: An indication of whether the crawl is to be forced, suppressing
+            conditions that might otherwise prevent the crawl from happening.
+          default: false
+        refetchDepth:
+          type: integer
+          description: The refetch depth to use for a deep crawl.
+          format: int32
+          default: -1
+        priority:
+          type: integer
+          description: The priority for the crawl.
+          format: int32
+          default: 0
+        crawlList:
+          type: array
+          description: The list of URLs to crawl.
+          items:
+            type: string
+        crawlDepth:
+          type: integer
+          description: The depth to which the links should be followed. 0 means
+            do not follow links.
+          format: int32
+        extraCrawlerData:
           type: object
-  crawlJob:
-    description: The job resulting from a request to perform a crawl.
-    required:
-    - crawlDesc
-    - requestDate
-    - jobId
-    - jobStatus
-    type: object
-    properties:
-      crawlDesc:
-        description: The descriptor of the crawl.
-        $ref: '#/definitions/crawlDesc'
-      requestDate:
-        format: int64
-        description: The timestamp when the crawl was requested.
-        type: integer
-      jobId:
-        description: Identifier of the crawl job.
-        type: string
-      jobStatus:
-        description: The status of the crawl operation.
-        $ref: "#/definitions/jobStatus"
-      startDate:
-        format: int64
-        description: The timestamp when the crawl began.
-        type: integer
-      endDate:
-        format: int64
-        description: The timestamp when the crawl ended.
-        type: integer
-      result:
-        type: string
-        description: A URI which can be used to retrieve the crawl data.
-  crawlerStatus:
-    description: Status about a specific crawler.
-    required:
-    - isEnabled
-    - isRunning
-    type: object
-    properties:
-      isEnabled:
-        description: Is the crawler enabled
-        type: boolean
-      isAutoCrawlEnabled:
-        description: Does crawler autocrawl AUs when needed.
-        type: boolean
-      numJobsActive:
-        description: The number of jobs running.
-        format: int32
-        type: integer
-      numJobsFailed:
-        description: The number of jobs failed.
-        format: int32
-        type: integer
-      numJobsSuccessful:
-        description: The number of jobs succeeded
-        format: int32
-        type: integer
-      numJobsPending:
-        description: The number of active jobs
-        format: int32
-        type: integer
-      errMessage:
-        type: string
-  crawlerConfig:
-    description: Configuration information about a specific crawler.
-    required:
-      - crawlerId
-      - attributes
-    type: object
-    properties:
-      crawlerId:
-        description: The identifier for this crawler
-        type: string
-        example: "classic"
-      attributes:
-        description: key value pairs specific providing attributes\
-          \ and configuration information.
-        type: object
-        additionalProperties:
-          type: string
-  crawlStatus:
-    description: The status of a single crawl.
-    required:
+          additionalProperties:
+            type: object
+            properties: {}
+          description: A map of additional properties for a crawl on a given crawler.
+      description: A descriptor for a crawl.
+    crawlJob:
+      required:
+      - crawlDesc
       - jobId
+      - jobStatus
+      - requestDate
+      type: object
+      properties:
+        crawlDesc:
+          $ref: '#/components/schemas/crawlDesc'
+        requestDate:
+          type: integer
+          description: The timestamp when the crawl was requested.
+          format: int64
+        jobId:
+          type: string
+          description: Identifier of the crawl job.
+        jobStatus:
+          $ref: '#/components/schemas/jobStatus'
+        startDate:
+          type: integer
+          description: The timestamp when the crawl began.
+          format: int64
+        endDate:
+          type: integer
+          description: The timestamp when the crawl ended.
+          format: int64
+        result:
+          type: string
+          description: A URI which can be used to retrieve the crawl data.
+      description: The job resulting from a request to perform a crawl.
+    crawlerStatus:
+      required:
+      - isEnabled
+      type: object
+      properties:
+        isEnabled:
+          type: boolean
+          description: Is the crawler enabled
+        isAutoCrawlEnabled:
+          type: boolean
+          description: Does crawler autocrawl AUs when needed.
+        numJobsActive:
+          type: integer
+          description: The number of jobs running.
+          format: int32
+        numJobsFailed:
+          type: integer
+          description: The number of jobs failed.
+          format: int32
+        numJobsSuccessful:
+          type: integer
+          description: The number of jobs succeeded
+          format: int32
+        numJobsPending:
+          type: integer
+          description: The number of active jobs
+          format: int32
+        errMessage:
+          type: string
+      description: Status about a specific crawler.
+    crawlerConfig:
+      required:
+      - attributes
+      - crawlerId
+      type: object
+      properties:
+        crawlerId:
+          type: string
+          description: The identifier for this crawler
+          example: classic
+        attributes:
+          type: object
+          additionalProperties:
+            type: string
+          description: key value pairs specific providing attributes and configuration
+            information.
+      description: Configuration information about a specific crawler.
+    crawlStatus:
+      required:
       - auId
       - auName
-      - startUrls
-      - type
-      - startTime
+      - crawlerId
       - endTime
+      - jobId
       - jobStatus
       - priority
-      - crawlerId
-    type: object
-    properties:
-      jobId:
-        description: The id for the crawl.
-        type: string
-      auId:
-        description: The id for the au.
-        type: string
-      auName:
-        description: The name for the au.
-        type: string
-      type:
-        description: The type of crawl.
-        type: string
-      startUrls:
-        description: The array of start urls.
-        type: array
-        items:
+      - startTime
+      - startUrls
+      - type
+      type: object
+      properties:
+        jobId:
           type: string
-      priority:
-        format: int32
-        description: The priority for this crawl.
-        type: integer
-      crawlerId:
-        description: The id of the crawler used for this crawl.
-        type: string
-        default: "classic"
-      sources:
-        description: The sources to use for the crawl.
-        type: array
-        items:
+          description: The id for the crawl.
+        auId:
           type: string
-      depth:
-        format: int32
-        description: The depth of the crawl.
-        type: integer
-      refetchDepth:
-        format: int32
-        description: The refetch depth of the crawl.
-        type: integer
-      proxy:
-        description: The proxy used for crawling.
-        type: string
-      startTime:
-        format: int64
-        description: The timestamp for the start of crawl.
-        type: integer
-      endTime:
-        format: int64
-        description: The timestamp for the end of the crawl.
-        type: integer
-      jobStatus:
-        $ref: '#/definitions/jobStatus'
-      isWaiting:
-        description: True if the crawl waiting to start.
-        type: boolean
-      isActive:
-        description: True if the crawl is active.
-        type: boolean
-      isError:
-        description: True if the crawl has errored.
-        type: boolean
-      bytesFetched:
-        format: int64
-        description: The number of bytes fetched.
-        type: integer
-      fetchedItems:
-        $ref: '#/definitions/counter'
-      excludedItems:
-        $ref: '#/definitions/counter'
-      notModifiedItems:
-        $ref: '#/definitions/counter'
-      parsedItems:
-        $ref: '#/definitions/counter'
-      pendingItems:
-        $ref: '#/definitions/counter'
-      errors:
-        $ref: '#/definitions/counter'
-      mimeTypes:
-        description: The list of urls by mimeType.
-        type: array
-        items:
-          $ref: '#/definitions/mimeCounter'
-  urlPager:
-    description: A Pager for urls with maps.
-    required:
+          description: The id for the au.
+        auName:
+          type: string
+          description: The name for the au.
+        type:
+          type: string
+          description: The type of crawl.
+        startUrls:
+          type: array
+          description: The array of start urls.
+          items:
+            type: string
+        priority:
+          type: integer
+          description: The priority for this crawl.
+          format: int32
+        crawlerId:
+          type: string
+          description: The id of the crawler used for this crawl.
+          default: classic
+        sources:
+          type: array
+          description: The sources to use for the crawl.
+          items:
+            type: string
+        depth:
+          type: integer
+          description: The depth of the crawl.
+          format: int32
+        refetchDepth:
+          type: integer
+          description: The refetch depth of the crawl.
+          format: int32
+        proxy:
+          type: string
+          description: The proxy used for crawling.
+        startTime:
+          type: integer
+          description: The timestamp for the start of crawl.
+          format: int64
+        endTime:
+          type: integer
+          description: The timestamp for the end of the crawl.
+          format: int64
+        jobStatus:
+          $ref: '#/components/schemas/jobStatus'
+        isWaiting:
+          type: boolean
+          description: True if the crawl waiting to start.
+        isActive:
+          type: boolean
+          description: True if the crawl is active.
+        isError:
+          type: boolean
+          description: True if the crawl has errored.
+        bytesFetched:
+          type: integer
+          description: The number of bytes fetched.
+          format: int64
+        fetchedItems:
+          $ref: '#/components/schemas/counter'
+        excludedItems:
+          $ref: '#/components/schemas/counter'
+        notModifiedItems:
+          $ref: '#/components/schemas/counter'
+        parsedItems:
+          $ref: '#/components/schemas/counter'
+        pendingItems:
+          $ref: '#/components/schemas/counter'
+        errors:
+          $ref: '#/components/schemas/counter'
+        mimeTypes:
+          type: array
+          description: The list of urls by mimeType.
+          items:
+            $ref: '#/components/schemas/mimeCounter'
+      description: The status of a single crawl.
+    urlPager:
+      required:
       - pageInfo
       - urls
-    type: object
-    properties:
-      pageInfo:
-        $ref: '#/definitions/pageInfo'
-      urls:
-        description: An list of url with related info.
-        type: array
-        items:
-          $ref: '#/definitions/urlInfo'
-  jobPager:
-    description: A display page of jobs
-    required:
+      type: object
+      properties:
+        pageInfo:
+          $ref: '#/components/schemas/pageInfo'
+        urls:
+          type: array
+          description: An list of url with related info.
+          items:
+            $ref: '#/components/schemas/urlInfo'
+      description: A Pager for urls with maps.
+    jobPager:
+      required:
       - jobs
       - pageInfo
-    type: object
-    properties:
-      jobs:
-        description: The jobs displayed in the page
-        type: array
-        items:
-          $ref: '#/definitions/crawlJob'
-      pageInfo:
-        $ref: '#/definitions/pageInfo'
-  crawlPager:
-    description: A display page of crawl status
-    required:
+      type: object
+      properties:
+        jobs:
+          type: array
+          description: The jobs displayed in the page
+          items:
+            $ref: '#/components/schemas/crawlJob'
+        pageInfo:
+          $ref: '#/components/schemas/pageInfo'
+      description: A display page of jobs
+    crawlPager:
+      required:
       - crawls
       - pageInfo
-    type: object
-    properties:
-      crawls:
-        description: The crawls displayed in the page
-        type: array
-        items:
-          $ref: '#/definitions/crawlStatus'
-      pageInfo:
-        $ref: '#/definitions/pageInfo'
-  urlInfo:
-    description: information related to an url.
-    required:
+      type: object
+      properties:
+        crawls:
+          type: array
+          description: The crawls displayed in the page
+          items:
+            $ref: '#/components/schemas/crawlStatus'
+        pageInfo:
+          $ref: '#/components/schemas/pageInfo'
+      description: A display page of crawl status
+    urlInfo:
+      required:
       - url
-    type: object
-    properties:
-      url:
-        description: The url string
-        type: string
-      error:
-        $ref: '#/definitions/urlError'
-      referrers:
-        description: An optional list of referrers.
-        type: array
-        items:
+      type: object
+      properties:
+        url:
           type: string
-  urlError:
-    description: information related to an error for a url.
-    required:
-    - message
-    - severity
-    properties:
-      message:
-        description: The error message
-        type: string
-      severity:
-        description: the severity of the error.
-        type: string
-        enum:
+          description: The url string
+        error:
+          $ref: '#/components/schemas/urlError'
+        referrers:
+          type: array
+          description: An optional list of referrers.
+          items:
+            type: string
+      description: information related to an url.
+    urlError:
+      required:
+      - message
+      - severity
+      type: object
+      properties:
+        message:
+          type: string
+          description: The error message
+        severity:
+          type: string
+          description: the severity of the error.
+          enum:
           - Warning
           - Error
           - Fatal
-  crawlWsResult:
-    type: object
-    required:
-    - auId
-    - auName
-    properties:
-      auId:
-        type: string
-      auName:
-        type: string
-      priority:
-        type: integer
-        format: int32
-      crawlKey:
-        type: string
-      crawlType:
-        type: string
-      startTime:
-        type: integer
-        format: int32
-      duration:
-        type: integer
-        format: int32
-      crawlStatus:
-        type: string
-      bytesFetchedCount:
-        type: integer
-        format: int32
-      pagesFetchedCount:
-        type: integer
-        format: int32
-      pagesFetched:
-        type: array
-        items:
+      description: information related to an error for a url.
+    crawlWsResult:
+      required:
+      - auId
+      - auName
+      type: object
+      properties:
+        auId:
           type: string
-      pagesParsedCount:
-        type: integer
-        format: int32
-      pagesParsed:
-        type: array
-        items:
+        auName:
           type: string
-      pagesPendingCount:
-        type: integer
-        format: int32
-      pagesPending:
-        type: array
-        items:
+        priority:
+          type: integer
+          format: int32
+        crawlKey:
           type: string
-      pagesExcludedCount:
-        type: integer
-        format: int32
-      pagesExcluded:
-        type: array
-        items:
+        crawlType:
           type: string
-      offSiteUrlsExcludedCount:
-        type: integer
-        format: int32
-      pagesNotModifiedCount:
-        type: integer
-        format: int32
-      pagesNotModified:
-        type: array
-        items:
+        startTime:
+          type: integer
+          format: int32
+        duration:
+          type: integer
+          format: int32
+        crawlStatus:
           type: string
-      pagesWithErrorsCount:
-        type: integer
-        format: int32
-      pagesWithErrors:
-        type: array
-        items:
-          type: object
-          properties:
-            url:
-              type: string
-            severity:
-              type: string
-            message:
-              type: string
-      mimeTypeCount:
-        type: integer
-        format: int32
-      mimeTypes:
-        type: array
-        items:
-          type: string
-      sources:
-        type: array
-        items:
-          type: string
-      startingUrls:
-        type: array
-        items:
-          type: string
-      refetchDepth:
-        type: integer
-        format: int32
-      linkDepth:
-        type: integer
-        format: int32
+        bytesFetchedCount:
+          type: integer
+          format: int32
+        pagesFetchedCount:
+          type: integer
+          format: int32
+        pagesFetched:
+          type: array
+          items:
+            type: string
+        pagesParsedCount:
+          type: integer
+          format: int32
+        pagesParsed:
+          type: array
+          items:
+            type: string
+        pagesPendingCount:
+          type: integer
+          format: int32
+        pagesPending:
+          type: array
+          items:
+            type: string
+        pagesExcludedCount:
+          type: integer
+          format: int32
+        pagesExcluded:
+          type: array
+          items:
+            type: string
+        offSiteUrlsExcludedCount:
+          type: integer
+          format: int32
+        pagesNotModifiedCount:
+          type: integer
+          format: int32
+        pagesNotModified:
+          type: array
+          items:
+            type: string
+        pagesWithErrorsCount:
+          type: integer
+          format: int32
+        pagesWithErrors:
+          type: array
+          items:
+            type: object
+            properties:
+              url:
+                type: string
+              severity:
+                type: string
+              message:
+                type: string
+        mimeTypeCount:
+          type: integer
+          format: int32
+        mimeTypes:
+          type: array
+          items:
+            type: string
+        sources:
+          type: array
+          items:
+            type: string
+        startingUrls:
+          type: array
+          items:
+            type: string
+        refetchDepth:
+          type: integer
+          format: int32
+        linkDepth:
+          type: integer
+          format: int32
+  securitySchemes:
+    basicAuth:
+      type: http
+      description: HTTP Basic Authentication. Works over `HTTP` and `HTTPS`
+      scheme: basic

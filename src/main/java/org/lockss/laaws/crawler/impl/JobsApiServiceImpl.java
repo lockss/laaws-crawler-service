@@ -60,6 +60,7 @@ import org.lockss.plugin.ArchivalUnit;
 import org.lockss.spring.base.BaseSpringApiServiceImpl;
 import org.lockss.util.JsonUtil;
 import org.lockss.util.RateLimiter;
+import org.lockss.util.StringUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.crawler.CrawlJob;
 import org.lockss.util.rest.crawler.JobStatus;
@@ -183,7 +184,13 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
         logCrawlError(UNKNOWN_CRAWLER_MESSAGE + crawlerId, crawlJob);
         return new ResponseEntity<>(crawlJob, HttpStatus.BAD_REQUEST);
       }
-      ArchivalUnit au = getPluginManager().getAuFromId(crawlDesc.getAuId());
+      // FIXME: This should have been enforced by the OpenAPI3 spec;
+      //  probably needs the CrawlDesc model regenerated
+      String auid = crawlDesc.getAuId();
+      if (StringUtil.isNullString(auid)) {
+        return new ResponseEntity<>(crawlJob, HttpStatus.BAD_REQUEST);
+      }
+      ArchivalUnit au = getPluginManager().getAuFromId(auid);
       if (au == null) {
         if(getPluginManager().areAusStarted()) {
           logCrawlError(NO_SUCH_AU_ERROR_MESSAGE, crawlJob);
@@ -199,16 +206,22 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
         // Get the Archival Unit to be crawled.
         // Handle a missing Archival Unit.
         // Determine which kind of crawl is being requested.
-        switch (crawlKind) {
-          case NEWCONTENT:
-            httpStatus = startClassicCrawl(au, crawlJob);
-            break;
-          case REPAIR:
-            httpStatus = startClassicRepair(au, crawlJob);
-            break;
-          default:
-            httpStatus = HttpStatus.BAD_REQUEST;
-            logCrawlError(UNKNOWN_CRAWL_TYPE + crawlKind, crawlJob);
+        // FIXME
+        if (crawlKind == null) {
+          httpStatus = HttpStatus.BAD_REQUEST;
+          logCrawlError(UNKNOWN_CRAWL_TYPE + crawlKind, crawlJob);
+        } else {
+          switch (crawlKind) {
+            case NEWCONTENT:
+              httpStatus = startClassicCrawl(au, crawlJob);
+              break;
+            case REPAIR:
+              httpStatus = startClassicRepair(au, crawlJob);
+              break;
+            default:
+              httpStatus = HttpStatus.BAD_REQUEST;
+              logCrawlError(UNKNOWN_CRAWL_TYPE + crawlKind, crawlJob);
+          }
         }
       }
       else {
@@ -217,14 +230,20 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
           return new ResponseEntity<>(crawlJob, HttpStatus.NOT_FOUND);
         }
         // Determine which kind of crawl is being requested.
-        switch (crawlKind) {
-          case NEWCONTENT:
-          case REPAIR:
-            httpStatus = startExternalCrawl(au, crawlJob);
-            break;
-          default:
-            httpStatus = HttpStatus.BAD_REQUEST;
-            logCrawlError(UNKNOWN_CRAWL_TYPE + crawlKind, crawlJob);
+        // FIXME
+        if (crawlKind == null) {
+          httpStatus = HttpStatus.BAD_REQUEST;
+          logCrawlError(UNKNOWN_CRAWL_TYPE + crawlKind, crawlJob);
+        } else {
+          switch (crawlKind) {
+            case NEWCONTENT:
+            case REPAIR:
+              httpStatus = startExternalCrawl(au, crawlJob);
+              break;
+            default:
+              httpStatus = HttpStatus.BAD_REQUEST;
+              logCrawlError(UNKNOWN_CRAWL_TYPE + crawlKind, crawlJob);
+          }
         }
       }
       log.debug2("crawlJob = {}", crawlJob);

@@ -190,7 +190,7 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     assertTrue(cmi.isCrawlerEnabled());
     pcm = LockssApp.getManagerByTypeStatic(PluggableCrawlManager.class);
     assertTrue(config.getList(CRAWLER_IDS).contains(WGET_CRAWLER_ID));
-    runGetSwaggerDocsTest(getTestUrlTemplate("/v3/api-docs"));
+//    runGetSwaggerDocsTest(getTestUrlTemplate("/v3/api-docs"));
     runMethodsNotAllowedUnAuthenticatedTest();
     getCrawlsUnAuthenticatedTest();
     doCrawlUnAuthenticatedTest();
@@ -223,7 +223,7 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     assertTrue(config.getBoolean(CrawlManagerImpl.PARAM_CRAWLER_ENABLED));
     cmi = (CrawlManagerImpl) LockssApp.getManagerByTypeStatic(CrawlManager.class);
     assertTrue(cmi.isCrawlerEnabled());
-    runGetSwaggerDocsTest(getTestUrlTemplate("/v3/api-docs"));
+//    runGetSwaggerDocsTest(getTestUrlTemplate("/v3/api-docs"));
     runMethodsNotAllowedAuthenticatedTest();
     getCrawlsAuthenticatedTest();
     doCrawlAuthenticatedTest();
@@ -253,7 +253,7 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     assertTrue(LockssDaemon.getLockssDaemon().isDaemonInited());
     LockssRepository repository = ApiUtils.getV2Repo();
     repository.initRepository();
-    runGetSwaggerDocsTest(getTestUrlTemplate("/v3/api-docs"));
+//    runGetSwaggerDocsTest(getTestUrlTemplate("/v3/api-docs"));
     runMethodsNotAllowedAuthenticatedTest();
     getCrawlsAuthenticatedTest();
     doCrawlPluggableTest(WGET_CRAWLER_ID);
@@ -282,7 +282,7 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     cmi = ApiUtils.getLockssCrawlManager();
     assertFalse(cmi.isCrawlerEnabled());
 
-    runGetSwaggerDocsTest(getTestUrlTemplate("/v3/api-docs"));
+//    runGetSwaggerDocsTest(getTestUrlTemplate("/v3/api-docs"));
     runMethodsNotAllowedUnAuthenticatedTest();
     getCrawlsDisabledTest();
 

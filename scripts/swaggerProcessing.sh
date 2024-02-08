@@ -69,5 +69,3 @@ JOBS_API=src/generated/java/org/lockss/laaws/crawler/api/JobsApi.java
 sed -i.backup "s/import org.lockss.laaws.crawler.model.CrawlDesc/import org.lockss.util.rest.crawler.CrawlDesc/" $JOBS_API && rm $JOBS_API.backup
 sed -i.backup "s/import org.lockss.laaws.crawler.model.CrawlJob/import org.lockss.util.rest.crawler.CrawlJob/" $JOBS_API && rm $JOBS_API.backup
 sed -i.backup "s/import org.lockss.laaws.crawler.model.JobStatus/import org.lockss.util.rest.crawler.JobStatus/" $JOBS_API && rm $JOBS_API.backup
-
-rm src/generated/java/org/lockss/laaws/crawler/config/SwaggerDocumentationConfig.java

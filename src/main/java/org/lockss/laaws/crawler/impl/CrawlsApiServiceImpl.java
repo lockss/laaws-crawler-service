@@ -48,7 +48,7 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import javax.ws.rs.NotFoundException;
 
 import static org.lockss.laaws.crawler.impl.ApiUtils.*;

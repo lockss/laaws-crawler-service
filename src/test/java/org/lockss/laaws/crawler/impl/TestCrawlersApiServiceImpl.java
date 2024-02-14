@@ -132,7 +132,7 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
     assertTrue(pcm.isInited());
     assertTrue(pcm.isCrawlerEnabled());
     assertTrue(pcm.isCrawlStarterEnabled());
-//    runGetSwaggerDocsTest(getTestUrlTemplate("/v3/api-docs"));
+    runGetSwaggerDocsTest(getTestUrlTemplate("/v3/api-docs"));
     runMethodsNotAllowedUnAuthenticatedTest();
     getCrawlersUnAuthenticatedTest();
     getCrawlerConfigUnAuthenticatedTest(true);
@@ -159,7 +159,7 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
     assertTrue(pcm.isInited());
     assertTrue(pcm.isCrawlerEnabled());
     assertTrue(pcm.isCrawlStarterEnabled());
-//    runGetSwaggerDocsTest(getTestUrlTemplate("/v3/api-docs"));
+    runGetSwaggerDocsTest(getTestUrlTemplate("/v3/api-docs"));
     runMethodsNotAllowedAuthenticatedTest();
     getCrawlersAuthenticatedTest();
     getCrawlerConfigAuthenticatedTest();
@@ -188,7 +188,7 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
     assertFalse(pcm.isCrawlerEnabled());
     assertTrue(pcm.isCrawlStarterEnabled());
 
-//    runGetSwaggerDocsTest(getTestUrlTemplate("/v3/api-docs"));
+    runGetSwaggerDocsTest(getTestUrlTemplate("/v3/api-docs"));
     runMethodsNotAllowedUnAuthenticatedTest();
     getCrawlersUnAuthenticatedTest();
     getCrawlerConfigUnAuthenticatedTest(false);

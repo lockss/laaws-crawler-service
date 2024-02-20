@@ -114,11 +114,13 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
   private PluggableCrawlManager pcm;
   static BrokerService broker;
 
+  public static String DEFAULT_BROKER_URI =
+      "vm://localhost?create=false&broker.persistent=false";
 
   /** Set up code to be run before all tests. */
   @BeforeClass
   public static void setUpBeforeClass() throws Exception {
-    broker = JMSManager.createBroker(JMSManager.DEFAULT_BROKER_URI);
+    broker = JMSManager.createBroker(DEFAULT_BROKER_URI);
   }
 
   @AfterClass

@@ -27,16 +27,21 @@
 package org.lockss.laaws.crawler.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.activemq.broker.BrokerService;
+import org.junit.AfterClass;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.lockss.app.LockssDaemon;
+import org.lockss.jms.JMSManager;
 import org.lockss.laaws.crawler.model.CrawlerConfig;
 import org.lockss.laaws.crawler.model.CrawlerStatus;
 import org.lockss.laaws.crawler.model.CrawlerStatuses;
 import org.lockss.log.L4JLogger;
 import org.lockss.spring.test.SpringLockssTestCase4;
 import org.lockss.util.rest.RestUtil;
+import org.lockss.util.time.TimerUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -111,6 +116,25 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
     setUpUiPort(UI_PORT_CONFIGURATION_TEMPLATE, UI_PORT_CONFIGURATION_FILE);
 
     log.debug2("Done");
+  }
+
+  static BrokerService broker;
+
+  public static String DEFAULT_BROKER_URI =
+      "vm://localhost?create=false&broker.persistent=false";
+
+  /** Set up code to be run before all tests. */
+  @BeforeClass
+  public static void setUpBeforeClass() throws Exception {
+    broker = JMSManager.createBroker(DEFAULT_BROKER_URI);
+  }
+
+  @AfterClass
+  public static void tearDownAfterClass() throws Exception {
+    if (broker != null) {
+      TimerUtil.sleep(1000);
+      broker.stop();
+    }
   }
 
   /**

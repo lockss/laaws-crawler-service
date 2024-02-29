@@ -45,13 +45,12 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.solr.SolrAutoConfiguration;
-import springfox.documentation.swagger2.annotations.EnableSwagger2;
 
 /**
  * The Spring-Boot application.
  */
 @SpringBootApplication(exclude = {SolrAutoConfiguration.class})
-@EnableSwagger2
+
 public class CrawlerApplication extends BaseSpringBootApplication implements CommandLineRunner {
 
   public static final String PLUGGABLE_CRAWL_MANAGER = managerKey(PluggableCrawlManager.class);

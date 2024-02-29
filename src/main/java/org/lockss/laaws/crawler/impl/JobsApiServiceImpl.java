@@ -32,6 +32,17 @@
 
 package org.lockss.laaws.crawler.impl;
 
+import static org.lockss.laaws.crawler.impl.ApiUtils.*;
+import static org.lockss.servlet.DebugPanel.DEFAULT_CRAWL_PRIORITY;
+import static org.lockss.servlet.DebugPanel.PARAM_CRAWL_PRIORITY;
+import static org.lockss.util.rest.crawler.CrawlDesc.CLASSIC_CRAWLER_ID;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.NotFoundException;
 import org.lockss.app.LockssDaemon;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
@@ -46,9 +57,8 @@ import org.lockss.laaws.crawler.model.JobPager;
 import org.lockss.laaws.crawler.utils.ContinuationToken;
 import org.lockss.log.L4JLogger;
 import org.lockss.plugin.ArchivalUnit;
-import org.lockss.plugin.AuUtil;
 import org.lockss.spring.base.BaseSpringApiServiceImpl;
-import org.lockss.state.AuState;
+import org.lockss.util.JsonUtil;
 import org.lockss.util.RateLimiter;
 import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.crawler.CrawlJob;
@@ -59,19 +69,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-
-import javax.servlet.http.HttpServletRequest;
-import javax.ws.rs.NotFoundException;
-
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-
-import static org.lockss.laaws.crawler.impl.ApiUtils.*;
-import static org.lockss.servlet.DebugPanel.DEFAULT_CRAWL_PRIORITY;
-import static org.lockss.servlet.DebugPanel.PARAM_CRAWL_PRIORITY;
-import static org.lockss.util.rest.crawler.CrawlDesc.CLASSIC_CRAWLER_ID;
 
 @Service
 public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements JobsApiDelegate {
@@ -680,5 +677,31 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
     log.error("crawlDesc = {}", crawlJob.getCrawlDesc());
     crawlJob.jobStatus(new JobStatus().statusCode(JobStatus.StatusCodeEnum.ERROR).msg(message));
     log.debug2("crawlJob = {}", crawlJob);
+  }
+  /**
+   * Provides the response entity when there is an error.
+   *
+   * @param status
+   *          An HttpStatus with the error HTTP status.
+   * @param message
+   *          A String with the error message.
+   * @param e
+   *          An Exception with theerror exception.
+   * @return a {@code ResponseEntity<String>} with the error response entity.
+   */
+  private ResponseEntity<String> getErrorResponseEntity(HttpStatus status,
+    String message, Exception e) {
+    String errorMessage = message;
+
+    if (e != null) {
+      if (errorMessage == null) {
+        errorMessage = e.getMessage();
+      } else {
+        errorMessage = errorMessage + " - " + e.getMessage();
+      }
+    }
+
+    return new ResponseEntity<String>(JsonUtil.toJsonError(status.value(),
+      errorMessage), status);
   }
 }

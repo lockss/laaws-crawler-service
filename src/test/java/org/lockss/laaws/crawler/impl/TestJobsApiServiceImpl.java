@@ -43,6 +43,7 @@ import org.lockss.config.Configuration;
 import org.lockss.crawler.FuncNewContentCrawler.MySimulatedArchivalUnit;
 import org.lockss.crawler.FuncNewContentCrawler.MySimulatedPlugin;
 import org.lockss.jms.JMSManager;
+import org.lockss.laaws.crawler.CrawlerApplication;
 import org.lockss.laaws.crawler.model.JobPager;
 import org.lockss.laaws.crawler.model.PageInfo;
 import org.lockss.log.L4JLogger;
@@ -71,7 +72,9 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 /** Test class for org.lockss.laaws.crawler.impl.JobsApiServiceImpl. */
 @RunWith(SpringRunner.class)
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(
+    classes = {CrawlerApplication.class},
+    webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 public class TestJobsApiServiceImpl extends SpringLockssTestCase4 {
 

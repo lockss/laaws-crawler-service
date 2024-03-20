@@ -39,6 +39,7 @@ import org.lockss.crawler.CrawlManagerImpl;
 import org.lockss.crawler.FuncNewContentCrawler.MySimulatedArchivalUnit;
 import org.lockss.crawler.FuncNewContentCrawler.MySimulatedPlugin;
 import org.lockss.jms.JMSManager;
+import org.lockss.laaws.crawler.CrawlerApplication;
 import org.lockss.laaws.crawler.model.CrawlPager;
 import org.lockss.laaws.crawler.model.CrawlStatus;
 import org.lockss.laaws.crawler.model.PageInfo;
@@ -78,7 +79,9 @@ import static org.lockss.laaws.crawler.impl.PluggableCrawlManager.CRAWLER_IDS;
 import static org.lockss.util.rest.crawler.CrawlDesc.CLASSIC_CRAWLER_ID;
 
 @RunWith(SpringRunner.class)
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(
+    classes = {CrawlerApplication.class},
+    webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @DirtiesContext(classMode = ClassMode.AFTER_EACH_TEST_METHOD)
 public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
   private static final L4JLogger log = L4JLogger.getLogger();

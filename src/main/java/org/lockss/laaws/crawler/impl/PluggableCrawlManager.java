@@ -241,7 +241,7 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
     log.info("setConfig: crawlerEnabled:{} starterEnabled:{}",crawlerEnabled,crawlStarterEnabled);
     if (changedKeys.contains(PREFIX)) {
       crawlerIds = newConfig.getList(CRAWLER_IDS, defaultCrawlerIds);
-      log.info("setting config: {}", newConfig.toStringMap());
+      log.debug2("setting config: {}", newConfig.toStringMap());
       ListUtil.immutableListOfType(newConfig.getList(CRAWLER_IDS, defaultCrawlerIds), String.class);
       crawlerIds = ListUtil.immutableListOfType(newConfig.getList(CRAWLER_IDS, defaultCrawlerIds), String.class);
       // If we remove a crawler, we complete any active crawls and disable the crawler

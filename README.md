@@ -29,7 +29,7 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 --> 
-# LOCKSS Crawler Service [![Build Status](https://travis-ci.com/lockss/laaws-crawler-service.svg?branch=master)](https://travis-ci.com/lockss/laaws-crawler-service)
+# LOCKSS Crawler Service
 This is the REST Web Service that provides support for multple crawlers.
 
 ## Note on branches

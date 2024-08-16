@@ -4,7 +4,7 @@
 ## Changes Since 1.0.0
 
 * Remove  Travis CI
-* move to OpenAPI 3
+* Move to OpenAPI 3
 * Move to Java 17
 * Prevent JMS broker from being created automatically in tests that want to create one manually
 * Use jakarta HttpServletRequest

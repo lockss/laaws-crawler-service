@@ -38,6 +38,7 @@ import org.lockss.laaws.crawler.model.UrlPager;
 import org.lockss.laaws.crawler.utils.ContinuationToken;
 import org.lockss.log.L4JLogger;
 import org.lockss.spring.base.BaseSpringApiServiceImpl;
+import org.lockss.util.JsonUtil;
 import org.lockss.util.rest.crawler.JobStatus;
 import org.lockss.util.rest.crawler.JobStatus.StatusCodeEnum;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,7 +48,7 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import javax.ws.rs.NotFoundException;
 
 import static org.lockss.laaws.crawler.impl.ApiUtils.*;
@@ -70,62 +71,6 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
     this.request = request;
   }
 
-  /**
-   * Deletes a crawl previously added to the crawl queue, stopping the crawl if already running.
-   *
-   * @param jobId A String with the identifier assigned to the crawl when added.
-   * @return a {@code ResponseEntity<CrawlStatus>} with the status of the deleted crawl.
-   * @see CrawlsApi#deleteCrawlById
-   */
-  @Override
-  public ResponseEntity<CrawlStatus> deleteCrawlById(String jobId) {
-    log.debug2("jobId = {}", jobId);
-
-    CrawlStatus crawlStatus;
-    JobStatus jobStatus;
-    try {
-      // Check whether the service has not been fully initialized.
-      if (!waitReady()) {
-        // Yes: Report the problem.
-        log.error(NOT_INITIALIZED_MESSAGE);
-        log.error("jobId = {}", jobId);
-        jobStatus = new JobStatus().statusCode(StatusCodeEnum.ERROR).msg(NOT_INITIALIZED_MESSAGE);
-        crawlStatus = new CrawlStatus().jobId(jobId).jobStatus(jobStatus);
-        return new ResponseEntity<>(crawlStatus, HttpStatus.SERVICE_UNAVAILABLE);
-      }
-
-      CrawlerStatus crawlerStatus = getCrawlerStatus(jobId);
-      log.debug2("crawlerStatus = {}", crawlerStatus);
-      String crawlerId = crawlerStatus.getCrawlerId();
-
-      if (crawlerStatus.isCrawlWaiting() || crawlerStatus.isCrawlActive()) {
-        if(crawlerId.equals(CLASSIC_CRAWLER_ID))
-          getLockssCrawlManager().deleteCrawl(crawlerStatus.getAu());
-        else {
-          PluggableCrawler crawler = getPluggableCrawlManager().getCrawler(crawlerStatus.getCrawlerId());
-          if(crawler != null) {
-            crawler.stopCrawl(jobId);
-          }
-        }
-      }
-      return new ResponseEntity<>(ApiUtils.makeCrawlStatus(crawlerStatus), HttpStatus.OK);
-    }
-    catch (NotFoundException nfe) {
-      String message = "No crawl found for jobId '" + jobId + "'.";
-      log.warn(message);
-      HttpStatus httpStatus = HttpStatus.NOT_FOUND;
-      jobStatus = new JobStatus().statusCode(StatusCodeEnum.ERROR).msg(message);
-      crawlStatus = new CrawlStatus().jobId(jobId).jobStatus(jobStatus);
-      return new ResponseEntity<>(crawlStatus, httpStatus);
-    }
-    catch (Exception e) {
-      String message = "Cannot deleteCrawlById() for jobId = '" + jobId + "'";
-      log.error(message, e);
-      jobStatus = new JobStatus().statusCode(StatusCodeEnum.ERROR).msg(message);
-      crawlStatus = new CrawlStatus().jobId(jobId).jobStatus(jobStatus);
-      return new ResponseEntity<>(crawlStatus, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
-  }
 
   /**
    * Provides the status of a requested crawl.
@@ -135,7 +80,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
    * @see CrawlsApi#getCrawlById
    */
   @Override
-  public ResponseEntity<CrawlStatus> getCrawlById(String jobId) {
+  public ResponseEntity getCrawlById(String jobId) {
     log.debug2("jobId = {}", jobId);
 
     CrawlStatus crawlStatus;
@@ -145,12 +90,9 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
       // Check whether the service has not been fully initialized.
       if (!waitReady()) {
         // Yes: Report the problem.
-        String message = "The service has not been fully initialized";
-        log.error(message);
+        log.error(NOT_INITIALIZED_MESSAGE);
         log.error("jobId = {}", jobId);
-        jobStatus = new JobStatus().statusCode(StatusCodeEnum.ERROR).msg(message);
-        crawlStatus = new CrawlStatus().jobId(jobId).jobStatus(jobStatus);
-        return new ResponseEntity<>(crawlStatus, HttpStatus.SERVICE_UNAVAILABLE);
+        return getErrorResponseEntity(HttpStatus.SERVICE_UNAVAILABLE, NOT_INITIALIZED_MESSAGE, null);
       }
 
       crawlStatus = getCrawlStatus(jobId);
@@ -160,16 +102,12 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
     catch (NotFoundException nfe) {
       String message = "No crawl found for jobId '" + jobId + "'.";
       log.warn(message);
-      jobStatus = new JobStatus().statusCode(StatusCodeEnum.ERROR).msg(message);
-      crawlStatus = new CrawlStatus().jobId(jobId).jobStatus(jobStatus);
-      return new ResponseEntity<>(crawlStatus, HttpStatus.NOT_FOUND);
+      return getErrorResponseEntity(HttpStatus.NOT_FOUND, message, null);
     }
-    catch (Exception e) {
+    catch (Exception ex) {
       String message = "Cannot getCrawlById() for jobId = '" + jobId + "'";
-      log.error(message, e);
-      jobStatus = new JobStatus().statusCode(StatusCodeEnum.ERROR).msg(message);
-      crawlStatus = new CrawlStatus().jobId(jobId).jobStatus(jobStatus);
-      return new ResponseEntity<>(crawlStatus, HttpStatus.INTERNAL_SERVER_ERROR);
+      log.error(message, ex);
+      return getErrorResponseEntity(HttpStatus.INTERNAL_SERVER_ERROR, message, ex);
     }
   }
 
@@ -184,7 +122,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
    * @see CrawlsApi#getCrawlByMimeType
    */
   @Override
-  public ResponseEntity<UrlPager> getCrawlByMimeType(
+  public ResponseEntity getCrawlByMimeType(
     String jobId, String type, Integer limit, String continuationToken) {
     log.debug2("jobId = {}", jobId);
     log.debug2("type = {}", type);
@@ -195,27 +133,26 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
       // Check whether the service has not been fully initialized.
       if (!waitReady()) {
         // Yes: Report the problem.
-        String message = "The service has not been fully initialized";
-        log.error(message);
+        log.error(NOT_INITIALIZED_MESSAGE);
         log.error("limit = {}, continuationToken = {}", limit, continuationToken);
-        return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
+        return getErrorResponseEntity(HttpStatus.SERVICE_UNAVAILABLE, NOT_INITIALIZED_MESSAGE, null);
       }
 
       CrawlerStatus status = getCrawlerStatus(jobId);
       List<String> urls = status.getUrlsOfMimeType(type);
       UrlPager pager = getUrlPager(status, urls, limit, continuationToken);
       log.debug2("pager = {}", pager);
-      return new ResponseEntity<>(pager, HttpStatus.OK);
+      return new ResponseEntity<UrlPager>(pager, HttpStatus.OK);
     }
     catch (NotFoundException nfe) {
       String message = "No crawl found for jobId '" + jobId + "'.";
       log.warn(message);
-      return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+      return getErrorResponseEntity(HttpStatus.NOT_FOUND, message, null);
     }
     catch (IllegalArgumentException iae) {
-      return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+      return getErrorResponseEntity(HttpStatus.BAD_REQUEST, iae.getMessage(), iae);
     }
-    catch (Exception e) {
+    catch (Exception ex) {
       String message =
         "Cannot getCrawlByMimeType() for jobId '"
           + jobId
@@ -225,8 +162,8 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
           + limit
           + ", continuationToken = "
           + continuationToken;
-      log.error(message, e);
-      return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+      log.error(message, ex);
+      return getErrorResponseEntity(HttpStatus.INTERNAL_SERVER_ERROR, message, ex);
     }
   }
 
@@ -240,7 +177,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
    * @see CrawlsApi#getCrawlErrors
    */
   @Override
-  public ResponseEntity<UrlPager> getCrawlErrors(
+  public ResponseEntity getCrawlErrors(
     String jobId, Integer limit, String continuationToken) {
     log.debug2("jobId = {}", jobId);
     log.debug2("limit = {}", limit);
@@ -250,10 +187,9 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
       // Check whether the service has not been fully initialized.
       if (!waitReady()) {
         // Yes: Report the problem.
-        String message = "The service has not been fully initialized";
-        log.error(message);
+        log.error(NOT_INITIALIZED_MESSAGE);
         log.error("limit = {}, continuationToken = {}", limit, continuationToken);
-        return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
+        return getErrorResponseEntity(HttpStatus.SERVICE_UNAVAILABLE, NOT_INITIALIZED_MESSAGE, null);
       }
 
       CrawlerStatus status = getCrawlerStatus(jobId);
@@ -262,17 +198,17 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
       log.trace("urls = {}", urls);
       UrlPager pager = getUrlPager(status, urls, limit, continuationToken);
       log.debug2("pager = {}", pager);
-      return new ResponseEntity<>(pager, HttpStatus.OK);
+      return new ResponseEntity<UrlPager>(pager, HttpStatus.OK);
     }
     catch (NotFoundException nfe) {
       String message = "No crawl found for jobId '" + jobId + "'.";
       log.warn(message);
-      return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+      return getErrorResponseEntity(HttpStatus.NOT_FOUND, message, null);
     }
     catch (IllegalArgumentException iae) {
-      return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+      return getErrorResponseEntity(HttpStatus.BAD_REQUEST, null, iae);
     }
-    catch (Exception e) {
+    catch (Exception ex) {
       String message =
         "Cannot getCrawlErrors() for jobId '"
           + jobId
@@ -280,8 +216,8 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
           + limit
           + ", continuationToken = "
           + continuationToken;
-      log.error(message, e);
-      return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+      log.error(message, ex);
+      return getErrorResponseEntity(HttpStatus.INTERNAL_SERVER_ERROR, message, ex);
     }
   }
 
@@ -295,7 +231,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
    * @see CrawlsApi#getCrawlExcluded
    */
   @Override
-  public ResponseEntity<UrlPager> getCrawlExcluded(
+  public ResponseEntity getCrawlExcluded(
     String jobId, Integer limit, String continuationToken) {
     log.debug2("jobId = {}", jobId);
     log.debug2("continuationToken = {}", continuationToken);
@@ -305,10 +241,9 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
       // Check whether the service has not been fully initialized.
       if (!waitReady()) {
         // Yes: Report the problem.
-        String message = "The service has not been fully initialized";
-        log.error(message);
+        log.error(NOT_INITIALIZED_MESSAGE);
         log.error("limit = {}, continuationToken = {}", limit, continuationToken);
-        return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
+        return getErrorResponseEntity(HttpStatus.SERVICE_UNAVAILABLE, NOT_INITIALIZED_MESSAGE, null);
       }
 
       CrawlerStatus status = getCrawlerStatus(jobId);
@@ -320,12 +255,12 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
     catch (NotFoundException nfe) {
       String message = "No crawl found for jobId '" + jobId + "'.";
       log.warn(message);
-      return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+      return getErrorResponseEntity(HttpStatus.NOT_FOUND, message, null);
     }
     catch (IllegalArgumentException iae) {
       return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
     }
-    catch (Exception e) {
+    catch (Exception ex) {
       String message =
         "Cannot getCrawlExcluded() for jobId '"
           + jobId
@@ -333,8 +268,8 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
           + limit
           + ", continuationToken = "
           + continuationToken;
-      log.error(message, e);
-      return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+      log.error(message, ex);
+      return getErrorResponseEntity(HttpStatus.INTERNAL_SERVER_ERROR, message, ex);
     }
   }
 
@@ -348,7 +283,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
    * @see CrawlsApi#getCrawlFetched
    */
   @Override
-  public ResponseEntity<UrlPager> getCrawlFetched(
+  public ResponseEntity getCrawlFetched(
     String jobId, Integer limit, String continuationToken) {
     log.debug2("jobId = {}", jobId);
     log.debug2("continuationToken = {}", continuationToken);
@@ -358,10 +293,9 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
       // Check whether the service has not been fully initialized.
       if (!waitReady()) {
         // Yes: Report the problem.
-        String message = "The service has not been fully initialized";
-        log.error(message);
+        log.error(NOT_INITIALIZED_MESSAGE);
         log.error("limit = {}, continuationToken = {}", limit, continuationToken);
-        return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
+        return getErrorResponseEntity(HttpStatus.SERVICE_UNAVAILABLE, NOT_INITIALIZED_MESSAGE, null);
       }
 
       CrawlerStatus status = getCrawlerStatus(jobId);
@@ -373,12 +307,12 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
     catch (NotFoundException nfe) {
       String message = "No crawl found for jobId '" + jobId + "'.";
       log.warn(message);
-      return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+      return getErrorResponseEntity(HttpStatus.NOT_FOUND, message, null);
     }
     catch (IllegalArgumentException iae) {
       return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
     }
-    catch (Exception e) {
+    catch (Exception ex) {
       String message =
         "Cannot getCrawlFetched() for jobId '"
           + jobId
@@ -386,8 +320,8 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
           + limit
           + ", continuationToken = "
           + continuationToken;
-      log.error(message, e);
-      return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+      log.error(message, ex);
+      return getErrorResponseEntity(HttpStatus.INTERNAL_SERVER_ERROR, message, ex);
     }
   }
 
@@ -401,7 +335,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
    * @see CrawlsApi#getCrawlNotModified
    */
   @Override
-  public ResponseEntity<UrlPager> getCrawlNotModified(
+  public ResponseEntity getCrawlNotModified(
     String jobId, Integer limit, String continuationToken) {
     log.debug2("jobId = {}", jobId);
     log.debug2("continuationToken = {}", continuationToken);
@@ -411,10 +345,9 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
       // Check whether the service has not been fully initialized.
       if (!waitReady()) {
         // Yes: Report the problem.
-        String message = "The service has not been fully initialized";
-        log.error(message);
+        log.error(NOT_INITIALIZED_MESSAGE);
         log.error("limit = {}, continuationToken = {}", limit, continuationToken);
-        return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
+        return getErrorResponseEntity(HttpStatus.SERVICE_UNAVAILABLE, NOT_INITIALIZED_MESSAGE, null);
       }
 
       CrawlerStatus status = getCrawlerStatus(jobId);
@@ -426,12 +359,12 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
     catch (NotFoundException nfe) {
       String message = "No crawl found for jobId '" + jobId + "'.";
       log.warn(message);
-      return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+      return getErrorResponseEntity(HttpStatus.NOT_FOUND, message, null);
     }
     catch (IllegalArgumentException iae) {
       return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
     }
-    catch (Exception e) {
+    catch (Exception ex) {
       String message =
         "Cannot getCrawlNotModified() for jobId '"
           + jobId
@@ -439,8 +372,8 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
           + limit
           + ", continuationToken = "
           + continuationToken;
-      log.error(message, e);
-      return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+      log.error(message, ex);
+      return getErrorResponseEntity(HttpStatus.INTERNAL_SERVER_ERROR, message, ex);
     }
   }
 
@@ -454,7 +387,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
    * @see CrawlsApi#getCrawlParsed
    */
   @Override
-  public ResponseEntity<UrlPager> getCrawlParsed(
+  public ResponseEntity getCrawlParsed(
     String jobId, Integer limit, String continuationToken) {
     log.debug2("jobId = {}", jobId);
     log.debug2("continuationToken = {}", continuationToken);
@@ -464,10 +397,9 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
       // Check whether the service has not been fully initialized.
       if (!waitReady()) {
         // Yes: Report the problem.
-        String message = "The service has not been fully initialized";
-        log.error(message);
+        log.error(NOT_INITIALIZED_MESSAGE);
         log.error("limit = {}, continuationToken = {}", limit, continuationToken);
-        return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
+        return getErrorResponseEntity(HttpStatus.SERVICE_UNAVAILABLE, NOT_INITIALIZED_MESSAGE, null);
       }
 
       CrawlerStatus status = getCrawlerStatus(jobId);
@@ -479,12 +411,12 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
     catch (NotFoundException nfe) {
       String message = "No crawl found for jobId '" + jobId + "'.";
       log.warn(message);
-      return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+      return getErrorResponseEntity(HttpStatus.NOT_FOUND, message, null);
     }
     catch (IllegalArgumentException iae) {
       return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
     }
-    catch (Exception e) {
+    catch (Exception ex) {
       String message =
         "Cannot getCrawlParsed() for jobId '"
           + jobId
@@ -492,8 +424,8 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
           + limit
           + ", continuationToken = "
           + continuationToken;
-      log.error(message, e);
-      return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+      log.error(message, ex);
+      return getErrorResponseEntity(HttpStatus.INTERNAL_SERVER_ERROR, message, ex);
     }
   }
 
@@ -507,7 +439,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
    * @see CrawlsApi#getCrawlPending
    */
   @Override
-  public ResponseEntity<UrlPager> getCrawlPending(
+  public ResponseEntity getCrawlPending(
     String jobId, Integer limit, String continuationToken) {
     log.debug2("jobId = {}", jobId);
     log.debug2("continuationToken = {}", continuationToken);
@@ -520,7 +452,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
         String message = "The service has not been fully initialized";
         log.error(message);
         log.error("limit = {}, continuationToken = {}", limit, continuationToken);
-        return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
+        return getErrorResponseEntity(HttpStatus.SERVICE_UNAVAILABLE, message, null);
       }
 
       CrawlerStatus status = getCrawlerStatus(jobId);
@@ -532,12 +464,12 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
     catch (NotFoundException nfe) {
       String message = "No crawl found for jobId '" + jobId + "'.";
       log.warn(message);
-      return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+      return getErrorResponseEntity(HttpStatus.NOT_FOUND, message, null);
     }
     catch (IllegalArgumentException iae) {
       return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
     }
-    catch (Exception e) {
+    catch (Exception ex) {
       String message =
         "Cannot getCrawlPending() for jobId '"
           + jobId
@@ -545,8 +477,8 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
           + limit
           + ", continuationToken = "
           + continuationToken;
-      log.error(message, e);
-      return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+      log.error(message, ex);
+      return getErrorResponseEntity(HttpStatus.INTERNAL_SERVER_ERROR, message, ex);
     }
   }
 
@@ -559,7 +491,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
    * @see CrawlsApi#getCrawls
    */
   @Override
-  public ResponseEntity<CrawlPager> getCrawls(Integer limit, String continuationToken) {
+  public ResponseEntity getCrawls(Integer limit, String continuationToken) {
     log.debug2("limit = {}", limit);
     log.debug2("continuationToken = {}", continuationToken);
 
@@ -569,7 +501,8 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
         // Yes: Report the problem.
         log.error(NOT_INITIALIZED_MESSAGE);
         log.error("limit = {}, continuationToken = {}", limit, continuationToken);
-        return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
+
+        return getErrorResponseEntity(HttpStatus.SERVICE_UNAVAILABLE, NOT_INITIALIZED_MESSAGE, null);
       }
 
       CrawlPager pager = getCrawlsPager(limit, continuationToken);
@@ -586,7 +519,7 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
       String message =
         "Cannot get crawls with limit = " + limit + ", continuationToken = " + continuationToken;
       log.error(message, ex);
-      return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+      return getErrorResponseEntity(HttpStatus.INTERNAL_SERVER_ERROR, message, ex);
     }
   }
 
@@ -814,5 +747,31 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
     return pager;
   }
 
+  /**
+   * Provides the response entity when there is an error.
+   *
+   * @param status
+   *          An HttpStatus with the error HTTP status.
+   * @param message
+   *          A String with the error message.
+   * @param e
+   *          An Exception with theerror exception.
+   * @return a {@code ResponseEntity<String>} with the error response entity.
+   */
+  private ResponseEntity<String> getErrorResponseEntity(HttpStatus status,
+                                                        String message, Exception e) {
+    String errorMessage = message;
+
+    if (e != null) {
+      if (errorMessage == null) {
+        errorMessage = e.getMessage();
+      } else {
+        errorMessage = errorMessage + " - " + e.getMessage();
+      }
+    }
+
+    return new ResponseEntity<String>(JsonUtil.toJsonError(status.value(),
+                                                           errorMessage), status);
+  }
 
 }

@@ -20,6 +20,8 @@ import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.crawler.CrawlJob;
 import org.lockss.util.rest.crawler.JobStatus;
 import org.lockss.util.test.LockssTestCase5;
+import org.mockito.ArgumentMatchers;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
@@ -123,8 +125,10 @@ class TestCmdLineCrawler extends LockssTestCase5 {
       CrawlJob crawlJob = makeMockCrawlJob(DEF_AU_ID, DEF_CRAWLER_ID);
       when(lockssRepository.isReady()).thenReturn(true);
       cmdLineCrawler.storeInRepository(DEF_AU_ID, warcfile, false);
-      verify(lockssRepository,times(1)).addArtifacts(anyString(),anyString(),anyObject(),
-        anyObject(),anyBoolean(),anyString());
+      verify(lockssRepository,times(1)).addArtifacts(anyString(),anyString(),
+          ArgumentMatchers.any(),
+          ArgumentMatchers.any(),
+          anyBoolean(),anyString());
     }
     catch (IOException e) {
       fail("store Warc failed");

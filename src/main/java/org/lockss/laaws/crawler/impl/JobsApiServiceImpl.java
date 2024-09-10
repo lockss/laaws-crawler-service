@@ -32,6 +32,17 @@
 
 package org.lockss.laaws.crawler.impl;
 
+import static org.lockss.laaws.crawler.impl.ApiUtils.*;
+import static org.lockss.servlet.DebugPanel.DEFAULT_CRAWL_PRIORITY;
+import static org.lockss.servlet.DebugPanel.PARAM_CRAWL_PRIORITY;
+import static org.lockss.util.rest.crawler.CrawlDesc.CLASSIC_CRAWLER_ID;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import jakarta.servlet.http.HttpServletRequest;
+import javax.ws.rs.NotFoundException;
 import org.lockss.app.LockssDaemon;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
@@ -46,9 +57,8 @@ import org.lockss.laaws.crawler.model.JobPager;
 import org.lockss.laaws.crawler.utils.ContinuationToken;
 import org.lockss.log.L4JLogger;
 import org.lockss.plugin.ArchivalUnit;
-import org.lockss.plugin.AuUtil;
 import org.lockss.spring.base.BaseSpringApiServiceImpl;
-import org.lockss.state.AuState;
+import org.lockss.util.JsonUtil;
 import org.lockss.util.RateLimiter;
 import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.crawler.CrawlJob;
@@ -59,17 +69,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-
-import javax.servlet.http.HttpServletRequest;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-
-import static org.lockss.laaws.crawler.impl.ApiUtils.*;
-import static org.lockss.servlet.DebugPanel.DEFAULT_CRAWL_PRIORITY;
-import static org.lockss.servlet.DebugPanel.PARAM_CRAWL_PRIORITY;
-import static org.lockss.util.rest.crawler.CrawlDesc.CLASSIC_CRAWLER_ID;
 
 @Service
 public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements JobsApiDelegate {
@@ -84,7 +83,6 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
   private static final String DISABLED_CRAWLER_MESSAGE = "The requested crawler is disabled:";
   private static final String UNKNOWN_CRAWL_TYPE = "Unknown crawl kind:";
   public static final String AU_HAS_QUEUED_OR_ACTIVE_CRAWL = "AU has queued or active crawl";
-
   private final HttpServletRequest request;
 
   @Autowired
@@ -238,6 +236,112 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
       return new ResponseEntity<>(crawlJob, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
+
+  /**
+   * Provides the status of a requested crawl.
+   *
+   * @param jobId A String with the identifier assigned to the crawl when added.
+   * @return a {@code ResponseEntity<CrawlJob>} with the status of the crawl.
+   * @see JobsApi#getCrawlJob
+   */
+  @Override
+  public ResponseEntity<CrawlJob> getCrawlJob(String jobId) {
+    log.debug2("jobId = {}", jobId);
+
+    CrawlJob crawlJob;
+    JobStatus jobStatus;
+
+    try {
+      // Check whether the service has not been fully initialized.
+      if (!waitReady()) {
+        // Yes: Report the problem.
+        String message = "The service has not been fully initialized";
+        log.error(message);
+        log.error("jobId = {}", jobId);
+        jobStatus = new JobStatus().statusCode(StatusCodeEnum.ERROR).msg(message);
+        crawlJob = new CrawlJob().jobId(jobId).jobStatus(jobStatus);
+        return new ResponseEntity<>(crawlJob, HttpStatus.SERVICE_UNAVAILABLE);
+      }
+      CrawlerStatus crawlerStatus = getCrawlerStatus(jobId);
+      crawlJob = makeCrawlJob(crawlerStatus);
+      log.debug2("CrawlJob = {}", crawlJob);
+      return new ResponseEntity<>(crawlJob, HttpStatus.OK);
+    }
+    catch (NotFoundException nfe) {
+      String message = "No crawl found for jobId '" + jobId + "'.";
+      log.warn(message);
+      jobStatus = new JobStatus().statusCode(StatusCodeEnum.ERROR).msg(message);
+      crawlJob = new CrawlJob().jobId(jobId).jobStatus(jobStatus);
+      return new ResponseEntity<>(crawlJob, HttpStatus.NOT_FOUND);
+    }
+    catch (Exception e) {
+      String message = "Cannot getCrawlById() for jobId = '" + jobId + "'";
+      log.error(message, e);
+      jobStatus = new JobStatus().statusCode(StatusCodeEnum.ERROR).msg(message);
+      crawlJob = new CrawlJob().jobId(jobId).jobStatus(jobStatus);
+      return new ResponseEntity<>(crawlJob, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+
+  /**
+   * Deletes a crawl previously added to the crawl queue, stopping the crawl if already running.
+   *
+   * @param jobId A String with the identifier assigned to the crawl when added.
+   * @return a {@code ResponseEntity<CrawlJob>} with the status of the deleted crawl.
+   * @see JobsApi#deleteCrawlJob(String)
+   */
+  @Override
+  public ResponseEntity<CrawlJob> deleteCrawlJob(String jobId) {
+    log.debug2("jobId = {}", jobId);
+
+    CrawlJob crawlJob;
+    JobStatus jobStatus;
+    try {
+      // Check whether the service has not been fully initialized.
+      if (!waitReady()) {
+        // Yes: Report the problem.
+        log.error(NOT_INITIALIZED_MESSAGE);
+        log.error("jobId = {}", jobId);
+        jobStatus = new JobStatus().statusCode(StatusCodeEnum.ERROR).msg(NOT_INITIALIZED_MESSAGE);
+        crawlJob = new CrawlJob().jobId(jobId).jobStatus(jobStatus);
+        return new ResponseEntity<>(crawlJob, HttpStatus.SERVICE_UNAVAILABLE);
+      }
+
+      CrawlerStatus crawlerStatus = getCrawlerStatus(jobId);
+      log.debug2("crawlerStatus = {}", crawlerStatus);
+      String crawlerId = crawlerStatus.getCrawlerId();
+
+      if (crawlerStatus.isCrawlWaiting() || crawlerStatus.isCrawlActive()) {
+        if(crawlerId.equals(CLASSIC_CRAWLER_ID))
+          getLockssCrawlManager().deleteCrawl(crawlerStatus.getAu());
+        else {
+          PluggableCrawler crawler = getPluggableCrawlManager().getCrawler(crawlerStatus.getCrawlerId());
+          if(crawler != null) {
+            crawler.stopCrawl(jobId);
+          }
+        }
+      }
+      return new ResponseEntity<>(makeCrawlJob(crawlerStatus), HttpStatus.OK);
+    }
+    catch (NotFoundException nfe) {
+      String message = "No crawl found for jobId '" + jobId + "'.";
+      log.warn(message);
+      HttpStatus httpStatus = HttpStatus.NOT_FOUND;
+      jobStatus = new JobStatus().statusCode(StatusCodeEnum.ERROR).msg(message);
+      crawlJob = new CrawlJob().jobId(jobId).jobStatus(jobStatus);
+      return new ResponseEntity<>(crawlJob, httpStatus);
+    }
+    catch (Exception e) {
+      String message = "Cannot deleteCrawlById() for jobId = '" + jobId + "'";
+      log.error(message, e);
+      jobStatus = new JobStatus().statusCode(StatusCodeEnum.ERROR).msg(message);
+      crawlJob = new CrawlJob().jobId(jobId).jobStatus(jobStatus);
+      return new ResponseEntity<>(crawlJob, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+
   /**
    * Provides a pageful of jobs.
    *
@@ -573,5 +677,31 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
     log.error("crawlDesc = {}", crawlJob.getCrawlDesc());
     crawlJob.jobStatus(new JobStatus().statusCode(JobStatus.StatusCodeEnum.ERROR).msg(message));
     log.debug2("crawlJob = {}", crawlJob);
+  }
+  /**
+   * Provides the response entity when there is an error.
+   *
+   * @param status
+   *          An HttpStatus with the error HTTP status.
+   * @param message
+   *          A String with the error message.
+   * @param e
+   *          An Exception with theerror exception.
+   * @return a {@code ResponseEntity<String>} with the error response entity.
+   */
+  private ResponseEntity<String> getErrorResponseEntity(HttpStatus status,
+    String message, Exception e) {
+    String errorMessage = message;
+
+    if (e != null) {
+      if (errorMessage == null) {
+        errorMessage = e.getMessage();
+      } else {
+        errorMessage = errorMessage + " - " + e.getMessage();
+      }
+    }
+
+    return new ResponseEntity<String>(JsonUtil.toJsonError(status.value(),
+      errorMessage), status);
   }
 }

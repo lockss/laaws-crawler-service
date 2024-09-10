@@ -43,6 +43,7 @@ import org.lockss.config.Configuration;
 import org.lockss.crawler.FuncNewContentCrawler.MySimulatedArchivalUnit;
 import org.lockss.crawler.FuncNewContentCrawler.MySimulatedPlugin;
 import org.lockss.jms.JMSManager;
+import org.lockss.laaws.crawler.CrawlerApplication;
 import org.lockss.laaws.crawler.model.JobPager;
 import org.lockss.laaws.crawler.model.PageInfo;
 import org.lockss.log.L4JLogger;
@@ -57,7 +58,8 @@ import org.lockss.util.rest.crawler.JobStatus.StatusCodeEnum;
 import org.lockss.util.time.TimerUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
-import org.springframework.boot.context.embedded.LocalServerPort;
+import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.context.ApplicationContext;
@@ -70,7 +72,9 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 /** Test class for org.lockss.laaws.crawler.impl.JobsApiServiceImpl. */
 @RunWith(SpringRunner.class)
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(
+    classes = {CrawlerApplication.class},
+    webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 public class TestJobsApiServiceImpl extends SpringLockssTestCase4 {
 
@@ -90,14 +94,18 @@ public class TestJobsApiServiceImpl extends SpringLockssTestCase4 {
   // used for the tests.
   @Autowired ApplicationContext appCtx;
   // The port that Tomcat is using during this test.
-  @LocalServerPort private int port;
+  @LocalServerPort
+  private int port;
   private MySimulatedArchivalUnit sau;
   static BrokerService broker;
+
+  public static String DEFAULT_BROKER_URI =
+      "vm://localhost?create=false&broker.persistent=false";
 
   /** Set up code to be run before all tests. */
   @BeforeClass
   public static void setUpBeforeClass() throws Exception {
-    broker = JMSManager.createBroker(JMSManager.DEFAULT_BROKER_URI);
+    broker = JMSManager.createBroker(DEFAULT_BROKER_URI);
   }
 
   @AfterClass
@@ -174,7 +182,7 @@ public class TestJobsApiServiceImpl extends SpringLockssTestCase4 {
 
     startAllAusIfNecessary();
 
-    runGetSwaggerDocsTest(getTestUrlTemplate("/v2/api-docs"));
+    runGetSwaggerDocsTest(getTestUrlTemplate("/v3/api-docs"));
     runMethodsNotAllowedUnAuthenticatedTest();
     getJobsUnAuthenticatedTest();
     queueJobUnAuthenticatedTest();
@@ -203,7 +211,7 @@ public class TestJobsApiServiceImpl extends SpringLockssTestCase4 {
 
     startAllAusIfNecessary();
 
-    runGetSwaggerDocsTest(getTestUrlTemplate("/v2/api-docs"));
+    runGetSwaggerDocsTest(getTestUrlTemplate("/v3/api-docs"));
     runMethodsNotAllowedAuthenticatedTest();
     getJobsAuthenticatedTest();
     queueJobAuthenticatedTest();
@@ -229,7 +237,7 @@ public class TestJobsApiServiceImpl extends SpringLockssTestCase4 {
     CommandLineRunner runner = appCtx.getBean(CommandLineRunner.class);
     runner.run(cmdLineArgs.toArray(new String[0]));
 
-    runGetSwaggerDocsTest(getTestUrlTemplate("/v2/api-docs"));
+    runGetSwaggerDocsTest(getTestUrlTemplate("/v3/api-docs"));
     runMethodsNotAllowedUnAuthenticatedTest();
     getJobsDisabledTest();
     log.debug2("Done");
@@ -339,7 +347,7 @@ public class TestJobsApiServiceImpl extends SpringLockssTestCase4 {
     log.trace("uri = {}", uri);
 
     // Initialize the request to the REST service.
-    RestTemplate restTemplate = RestUtil.getRestTemplate();
+    RestTemplateBuilder templateBuilder = RestUtil.getRestTemplateBuilder(0, 0);
 
     HttpEntity<String> requestEntity = null;
 
@@ -372,12 +380,13 @@ public class TestJobsApiServiceImpl extends SpringLockssTestCase4 {
 
     // Make the request and get the response.
     ResponseEntity<String> response =
-        new TestRestTemplate(restTemplate).exchange(uri, method, requestEntity, String.class);
+        new TestRestTemplate(templateBuilder).exchange(uri, method, requestEntity, String.class);
 
     // Get the response status.
-    HttpStatus statusCode = response.getStatusCode();
-    assertFalse(RestUtil.isSuccess(statusCode));
-    assertEquals(expectedStatus, statusCode);
+    HttpStatusCode statusCode = response.getStatusCode();
+    HttpStatus status = HttpStatus.valueOf(statusCode.value());
+    assertFalse(RestUtil.isSuccess(status));
+    assertEquals(expectedStatus, status);
   }
 
   /** Runs the invalid method-related authentication-independent tests. */
@@ -441,7 +450,7 @@ public class TestJobsApiServiceImpl extends SpringLockssTestCase4 {
     log.trace("uri = {}", uri);
 
     // Initialize the request to the REST service.
-    RestTemplate restTemplate = RestUtil.getRestTemplate();
+    RestTemplateBuilder templateBuilder = RestUtil.getRestTemplateBuilder(0, 0);
 
     HttpEntity<String> requestEntity = null;
 
@@ -474,16 +483,17 @@ public class TestJobsApiServiceImpl extends SpringLockssTestCase4 {
 
     // Make the request and get the response.
     ResponseEntity<String> response =
-        new TestRestTemplate(restTemplate)
+        new TestRestTemplate(templateBuilder)
             .exchange(uri, HttpMethod.GET, requestEntity, String.class);
 
     // Get the response status.
-    HttpStatus statusCode = response.getStatusCode();
-    assertEquals(expectedHttpStatus, statusCode);
+    HttpStatusCode statusCode = response.getStatusCode();
+    HttpStatus status = HttpStatus.valueOf(statusCode.value());
+    assertEquals(expectedHttpStatus, status);
 
     JobPager result = null;
 
-    if (RestUtil.isSuccess(statusCode)) {
+    if (RestUtil.isSuccess(status)) {
       result = new ObjectMapper().readValue(response.getBody(), JobPager.class);
     }
 
@@ -957,7 +967,7 @@ public class TestJobsApiServiceImpl extends SpringLockssTestCase4 {
     log.trace("uri = {}", uri);
 
     // Initialize the request to the REST service.
-    RestTemplate restTemplate = RestUtil.getRestTemplate();
+    RestTemplateBuilder templateBuilder = RestUtil.getRestTemplateBuilder(0, 0);
 
     HttpEntity<Void> requestEntity = null;
 
@@ -990,12 +1000,13 @@ public class TestJobsApiServiceImpl extends SpringLockssTestCase4 {
 
     // Make the request and get the response.
     ResponseEntity<Void> response =
-        new TestRestTemplate(restTemplate)
+        new TestRestTemplate(templateBuilder)
             .exchange(uri, HttpMethod.DELETE, requestEntity, Void.class);
 
     // Get the response status.
-    HttpStatus statusCode = response.getStatusCode();
-    assertEquals(expectedHttpStatus, statusCode);
+    HttpStatusCode statusCode = response.getStatusCode();
+    HttpStatus status = HttpStatus.valueOf(statusCode.value());
+    assertEquals(expectedHttpStatus, status);
 //    Void result = null;
 //
 //    if (RestUtil.isSuccess(statusCode)) {
@@ -1046,12 +1057,13 @@ public class TestJobsApiServiceImpl extends SpringLockssTestCase4 {
     ResponseEntity<String> response = runTestQueueJobWithWait(crawlDesc, credentials);
 
     // Get the response status.
-    HttpStatus statusCode = response.getStatusCode();
-    assertEquals(expectedHttpStatus, statusCode);
+    HttpStatusCode statusCode = response.getStatusCode();
+    HttpStatus status = HttpStatus.valueOf(statusCode.value());
+    assertEquals(expectedHttpStatus, status);
 
     CrawlJob result = null;
 
-    if (RestUtil.isSuccess(statusCode)) {
+    if (RestUtil.isSuccess(status)) {
       result = new ObjectMapper().readValue(response.getBody(), CrawlJob.class);
     }
 
@@ -1084,7 +1096,7 @@ public class TestJobsApiServiceImpl extends SpringLockssTestCase4 {
     log.trace("uri = {}", uri);
 
     // Initialize the request to the REST service.
-    RestTemplate restTemplate = RestUtil.getRestTemplate();
+    RestTemplateBuilder templateBuilder = RestUtil.getRestTemplateBuilder(0, 0);
 
     HttpEntity<CrawlDesc> requestEntity;
 
@@ -1125,15 +1137,16 @@ public class TestJobsApiServiceImpl extends SpringLockssTestCase4 {
     while (!done) {
       // Make the request and get the response.
       response =
-          new TestRestTemplate(restTemplate)
+          new TestRestTemplate(templateBuilder)
               .exchange(uri, HttpMethod.POST, requestEntity, String.class);
 
       // Get the response status.
-      HttpStatus statusCode = response.getStatusCode();
+      HttpStatusCode statusCode = response.getStatusCode();
+      HttpStatus status = HttpStatus.valueOf(statusCode.value());
 
       // Check whether the response status is not the one that corresponds to
       // the Archival Unit being crawled.
-      if (statusCode != HttpStatus.BAD_REQUEST) {
+      if (status != HttpStatus.BAD_REQUEST) {
         // Yes: No need to try again.
         break;
       }

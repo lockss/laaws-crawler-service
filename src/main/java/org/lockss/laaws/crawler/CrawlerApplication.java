@@ -44,14 +44,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.autoconfigure.solr.SolrAutoConfiguration;
-import springfox.documentation.swagger2.annotations.EnableSwagger2;
 
 /**
  * The Spring-Boot application.
  */
-@SpringBootApplication(exclude = {SolrAutoConfiguration.class})
-@EnableSwagger2
+@SpringBootApplication()
 public class CrawlerApplication extends BaseSpringBootApplication implements CommandLineRunner {
 
   public static final String PLUGGABLE_CRAWL_MANAGER = managerKey(PluggableCrawlManager.class);
@@ -72,6 +69,7 @@ public class CrawlerApplication extends BaseSpringBootApplication implements Com
     PLUGGABLE_CRAWL_MANAGER_DESC,
     REPOSITORY_MANAGER_DESC,
     SERVLET_MANAGER_DESC,
+    PLATFORM_CONFIG_STATUS_DESC,
     CONFIG_STATUS_DESC,
     ARCHIVAL_UNIT_STATUS_DESC,
     OVERVIEW_STATUS_DESC

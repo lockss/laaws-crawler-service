@@ -27,29 +27,35 @@
 package org.lockss.laaws.crawler.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.activemq.broker.BrokerService;
+import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.lockss.app.LockssDaemon;
+import org.lockss.jms.JMSManager;
+import org.lockss.laaws.crawler.CrawlerApplication;
 import org.lockss.laaws.crawler.model.CrawlerConfig;
 import org.lockss.laaws.crawler.model.CrawlerStatus;
 import org.lockss.laaws.crawler.model.CrawlerStatuses;
 import org.lockss.log.L4JLogger;
 import org.lockss.spring.test.SpringLockssTestCase4;
 import org.lockss.util.rest.RestUtil;
+import org.lockss.util.time.TimerUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
-import org.springframework.boot.context.embedded.LocalServerPort;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.context.ApplicationContext;
 import org.springframework.http.*;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.junit4.SpringRunner;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
+
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
@@ -63,7 +69,9 @@ import static org.lockss.util.rest.crawler.CrawlDesc.CLASSIC_CRAWLER_ID;
 
 /** Test class for org.lockss.laaws.crawler.impl.CrawlersApiServiceImpl. */
 @RunWith(SpringRunner.class)
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(
+    classes = {CrawlerApplication.class},
+    webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
   private static final L4JLogger log = L4JLogger.getLogger();
@@ -85,7 +93,8 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
   private final Credentials ANYBODY = this.new Credentials("someUser", "somePassword");
 
   // The port that Tomcat is using during this test.
-  @LocalServerPort private int port;
+  @LocalServerPort
+  private int port;
 
   // The application Context used to specify the command line arguments to be
   // used for the tests.
@@ -112,6 +121,25 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
     log.debug2("Done");
   }
 
+  static BrokerService broker;
+
+  public static String DEFAULT_BROKER_URI =
+      "vm://localhost?create=false&broker.persistent=false";
+
+  /** Set up code to be run before all tests. */
+  @BeforeClass
+  public static void setUpBeforeClass() throws Exception {
+    broker = JMSManager.createBroker(DEFAULT_BROKER_URI);
+  }
+
+  @AfterClass
+  public static void tearDownAfterClass() throws Exception {
+    if (broker != null) {
+      TimerUtil.sleep(1000);
+      broker.stop();
+    }
+  }
+
   /**
    * Runs the tests with authentication turned off.
    *
@@ -131,7 +159,7 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
     assertTrue(pcm.isInited());
     assertTrue(pcm.isCrawlerEnabled());
     assertTrue(pcm.isCrawlStarterEnabled());
-    runGetSwaggerDocsTest(getTestUrlTemplate("/v2/api-docs"));
+    runGetSwaggerDocsTest(getTestUrlTemplate("/v3/api-docs"));
     runMethodsNotAllowedUnAuthenticatedTest();
     getCrawlersUnAuthenticatedTest();
     getCrawlerConfigUnAuthenticatedTest(true);
@@ -158,7 +186,7 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
     assertTrue(pcm.isInited());
     assertTrue(pcm.isCrawlerEnabled());
     assertTrue(pcm.isCrawlStarterEnabled());
-    runGetSwaggerDocsTest(getTestUrlTemplate("/v2/api-docs"));
+    runGetSwaggerDocsTest(getTestUrlTemplate("/v3/api-docs"));
     runMethodsNotAllowedAuthenticatedTest();
     getCrawlersAuthenticatedTest();
     getCrawlerConfigAuthenticatedTest();
@@ -187,7 +215,7 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
     assertFalse(pcm.isCrawlerEnabled());
     assertTrue(pcm.isCrawlStarterEnabled());
 
-    runGetSwaggerDocsTest(getTestUrlTemplate("/v2/api-docs"));
+    runGetSwaggerDocsTest(getTestUrlTemplate("/v3/api-docs"));
     runMethodsNotAllowedUnAuthenticatedTest();
     getCrawlersUnAuthenticatedTest();
     getCrawlerConfigUnAuthenticatedTest(false);
@@ -330,7 +358,7 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
     log.trace("uri = {}", uri);
 
     // Initialize the request to the REST service.
-    RestTemplate restTemplate = RestUtil.getRestTemplate();
+    RestTemplateBuilder templateBuilder = RestUtil.getRestTemplateBuilder(0, 0);
 
     HttpEntity<String> requestEntity = null;
 
@@ -363,12 +391,13 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
 
     // Make the request and get the response.
     ResponseEntity<String> response =
-        new TestRestTemplate(restTemplate).exchange(uri, method, requestEntity, String.class);
+        new TestRestTemplate(templateBuilder).exchange(uri, method, requestEntity, String.class);
 
     // Get the response status.
-    HttpStatus statusCode = response.getStatusCode();
-    assertFalse(RestUtil.isSuccess(statusCode));
-    assertEquals(expectedStatus, statusCode);
+    HttpStatusCode statusCode = response.getStatusCode();
+    HttpStatus status = HttpStatus.valueOf(statusCode.value());
+    assertFalse(RestUtil.isSuccess(status));
+    assertEquals(expectedStatus, status);
   }
 
   /**
@@ -459,7 +488,7 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
     log.trace("uri = {}", () -> uri);
 
     // Initialize the request to the REST service.
-    RestTemplate restTemplate = RestUtil.getRestTemplate();
+    RestTemplateBuilder templateBuilder = RestUtil.getRestTemplateBuilder(0, 0);
 
     HttpEntity<String> requestEntity = null;
 
@@ -492,16 +521,17 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
 
     // Make the request and get the response.
     ResponseEntity<String> response =
-        new TestRestTemplate(restTemplate)
+        new TestRestTemplate(templateBuilder)
             .exchange(uri, HttpMethod.GET, requestEntity, String.class);
 
     // Get the response status.
-    HttpStatus statusCode = response.getStatusCode();
-    assertEquals(expectedHttpStatus, statusCode);
+    HttpStatusCode statusCode = response.getStatusCode();
+    HttpStatus status = HttpStatus.valueOf(statusCode.value());
+    assertEquals(expectedHttpStatus, status);
 
     CrawlerStatuses result = null;
 
-    if (RestUtil.isSuccess(statusCode)) {
+    if (RestUtil.isSuccess(status)) {
       result = new ObjectMapper().readValue(response.getBody(), CrawlerStatuses.class);
     }
 
@@ -634,7 +664,7 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
     log.trace("uri = {}", () -> uri);
 
     // Initialize the request to the REST service.
-    RestTemplate restTemplate = RestUtil.getRestTemplate();
+    RestTemplateBuilder templateBuilder = RestUtil.getRestTemplateBuilder(0, 0);
 
     HttpEntity<String> requestEntity = null;
 
@@ -667,16 +697,17 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
 
     // Make the request and get the response.
     ResponseEntity<String> response =
-        new TestRestTemplate(restTemplate)
+        new TestRestTemplate(templateBuilder)
             .exchange(uri, HttpMethod.GET, requestEntity, String.class);
 
     // Get the response status.
-    HttpStatus statusCode = response.getStatusCode();
-    assertEquals(expectedHttpStatus, statusCode);
+    HttpStatusCode statusCode = response.getStatusCode();
+    HttpStatus status = HttpStatus.valueOf(statusCode.value());
+    assertEquals(expectedHttpStatus, status);
 
     CrawlerConfig result = null;
 
-    if (RestUtil.isSuccess(statusCode)) {
+    if (RestUtil.isSuccess(status)) {
       result = new ObjectMapper().readValue(response.getBody(), CrawlerConfig.class);
     }
 

@@ -71,9 +71,9 @@ this `README.md` file resides.
 
 The log is at `./logs/app.log`.
 
-The API is documented at <http://127.0.0.1:24660/swagger-ui.html>.
+The API is documented at <http://127.0.0.1:24640/swagger-ui.html>.
 
 The status of the web service may be obtained at
-<http://127.0.0.1:24660/status>.
+<http://127.0.0.1:24640/status>.
 
-The administration UI of the web service is at <http://127.0.0.1:24661>.
+The administration UI of the web service is at <http://127.0.0.1:24641>.

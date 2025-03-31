@@ -57,6 +57,8 @@ import org.lockss.laaws.crawler.model.JobPager;
 import org.lockss.laaws.crawler.utils.ContinuationToken;
 import org.lockss.log.L4JLogger;
 import org.lockss.plugin.ArchivalUnit;
+import org.lockss.spring.auth.AuthUtil;
+import org.lockss.spring.auth.Roles;
 import org.lockss.spring.base.BaseSpringApiServiceImpl;
 import org.lockss.util.JsonUtil;
 import org.lockss.util.RateLimiter;
@@ -108,6 +110,8 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
         return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
       }
 
+      AuthUtil.checkHasRole(Roles.ROLE_AU_ADMIN);
+
       JobPager pager = getJobsPager(limit, continuationToken);
       log.debug2("pager = {}", pager);
       return new ResponseEntity<>(pager, HttpStatus.OK);
@@ -143,6 +147,8 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
         return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
       }
 
+      AuthUtil.checkHasRole(Roles.ROLE_AU_ADMIN);
+
       ApiUtils.getLockssCrawlManager().deleteAllCrawls();
       ApiUtils.getPluggableCrawlManager().deleteAllCrawls();
       return new ResponseEntity<>(HttpStatus.OK);
@@ -177,6 +183,9 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
         logCrawlError(NOT_INITIALIZED_MESSAGE, crawlJob);
         return new ResponseEntity<>(crawlJob, HttpStatus.SERVICE_UNAVAILABLE);
       }
+
+      AuthUtil.checkHasRole(Roles.ROLE_AU_ADMIN);
+
       // Get the crawler Id and Crawl kind
       // Validate the specified crawlerId.
       if (!ApiUtils.getCrawlerIds().contains(crawlerId)) {
@@ -262,6 +271,9 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
         crawlJob = new CrawlJob().jobId(jobId).jobStatus(jobStatus);
         return new ResponseEntity<>(crawlJob, HttpStatus.SERVICE_UNAVAILABLE);
       }
+
+      AuthUtil.checkHasRole(Roles.ROLE_AU_ADMIN);
+
       CrawlerStatus crawlerStatus = getCrawlerStatus(jobId);
       crawlJob = makeCrawlJob(crawlerStatus);
       log.debug2("CrawlJob = {}", crawlJob);
@@ -307,6 +319,8 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
         crawlJob = new CrawlJob().jobId(jobId).jobStatus(jobStatus);
         return new ResponseEntity<>(crawlJob, HttpStatus.SERVICE_UNAVAILABLE);
       }
+
+      AuthUtil.checkHasRole(Roles.ROLE_AU_ADMIN);
 
       CrawlerStatus crawlerStatus = getCrawlerStatus(jobId);
       log.debug2("crawlerStatus = {}", crawlerStatus);
@@ -677,31 +691,5 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
     log.error("crawlDesc = {}", crawlJob.getCrawlDesc());
     crawlJob.jobStatus(new JobStatus().statusCode(JobStatus.StatusCodeEnum.ERROR).msg(message));
     log.debug2("crawlJob = {}", crawlJob);
-  }
-  /**
-   * Provides the response entity when there is an error.
-   *
-   * @param status
-   *          An HttpStatus with the error HTTP status.
-   * @param message
-   *          A String with the error message.
-   * @param e
-   *          An Exception with theerror exception.
-   * @return a {@code ResponseEntity<String>} with the error response entity.
-   */
-  private ResponseEntity<String> getErrorResponseEntity(HttpStatus status,
-    String message, Exception e) {
-    String errorMessage = message;
-
-    if (e != null) {
-      if (errorMessage == null) {
-        errorMessage = e.getMessage();
-      } else {
-        errorMessage = errorMessage + " - " + e.getMessage();
-      }
-    }
-
-    return new ResponseEntity<String>(JsonUtil.toJsonError(status.value(),
-      errorMessage), status);
   }
 }

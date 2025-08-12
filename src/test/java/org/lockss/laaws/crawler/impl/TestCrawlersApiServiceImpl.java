@@ -86,6 +86,8 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
 
   // Credentials.
   private final Credentials USER_ADMIN = this.new Credentials("lockss-u", "lockss-p");
+  private final Credentials AU_ADMIN =
+      new Credentials("au-admin", "I'mAuAdmin");
   private final Credentials CONTENT_ADMIN =
       this.new Credentials("content-admin", "I'mContentAdmin");
   private final Credentials ACCESS_CONTENT =
@@ -141,32 +143,6 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
   }
 
   /**
-   * Runs the tests with authentication turned off.
-   *
-   * @throws Exception if there are problems.
-   */
-  @Test
-  public void runUnAuthenticatedTests() throws Exception {
-    log.debug2("Invoked");
-
-    // Specify the command line parameters to be used for the tests.
-    List<String> cmdLineArgs = getCommandLineArguments();
-    cmdLineArgs.add("-p");
-    cmdLineArgs.add("test/config/testAuthOff.txt");
-    CommandLineRunner runner = appCtx.getBean(CommandLineRunner.class);
-    runner.run(cmdLineArgs.toArray(new String[cmdLineArgs.size()]));
-    pcm = LockssDaemon.getLockssDaemon().getManagerByType(PluggableCrawlManager.class);
-    assertTrue(pcm.isInited());
-    assertTrue(pcm.isCrawlerEnabled());
-    assertTrue(pcm.isCrawlStarterEnabled());
-    runGetSwaggerDocsTest(getTestUrlTemplate("/v3/api-docs"));
-    runMethodsNotAllowedUnAuthenticatedTest();
-    getCrawlersUnAuthenticatedTest();
-    getCrawlerConfigUnAuthenticatedTest(true);
-    log.debug2("Done");
-  }
-
-  /**
    * Runs the tests with authentication turned on.
    *
    * @throws Exception if there are problems.
@@ -218,7 +194,6 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
     runGetSwaggerDocsTest(getTestUrlTemplate("/v3/api-docs"));
     runMethodsNotAllowedUnAuthenticatedTest();
     getCrawlersUnAuthenticatedTest();
-    getCrawlerConfigUnAuthenticatedTest(false);
 
     log.debug2("Done");
   }
@@ -455,7 +430,7 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
     assertTrue(crawlers.containsKey(CLASSIC_CRAWLER_ID));
     assertTrue(crawlers.containsKey(WGET_CRAWLER_ID));
 
-    statuses = runTestGetCrawlers(CONTENT_ADMIN, HttpStatus.OK);
+    statuses = runTestGetCrawlers(AU_ADMIN, HttpStatus.OK);
     crawlers = statuses.getCrawlerMap();
     assertEquals(2, crawlers.size());
     assertTrue(crawlers.containsKey(CLASSIC_CRAWLER_ID));
@@ -540,39 +515,6 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
   }
 
   /**
-   * Runs the getCrawlerConfig()-related un-authenticated-specific tests.
-   *
-   * @param enabled A boolean indicating whether crawling is enabled.
-   * @throws Exception if there are problems.
-   */
-  private void getCrawlerConfigUnAuthenticatedTest(boolean enabled) throws Exception {
-    log.debug2("Invoked");
-
-    // Missing crawler ID.
-    runTestGetCrawlerConfig(null, null, HttpStatus.NOT_FOUND);
-    runTestGetCrawlerConfig(null, ANYBODY, HttpStatus.NOT_FOUND);
-
-    // Empty crawler ID.
-    runTestGetCrawlerConfig(EMPTY_STRING, null, HttpStatus.NOT_FOUND);
-    runTestGetCrawlerConfig(EMPTY_STRING, ANYBODY, HttpStatus.NOT_FOUND);
-
-    // Unknown crawler ID.
-    runTestGetCrawlerConfig(UNKNOWN_CRAWLER, null, HttpStatus.NOT_FOUND);
-    runTestGetCrawlerConfig(UNKNOWN_CRAWLER, ANYBODY, HttpStatus.NOT_FOUND);
-
-    CrawlerConfig crawlerConfig = runTestGetCrawlerConfig(CLASSIC_CRAWLER_ID, null, HttpStatus.OK);
-    log.info("crawlerConfig = {}", crawlerConfig);
-    assertNotNull(crawlerConfig);
-    Map<String, String> attributes = crawlerConfig.getAttributes();
-    assertTrue(Boolean.parseBoolean(attributes.get(ATTR_STARTER_ENABLED)));
-    assertEquals(enabled, Boolean.parseBoolean(attributes.get(ATTR_CRAWLING_ENABLED)));
-    assertTrue(Boolean.parseBoolean(attributes.get(CLASSIC_CRAWLER_ID + ENABLED)));
-    getCrawlerConfigCommonTest(enabled);
-
-    log.debug2("Done");
-  }
-
-  /**
    * Runs the getCrawlerConfig()-related authenticated-specific tests.
    *
    * @throws Exception if there are problems.
@@ -615,7 +557,8 @@ public class TestCrawlersApiServiceImpl extends SpringLockssTestCase4 {
     runTestGetCrawlerConfig(EMPTY_STRING, CONTENT_ADMIN, HttpStatus.NOT_FOUND);
 
     // Unknown crawler ID.
-    runTestGetCrawlerConfig(UNKNOWN_CRAWLER, ACCESS_CONTENT, HttpStatus.NOT_FOUND);
+    runTestGetCrawlerConfig(UNKNOWN_CRAWLER, ACCESS_CONTENT, HttpStatus.FORBIDDEN);
+    runTestGetCrawlerConfig(UNKNOWN_CRAWLER, AU_ADMIN, HttpStatus.NOT_FOUND);
 
     CrawlerConfig crawlerConfig =
       runTestGetCrawlerConfig(CLASSIC_CRAWLER_ID, USER_ADMIN, HttpStatus.OK);

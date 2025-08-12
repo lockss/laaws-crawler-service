@@ -37,13 +37,17 @@ import org.lockss.laaws.crawler.model.UrlInfo;
 import org.lockss.laaws.crawler.model.UrlPager;
 import org.lockss.laaws.crawler.utils.ContinuationToken;
 import org.lockss.log.L4JLogger;
+import org.lockss.spring.auth.AuthUtil;
+import org.lockss.spring.auth.Roles;
 import org.lockss.spring.base.BaseSpringApiServiceImpl;
+import org.lockss.spring.error.InsufficientPermissionsException;
 import org.lockss.util.JsonUtil;
 import org.lockss.util.rest.crawler.JobStatus;
 import org.lockss.util.rest.crawler.JobStatus.StatusCodeEnum;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.InsufficientAuthenticationException;
 import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.List;
@@ -95,6 +99,8 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
         return getErrorResponseEntity(HttpStatus.SERVICE_UNAVAILABLE, NOT_INITIALIZED_MESSAGE, null);
       }
 
+      AuthUtil.checkHasRole(Roles.ROLE_AU_ADMIN);
+
       crawlStatus = getCrawlStatus(jobId);
       log.debug2("crawlStatus = {}", crawlStatus);
       return new ResponseEntity<>(crawlStatus, HttpStatus.OK);
@@ -137,6 +143,8 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
         log.error("limit = {}, continuationToken = {}", limit, continuationToken);
         return getErrorResponseEntity(HttpStatus.SERVICE_UNAVAILABLE, NOT_INITIALIZED_MESSAGE, null);
       }
+
+      AuthUtil.checkHasRole(Roles.ROLE_AU_ADMIN);
 
       CrawlerStatus status = getCrawlerStatus(jobId);
       List<String> urls = status.getUrlsOfMimeType(type);
@@ -192,6 +200,8 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
         return getErrorResponseEntity(HttpStatus.SERVICE_UNAVAILABLE, NOT_INITIALIZED_MESSAGE, null);
       }
 
+      AuthUtil.checkHasRole(Roles.ROLE_AU_ADMIN);
+
       CrawlerStatus status = getCrawlerStatus(jobId);
       log.trace("status = {}", status);
       List<String> urls = new ArrayList<>(status.getUrlsErrorMap().keySet());
@@ -246,6 +256,8 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
         return getErrorResponseEntity(HttpStatus.SERVICE_UNAVAILABLE, NOT_INITIALIZED_MESSAGE, null);
       }
 
+      AuthUtil.checkHasRole(Roles.ROLE_AU_ADMIN);
+
       CrawlerStatus status = getCrawlerStatus(jobId);
       List<String> urls = status.getUrlsExcluded();
       UrlPager pager = getUrlPager(status, urls, limit, continuationToken);
@@ -297,6 +309,8 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
         log.error("limit = {}, continuationToken = {}", limit, continuationToken);
         return getErrorResponseEntity(HttpStatus.SERVICE_UNAVAILABLE, NOT_INITIALIZED_MESSAGE, null);
       }
+
+      AuthUtil.checkHasRole(Roles.ROLE_AU_ADMIN);
 
       CrawlerStatus status = getCrawlerStatus(jobId);
       List<String> urls = status.getUrlsFetched();
@@ -350,6 +364,8 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
         return getErrorResponseEntity(HttpStatus.SERVICE_UNAVAILABLE, NOT_INITIALIZED_MESSAGE, null);
       }
 
+      AuthUtil.checkHasRole(Roles.ROLE_AU_ADMIN);
+
       CrawlerStatus status = getCrawlerStatus(jobId);
       List<String> urls = status.getUrlsNotModified();
       UrlPager pager = getUrlPager(status, urls, limit, continuationToken);
@@ -401,6 +417,8 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
         log.error("limit = {}, continuationToken = {}", limit, continuationToken);
         return getErrorResponseEntity(HttpStatus.SERVICE_UNAVAILABLE, NOT_INITIALIZED_MESSAGE, null);
       }
+
+      AuthUtil.checkHasRole(Roles.ROLE_AU_ADMIN);
 
       CrawlerStatus status = getCrawlerStatus(jobId);
       List<String> urls = status.getUrlsParsed();
@@ -455,6 +473,8 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
         return getErrorResponseEntity(HttpStatus.SERVICE_UNAVAILABLE, message, null);
       }
 
+      AuthUtil.checkHasRole(Roles.ROLE_AU_ADMIN);
+
       CrawlerStatus status = getCrawlerStatus(jobId);
       List<String> urls = status.getUrlsPending();
       UrlPager pager = getUrlPager(status, urls, limit, continuationToken);
@@ -505,15 +525,20 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
         return getErrorResponseEntity(HttpStatus.SERVICE_UNAVAILABLE, NOT_INITIALIZED_MESSAGE, null);
       }
 
+      AuthUtil.checkHasRole(Roles.ROLE_AU_ADMIN);
+
       CrawlPager pager = getCrawlsPager(limit, continuationToken);
       log.debug2("pager = {}", pager);
       return new ResponseEntity<>(pager, HttpStatus.OK);
     }
     catch (IllegalArgumentException iae) {
       String message =
-        "Cannot get crawls with limit = " + limit + ", continuationToken = " + continuationToken;
+          "Cannot get crawls with limit = " + limit + ", continuationToken = " + continuationToken;
       log.error(message, iae);
       return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+    } catch (InsufficientPermissionsException e) {
+      // Re-throw the exception
+      throw e;
     }
     catch (Exception ex) {
       String message =
@@ -746,32 +771,4 @@ public class CrawlsApiServiceImpl extends BaseSpringApiServiceImpl implements Cr
     log.debug2("pager = {}", pager);
     return pager;
   }
-
-  /**
-   * Provides the response entity when there is an error.
-   *
-   * @param status
-   *          An HttpStatus with the error HTTP status.
-   * @param message
-   *          A String with the error message.
-   * @param e
-   *          An Exception with theerror exception.
-   * @return a {@code ResponseEntity<String>} with the error response entity.
-   */
-  private ResponseEntity<String> getErrorResponseEntity(HttpStatus status,
-                                                        String message, Exception e) {
-    String errorMessage = message;
-
-    if (e != null) {
-      if (errorMessage == null) {
-        errorMessage = e.getMessage();
-      } else {
-        errorMessage = errorMessage + " - " + e.getMessage();
-      }
-    }
-
-    return new ResponseEntity<String>(JsonUtil.toJsonError(status.value(),
-                                                           errorMessage), status);
-  }
-
-}
+ }

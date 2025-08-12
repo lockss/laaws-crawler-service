@@ -5,6 +5,8 @@ import org.josql.QueryExecutionException;
 import org.josql.QueryParseException;
 import org.josql.QueryResults;
 import org.lockss.laaws.crawler.api.WsApiDelegate;
+import org.lockss.spring.auth.AuthUtil;
+import org.lockss.spring.auth.Roles;
 import org.lockss.spring.base.BaseSpringApiServiceImpl;
 import org.lockss.util.josql.JosqlUtil;
 import org.lockss.ws.entities.CrawlWsResult;
@@ -18,6 +20,14 @@ import java.util.List;
 public class WsApiServiceImpl extends BaseSpringApiServiceImpl implements WsApiDelegate {
   public ResponseEntity getWsCrawls(String crawlQuery) {
     log.debug("crawlQuery = {}", crawlQuery);
+
+    // Check whether the service has not been fully initialized.
+    if (!waitReady()) {
+      // Yes: Notify the client.
+      return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
+    }
+
+    AuthUtil.checkHasRole(Roles.ROLE_AU_ADMIN);
 
     CrawlHelper crawlHelper = new CrawlHelper();
     List<CrawlWsResult> results = null;

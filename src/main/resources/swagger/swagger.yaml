@@ -31,6 +31,7 @@ paths:
       summary: Get the list of supported crawlers.
       description: Return the list of supported crawlers.
       operationId: getCrawlers
+      # roles: ROLE_AU_ADMIN
       responses:
         200:
           description: The Status of supported Crawlers.
@@ -51,6 +52,7 @@ paths:
       summary: Return information about a crawler.
       description: Get information related to a installed crawler.
       operationId: getCrawlerConfig
+      # roles: ROLE_AU_ADMIN
       parameters:
       - name: crawlerId
         in: path
@@ -78,6 +80,7 @@ paths:
       summary: Get the list of crawls.
       description: Get a list of crawls a pageful at a time as defined by limit.
       operationId: getCrawls
+      # roles: ROLE_AU_ADMIN
       parameters:
       - name: limit
         in: query
@@ -111,6 +114,7 @@ paths:
       summary: Get the crawl status of this job
       description: Get the job represented by this crawl id
       operationId: getCrawlById
+      # roles: ROLE_AU_ADMIN
       parameters:
       - name: jobId
         in: path
@@ -137,6 +141,7 @@ paths:
       summary: A pageable list of fetched urls.
       description: Get a list of fetched urls.
       operationId: getCrawlFetched
+      # roles: ROLE_AU_ADMIN
       parameters:
       - name: jobId
         in: path
@@ -173,6 +178,7 @@ paths:
       summary: A pageable list of excluded urls.
       description: Get a list of excluded urls.
       operationId: getCrawlExcluded
+      # roles: ROLE_AU_ADMIN
       parameters:
       - name: jobId
         in: path
@@ -210,6 +216,7 @@ paths:
       summary: A pageable list of not modified urls.
       description: Get a list of not modified urls.
       operationId: getCrawlNotModified
+      # roles: ROLE_AU_ADMIN
       parameters:
       - name: jobId
         in: path
@@ -246,6 +253,7 @@ paths:
       summary: A pageable list of pending urls.
       description: Get a list of pending urls.
       operationId: getCrawlPending
+      # roles: ROLE_AU_ADMIN
       parameters:
       - name: jobId
         in: path
@@ -282,6 +290,7 @@ paths:
       summary: A pageable list of parsed urls.
       description: Get a list of parsed urls.
       operationId: getCrawlParsed
+      # roles: ROLE_AU_ADMIN
       parameters:
       - name: jobId
         in: path
@@ -318,6 +327,7 @@ paths:
       summary: A pageable list of urls with errors.
       description: Get a list of urls with errors.
       operationId: getCrawlErrors
+      # roles: ROLE_AU_ADMIN
       parameters:
       - name: jobId
         in: path
@@ -354,6 +364,7 @@ paths:
       summary: A pageable list of urls of mimetype.
       description: Get a list of urls of mimetype.
       operationId: getCrawlByMimeType
+      # roles: ROLE_AU_ADMIN
       parameters:
       - name: jobId
         in: path
@@ -396,6 +407,7 @@ paths:
       description: Get a list of crawl jobs a pageful at a time as defined by the
         continuation token and limit.
       operationId: getJobs
+      # roles: ROLE_AU_ADMIN
       parameters:
       - name: limit
         in: query
@@ -428,6 +440,7 @@ paths:
       description: Enqueue a new crawl job as defined by the crawl descriptor and
         return it.
       operationId: queueJob
+      # roles: ROLE_AU_ADMIN
       requestBody:
         description: crawl request
         content:
@@ -455,6 +468,7 @@ paths:
       summary: Delete all of the currently queued and active jobs
       description: Halt and delete all of the currently queued and active crawl jobs
       operationId: deleteJobs
+      # roles: ROLE_AU_ADMIN
       responses:
         200:
           description: All crawl jobs have been stopped and deleted.
@@ -472,6 +486,7 @@ paths:
       summary: Get the crawl status of this job
       description: Get the crawl job with a given crawl id
       operationId: getCrawlJob
+      # roles: ROLE_AU_ADMIN
       parameters:
       - name: jobId
         in: path
@@ -498,6 +513,7 @@ paths:
       description: Delete a crawl job with the given job id, stopping any current
         processing, if necessary.
       operationId: deleteCrawlJob
+      # roles: ROLE_AU_ADMIN
       parameters:
       - name: jobId
         in: path
@@ -525,6 +541,7 @@ paths:
       summary: Get the status of the service
       description: Get the status of the service
       operationId: getStatus
+      # no credentials required
       responses:
         200:
           description: The status of the service
@@ -545,6 +562,7 @@ paths:
       summary: Query for list of crawls based on subset defined by query string
       description: Query for crawls that meet a set of specified conditions
       operationId: getWsCrawls
+      # roles: ROLE_AU_ADMIN
       parameters:
       - name: crawlQuery
         in: query

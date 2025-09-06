@@ -10,14 +10,12 @@ import org.lockss.laaws.crawler.utils.ContinuationToken;
 import org.lockss.log.L4JLogger;
 import org.lockss.repository.RepoSpec;
 import org.lockss.repository.RepositoryManager;
-import org.lockss.util.UrlUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.crawler.JobStatus;
 import org.lockss.util.rest.repo.LockssRepository;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import java.net.MalformedURLException;
 import java.util.*;
 
 import javax.ws.rs.NotFoundException;
@@ -99,8 +97,8 @@ public class ApiUtils {
     return repoManager;
   }
 
-  public static PageInfo getPageInfo(Integer resultsPerPage, Long lastElement, int totalCount, Long timeStamp) {
-    log.debug2("resultsPerPage = {}", resultsPerPage);
+  public static PageInfo getPageInfo(Integer itemsInPage, Long lastElement, int totalCount, Long timeStamp) {
+    log.debug2("itemsInPage = {}", itemsInPage);
     log.debug2("lastElement = {}", lastElement);
     log.debug2("totalCount = {}", totalCount);
     log.debug2("timeStamp = {}", timeStamp);
@@ -108,7 +106,7 @@ public class ApiUtils {
     PageInfo pi = new PageInfo();
 
     pi.setTotalCount(totalCount);
-    pi.setResultsPerPage(resultsPerPage);
+    pi.setItemsInPage(itemsInPage);
 
     ServletUriComponentsBuilder builder = getServletUrlBuilder();
 

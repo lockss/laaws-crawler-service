@@ -521,7 +521,7 @@ public class TestJobsApiServiceImpl extends SpringLockssTestCase4 {
 
     // Validate the pagination information.
     PageInfo pageInfo = jobPager.getPageInfo();
-    assertEquals(actualLimit, pageInfo.getResultsPerPage().intValue());
+    assertEquals(actualLimit, pageInfo.getItemsInPage().intValue());
 
     if (expectedCount >= 0) {
       assertEquals(expectedCount, pageInfo.getTotalCount().intValue());

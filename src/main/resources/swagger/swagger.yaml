@@ -627,7 +627,7 @@ components:
       required:
       - continuationToken
       - curLink
-      - resultsPerPage
+      - itemsInPage
       - totalCount
       type: object
       properties:
@@ -635,19 +635,22 @@ components:
           type: integer
           description: The total number of elements to be paginated
           format: int32
-        resultsPerPage:
+          nullable: true
+        itemsInPage:
           type: integer
-          description: The number of results per page.
+          description: The number of items in page.
           format: int32
         continuationToken:
           type: string
           description: The continuation token.
+          nullable: true
         curLink:
           type: string
           description: The link to the current page.
         nextLink:
           type: string
           description: The link to the next page.
+          nullable: true
       description: The information related to pagination of content
     jobStatus:
       required:

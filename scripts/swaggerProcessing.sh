@@ -53,10 +53,11 @@ sed -i.backup "s/import org.lockss.laaws.poller.model.CrawlWsResult/import org.l
 CRAWL_STATUS=src/generated/java/org/lockss/laaws/crawler/model/CrawlStatus.java
 sed -i.backup "s/import org.lockss.laaws.crawler.model.JobStatus/import org.lockss.util.rest.crawler.JobStatus/" $CRAWL_STATUS && rm $CRAWL_STATUS.backup
 
-# Edit Job Pager
+# Edit JobPager
 JOB_PAGER=src/generated/java/org/lockss/laaws/crawler/model/JobPager.java
 sed -i.backup "s/import org.lockss.laaws.crawler.model.CrawlJob/import org.lockss.util.rest.crawler.CrawlJob/" $JOB_PAGER && rm $JOB_PAGER.backup
 sed -i.backup "s/import org.lockss.laaws.crawler.model.JobStatus/import org.lockss.util.rest.crawler.JobStatus/" $JOB_PAGER && rm $JOB_PAGER.backup
+sed -i.backup "s/import org.lockss.laaws.crawler.model.PageInfo/import org.lockss.util.rest.repo.model.PageInfo/" $JOB_PAGER && rm $JOB_PAGER.backup
 
 # Edit JobsApiDelegate.java.
 JOBS_API_DELEGATE=src/generated/java/org/lockss/laaws/crawler/api/JobsApiDelegate.java
@@ -69,3 +70,15 @@ JOBS_API=src/generated/java/org/lockss/laaws/crawler/api/JobsApi.java
 sed -i.backup "s/import org.lockss.laaws.crawler.model.CrawlDesc/import org.lockss.util.rest.crawler.CrawlDesc/" $JOBS_API && rm $JOBS_API.backup
 sed -i.backup "s/import org.lockss.laaws.crawler.model.CrawlJob/import org.lockss.util.rest.crawler.CrawlJob/" $JOBS_API && rm $JOBS_API.backup
 sed -i.backup "s/import org.lockss.laaws.crawler.model.JobStatus/import org.lockss.util.rest.crawler.JobStatus/" $JOBS_API && rm $JOBS_API.backup
+
+# Edit CrawlPager
+CRAWL_PAGER=src/generated/java/org/lockss/laaws/crawler/model/CrawlPager.java
+sed -i.backup "s/import org.lockss.laaws.crawler.model.PageInfo/import org.lockss.util.rest.repo.model.PageInfo/" $CRAWL_PAGER && rm $CRAWL_PAGER.backup
+
+# Edit UrlPager
+URL_PAGER=src/generated/java/org/lockss/laaws/crawler/model/UrlPager.java
+sed -i.backup "s/import org.lockss.laaws.crawler.model.PageInfo/import org.lockss.util.rest.repo.model.PageInfo/" $URL_PAGER && rm $URL_PAGER.backup
+
+# Edit ApiUtils
+URL_PAGER=src/generated/java/org/lockss/laaws/crawler/model/UrlPager.java
+sed -i.backup "s/import org.lockss.laaws.crawler.model.PageInfo/import org.lockss.util.rest.repo.model.PageInfo/" $URL_PAGER && rm $URL_PAGER.backup

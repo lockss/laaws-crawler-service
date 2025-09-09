@@ -13,6 +13,7 @@ import org.lockss.repository.RepositoryManager;
 import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.crawler.JobStatus;
 import org.lockss.util.rest.repo.LockssRepository;
+import org.lockss.util.rest.repo.model.PageInfo;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.springframework.web.util.UriComponentsBuilder;
 

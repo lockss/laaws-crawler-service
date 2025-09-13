@@ -186,3 +186,6 @@ local.properties
 /cache
 /.idea
 /.surefire-*
+
+# Patched version of the spec for swagger-codegen -l python
+/src/main/resources/swagger/swagger.yaml.python

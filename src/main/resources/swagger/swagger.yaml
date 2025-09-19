@@ -43,14 +43,16 @@ servers:
 security:
 - basicAuth: []
 tags:
-- name: crawls
-  description: requests related to crawls
 - name: crawlers
-  description: requests related to crawlers
+  description: Crawler operations
+- name: crawls
+  description: Crawl operations
 - name: jobs
-  description: requests related to crawl jobs
+  description: Crawl job operations
+- name: status
+  description: Status operations
 - name: ws
-  description: legacy SOAP endpoint
+  description: Legacy SOAP compatibility operations
 paths:
   /crawlers:
     get:

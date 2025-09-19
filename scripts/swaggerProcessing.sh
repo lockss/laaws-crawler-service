@@ -35,6 +35,11 @@ JAVA_SRC=$1
 sed -i.backup "s/import $2/import $3/" $JAVA_SRC && rm $JAVA_SRC.backup
 }
 
+function fixResponseCode1234() {
+JAVA_SRC=$1
+sed -i.backup 's/responseCode = "1234"/responseCode = "default"/' $JAVA_SRC && rm $JAVA_SRC.backup
+}
+
 # Edit StatusApiDelegate.java.
 STATUS_API_DELEGATE=src/generated/java/org/lockss/laaws/crawler/api/StatusApiDelegate.java
 fixImport $STATUS_API_DELEGATE org.lockss.laaws.crawler.model.ApiStatus org.lockss.util.rest.status.ApiStatus
@@ -42,6 +47,7 @@ fixImport $STATUS_API_DELEGATE org.lockss.laaws.crawler.model.ApiStatus org.lock
 # Edit StatusApi.java.
 STATUS_API=src/generated/java/org/lockss/laaws/crawler/api/StatusApi.java
 fixImport $STATUS_API org.lockss.laaws.crawler.model.ApiStatus org.lockss.util.rest.status.ApiStatus
+fixResponseCode1234 $STATUS_API
 
 # Edit CrawlsApiDelegate.java.
 CRAWLS_API_DELEGATE=src/generated/java/org/lockss/laaws/crawler/api/CrawlsApiDelegate.java
@@ -56,6 +62,7 @@ fixImport $CRAWLS_API org.lockss.laaws.crawler.model.CrawlDesc org.lockss.util.r
 fixImport $CRAWLS_API org.lockss.laaws.crawler.model.CrawlJob org.lockss.util.rest.crawler.CrawlJob
 fixImport $CRAWLS_API org.lockss.laaws.crawler.model.JobStatus org.lockss.util.rest.crawler.JobStatus
 fixImport $CRAWLS_API org.lockss.laaws.poller.model.CrawlWsResult org.lockss.ws.entities.CrawlWsResult
+fixResponseCode1234 $CRAWLS_API
 
 # Edit CrawlStatus.java.
 CRAWL_STATUS=src/generated/java/org/lockss/laaws/crawler/model/CrawlStatus.java
@@ -78,6 +85,7 @@ JOBS_API=src/generated/java/org/lockss/laaws/crawler/api/JobsApi.java
 fixImport $JOBS_API org.lockss.laaws.crawler.model.CrawlDesc org.lockss.util.rest.crawler.CrawlDesc
 fixImport $JOBS_API org.lockss.laaws.crawler.model.CrawlJob org.lockss.util.rest.crawler.CrawlJob
 fixImport $JOBS_API org.lockss.laaws.crawler.model.JobStatus org.lockss.util.rest.crawler.JobStatus
+fixResponseCode1234 $JOBS_API
 
 # Edit CrawlPager
 CRAWL_PAGER=src/generated/java/org/lockss/laaws/crawler/model/CrawlPager.java
@@ -90,3 +98,11 @@ fixImport $URL_PAGER org.lockss.laaws.crawler.model.PageInfo org.lockss.util.res
 # Edit ApiUtils
 URL_PAGER=src/generated/java/org/lockss/laaws/crawler/model/UrlPager.java
 fixImport $URL_PAGER org.lockss.laaws.crawler.model.PageInfo org.lockss.util.rest.repo.model.PageInfo
+
+# Edit CrawlersApi
+CRAWLERS_API=src/generated/java/org/lockss/laaws/crawler/api/CrawlersApi.java
+fixResponseCode1234 $CRAWLERS_API
+
+# Edit WsApi
+WS_API=src/generated/java/org/lockss/laaws/crawler/api/WsApi.java
+fixResponseCode1234 $WS_API

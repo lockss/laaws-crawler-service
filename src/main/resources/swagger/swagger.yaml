@@ -629,104 +629,6 @@ paths:
                 $ref: '#/components/schemas/errorResult'
 components:
   schemas:
-    errorResult:
-      type: object
-      required:
-      - message
-      - code
-      properties:
-        message:
-          type: string
-        code:
-          type: integer
-        rootCause:
-          type: string
-    crawlerStatuses:
-      type: object
-      properties:
-        crawlerMap:
-          type: object
-          additionalProperties:
-            $ref: '#/components/schemas/crawlerStatus'
-          description: An map of crawler status objects
-      description: The metadata generated for a single item
-    mimeCounter:
-      required:
-      - mimeType
-      type: object
-      properties:
-        mimeType:
-          type: string
-          description: The mime type to count.
-        count:
-          type: integer
-          description: The number of elements of mime type
-          format: int32
-        counterLink:
-          type: string
-          description: A link to the list of count elements or to a pager with
-            count elements.
-      description: A counter for mimeTypes seen during a crawl.
-    pageInfo:
-      required:
-      - continuationToken
-      - curLink
-      - itemsInPage
-      - totalCount
-      type: object
-      properties:
-        totalCount:
-          type: integer
-          description: The total number of elements to be paginated
-          format: int32
-          nullable: true
-        itemsInPage:
-          type: integer
-          description: The number of items in page.
-          format: int32
-        continuationToken:
-          type: string
-          description: The continuation token.
-          nullable: true
-        curLink:
-          type: string
-          description: The link to the current page.
-        nextLink:
-          type: string
-          description: The link to the next page.
-          nullable: true
-      description: The information related to pagination of content
-    jobStatus:
-      required:
-      - statusCode
-      type: object
-      properties:
-        statusCode:
-          type: string
-          description: The numeric value for this status.
-          enum:
-          - STATUS_UNKNOWN
-          - STATUS_QUEUED
-          - STATUS_ACTIVE
-          - STATUS_SUCCESSFUL
-          - STATUS_ERROR
-          - STATUS_ABORTED
-          - STATUS_WINDOW_CLOSED
-          - STATUS_FETCH_ERROR
-          - STATUS_NO_PUB_PERMISSION
-          - STATUS_PLUGIN_ERROR
-          - STATUS_REPO_ERR
-          - STATUS_RUNNING_AT_CRASH
-          - STATUS_EXTRACTOR_ERROR
-          - STATUS_CRAWL_TEST_SUCCESSFUL
-          - STATUS_CRAWL_TEST_FAIL
-          - STATUS_INELIGIBLE
-          - STATUS_INACTIVE_REQUEST
-          - STATUS_INTERRUPTED
-        msg:
-          type: string
-          description: A text message explaining this status.
-      description: A status which includes a code and a message.
     apiStatus:
       required:
       - apiVersion
@@ -867,53 +769,20 @@ components:
           type: string
           description: A URI which can be used to retrieve the crawl data.
       description: The job resulting from a request to perform a crawl.
-    crawlerStatus:
+    crawlPager:
       required:
-      - isEnabled
+      - crawls
+      - pageInfo
       type: object
       properties:
-        isEnabled:
-          type: boolean
-          description: Is the crawler enabled
-        isAutoCrawlEnabled:
-          type: boolean
-          description: Does crawler autocrawl AUs when needed.
-        numJobsActive:
-          type: integer
-          description: The number of jobs running.
-          format: int32
-        numJobsFailed:
-          type: integer
-          description: The number of jobs failed.
-          format: int32
-        numJobsSuccessful:
-          type: integer
-          description: The number of jobs succeeded
-          format: int32
-        numJobsPending:
-          type: integer
-          description: The number of active jobs
-          format: int32
-        errMessage:
-          type: string
-      description: Status about a specific crawler.
-    crawlerConfig:
-      required:
-      - attributes
-      - crawlerId
-      type: object
-      properties:
-        crawlerId:
-          type: string
-          description: The identifier for this crawler
-          example: classic
-        attributes:
-          type: object
-          additionalProperties:
-            type: string
-          description: key value pairs specific providing attributes and configuration
-            information.
-      description: Configuration information about a specific crawler.
+        crawls:
+          type: array
+          description: The crawls displayed in the page
+          items:
+            $ref: '#/components/schemas/crawlStatus'
+        pageInfo:
+          $ref: '#/components/schemas/pageInfo'
+      description: A display page of crawl status
     crawlStatus:
       required:
       - auId
@@ -1010,81 +879,6 @@ components:
           items:
             $ref: '#/components/schemas/mimeCounter'
       description: The status of a single crawl.
-    urlPager:
-      required:
-      - pageInfo
-      - urls
-      type: object
-      properties:
-        pageInfo:
-          $ref: '#/components/schemas/pageInfo'
-        urls:
-          type: array
-          description: An list of url with related info.
-          items:
-            $ref: '#/components/schemas/urlInfo'
-      description: A Pager for urls with maps.
-    jobPager:
-      required:
-      - jobs
-      - pageInfo
-      type: object
-      properties:
-        jobs:
-          type: array
-          description: The jobs displayed in the page
-          items:
-            $ref: '#/components/schemas/crawlJob'
-        pageInfo:
-          $ref: '#/components/schemas/pageInfo'
-      description: A display page of jobs
-    crawlPager:
-      required:
-      - crawls
-      - pageInfo
-      type: object
-      properties:
-        crawls:
-          type: array
-          description: The crawls displayed in the page
-          items:
-            $ref: '#/components/schemas/crawlStatus'
-        pageInfo:
-          $ref: '#/components/schemas/pageInfo'
-      description: A display page of crawl status
-    urlInfo:
-      required:
-      - url
-      type: object
-      properties:
-        url:
-          type: string
-          description: The url string
-        error:
-          $ref: '#/components/schemas/urlError'
-        referrers:
-          type: array
-          description: An optional list of referrers.
-          items:
-            type: string
-      description: information related to an url.
-    urlError:
-      required:
-      - message
-      - severity
-      type: object
-      properties:
-        message:
-          type: string
-          description: The error message
-        severity:
-          type: string
-          description: the severity of the error.
-          enum:
-          - Warning
-          - Error
-          - Fatal
-      description: information related to an error for a url.
     crawlWsResult:
       required:
       - auId
@@ -1186,6 +980,212 @@ components:
         linkDepth:
           type: integer
           format: int32
+    crawlerConfig:
+      required:
+      - attributes
+      - crawlerId
+      type: object
+      properties:
+        crawlerId:
+          type: string
+          description: The identifier for this crawler
+          example: classic
+        attributes:
+          type: object
+          additionalProperties:
+            type: string
+          description: key value pairs specific providing attributes and configuration
+            information.
+      description: Configuration information about a specific crawler.
+    crawlerStatus:
+      required:
+      - isEnabled
+      type: object
+      properties:
+        isEnabled:
+          type: boolean
+          description: Is the crawler enabled
+        isAutoCrawlEnabled:
+          type: boolean
+          description: Does crawler autocrawl AUs when needed.
+        numJobsActive:
+          type: integer
+          description: The number of jobs running.
+          format: int32
+        numJobsFailed:
+          type: integer
+          description: The number of jobs failed.
+          format: int32
+        numJobsSuccessful:
+          type: integer
+          description: The number of jobs succeeded
+          format: int32
+        numJobsPending:
+          type: integer
+          description: The number of active jobs
+          format: int32
+        errMessage:
+          type: string
+      description: Status about a specific crawler.
+    crawlerStatuses:
+      type: object
+      properties:
+        crawlerMap:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/crawlerStatus'
+          description: An map of crawler status objects
+      description: The metadata generated for a single item
+    errorResult:
+      type: object
+      required:
+      - message
+      - code
+      properties:
+        message:
+          type: string
+        code:
+          type: integer
+        rootCause:
+          type: string
+    jobPager:
+      required:
+      - jobs
+      - pageInfo
+      type: object
+      properties:
+        jobs:
+          type: array
+          description: The jobs displayed in the page
+          items:
+            $ref: '#/components/schemas/crawlJob'
+        pageInfo:
+          $ref: '#/components/schemas/pageInfo'
+      description: A display page of jobs
+    jobStatus:
+      required:
+      - statusCode
+      type: object
+      properties:
+        statusCode:
+          type: string
+          description: The numeric value for this status.
+          enum:
+          - STATUS_UNKNOWN
+          - STATUS_QUEUED
+          - STATUS_ACTIVE
+          - STATUS_SUCCESSFUL
+          - STATUS_ERROR
+          - STATUS_ABORTED
+          - STATUS_WINDOW_CLOSED
+          - STATUS_FETCH_ERROR
+          - STATUS_NO_PUB_PERMISSION
+          - STATUS_PLUGIN_ERROR
+          - STATUS_REPO_ERR
+          - STATUS_RUNNING_AT_CRASH
+          - STATUS_EXTRACTOR_ERROR
+          - STATUS_CRAWL_TEST_SUCCESSFUL
+          - STATUS_CRAWL_TEST_FAIL
+          - STATUS_INELIGIBLE
+          - STATUS_INACTIVE_REQUEST
+          - STATUS_INTERRUPTED
+        msg:
+          type: string
+          description: A text message explaining this status.
+      description: A status which includes a code and a message.
+    mimeCounter:
+      required:
+      - mimeType
+      type: object
+      properties:
+        mimeType:
+          type: string
+          description: The mime type to count.
+        count:
+          type: integer
+          description: The number of elements of mime type
+          format: int32
+        counterLink:
+          type: string
+          description: A link to the list of count elements or to a pager with
+            count elements.
+      description: A counter for mimeTypes seen during a crawl.
+    pageInfo:
+      required:
+      - continuationToken
+      - curLink
+      - itemsInPage
+      - totalCount
+      type: object
+      properties:
+        totalCount:
+          type: integer
+          description: The total number of elements to be paginated
+          format: int32
+          nullable: true
+        itemsInPage:
+          type: integer
+          description: The number of items in page.
+          format: int32
+        continuationToken:
+          type: string
+          description: The continuation token.
+          nullable: true
+        curLink:
+          type: string
+          description: The link to the current page.
+        nextLink:
+          type: string
+          description: The link to the next page.
+          nullable: true
+      description: The information related to pagination of content
+    urlError:
+      required:
+      - message
+      - severity
+      type: object
+      properties:
+        message:
+          type: string
+          description: The error message
+        severity:
+          type: string
+          description: the severity of the error.
+          enum:
+          - Warning
+          - Error
+          - Fatal
+      description: information related to an error for a url.
+    urlInfo:
+      required:
+      - url
+      type: object
+      properties:
+        url:
+          type: string
+          description: The url string
+        error:
+          $ref: '#/components/schemas/urlError'
+        referrers:
+          type: array
+          description: An optional list of referrers.
+          items:
+            type: string
+      description: information related to an url.
+    urlPager:
+      required:
+      - pageInfo
+      - urls
+      type: object
+      properties:
+        pageInfo:
+          $ref: '#/components/schemas/pageInfo'
+        urls:
+          type: array
+          description: An list of url with related info.
+          items:
+            $ref: '#/components/schemas/urlInfo'
+      description: A Pager for urls with maps.
   securitySchemes:
     basicAuth:
       type: http

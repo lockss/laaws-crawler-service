@@ -30,6 +30,7 @@ openapi: 3.0.3
 info:
   title: LOCKSS Crawler Service REST API
   description: REST API of the LOCKSS Crawler Service
+  version: 2.0.0
   contact:
     name: LOCKSS Support
     url: https://www.lockss.org/
@@ -37,9 +38,22 @@ info:
   license:
     name: BSD-3-Clause
     url: https://opensource.org/licenses/BSD-3-Clause
-  version: 2.0.0
 servers:
-- url: https://laaws.lockss.org:443/
+  - url: "{proto}://{hostname}:{port}/"
+    description: LOCKSS Crawler Service
+    variables:
+      proto:
+        description: "The protocol (default: http)."
+        enum:
+          - http
+          - https
+        default: http
+      hostname:
+        description: The service host name (or IP address).
+        default: localhost
+      port:
+        description: "The service port (default: 24640)."
+        default: 24640
 security:
 - basicAuth: []
 tags:

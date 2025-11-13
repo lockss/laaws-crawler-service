@@ -697,11 +697,7 @@ components:
           type: string
           description: The identifier of the archival unit to be crawled.
         crawlKind:
-          type: string
-          description: The kind of crawl being performed either 'newContent' or 'repair'.
-          enum:
-          - newContent
-          - repair
+          $ref: '#/components/schemas/crawlKindEnum'
         crawlerId:
           type: string
           description: The crawler to be used for this crawl.
@@ -769,6 +765,13 @@ components:
           type: string
           description: A URI which can be used to retrieve the crawl data.
       description: The job resulting from a request to perform a crawl.
+    crawlKindEnum:
+      title: Crawl Kind
+      description: The kind of crawl being performed either 'newContent' or 'repair'.
+      type: string
+      enum:
+        - newContent
+        - repair
     crawlPager:
       required:
       - crawls

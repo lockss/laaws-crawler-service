@@ -14,6 +14,7 @@ import org.lockss.state.AuState;
 import org.lockss.test.MockArchivalUnit;
 import org.lockss.test.MockLockssDaemon;
 import org.lockss.test.MockPlugin;
+import org.lockss.util.rest.crawler.CrawlKindEnum;
 import org.lockss.util.rest.repo.LockssRepository;
 import org.lockss.util.ListUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
@@ -50,8 +51,8 @@ class TestCmdLineCrawler extends LockssTestCase5 {
   private static final String[] TEST_CMD_LINE ={"mycmd", "-p",  "prop1"};
 
   private static final List<String> START_URLS = ListUtil.fromCSV("url1,url2");
-  static final CrawlDesc.CrawlKindEnum NEWCONTENT = CrawlDesc.CrawlKindEnum.NEWCONTENT;
-  static final CrawlDesc.CrawlKindEnum REPAIR = CrawlDesc.CrawlKindEnum.REPAIR;
+  static final CrawlKindEnum NEWCONTENT = CrawlKindEnum.NEWCONTENT;
+  static final CrawlKindEnum REPAIR = CrawlKindEnum.REPAIR;
 
   private PluggableCrawlManager pluggableCrawlManager;
   private LockssRepository lockssRepository;

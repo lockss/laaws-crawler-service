@@ -50,6 +50,7 @@ import org.lockss.spring.test.SpringLockssTestCase4;
 import org.lockss.util.rest.RestUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.crawler.CrawlJob;
+import org.lockss.util.rest.crawler.CrawlKindEnum;
 import org.lockss.util.rest.crawler.JobStatus;
 import org.lockss.util.rest.crawler.JobStatus.StatusCodeEnum;
 import org.lockss.util.rest.repo.LockssRepository;
@@ -697,7 +698,7 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     runTestDoCrawl(new CrawlDesc().auId(sau.getAuId()), null, HttpStatus.BAD_REQUEST);
     runTestDoCrawl(new CrawlDesc(), ANYBODY, HttpStatus.BAD_REQUEST);
 
-    CrawlDesc crawlDesc = new CrawlDesc().auId(sau.getAuId()).crawlKind(CrawlDesc.CrawlKindEnum.NEWCONTENT);
+    CrawlDesc crawlDesc = new CrawlDesc().auId(sau.getAuId()).crawlKind(CrawlKindEnum.NEWCONTENT);
 
     runTestDoCrawl(crawlDesc, null, HttpStatus.BAD_REQUEST);
     crawlDesc.forceCrawl(true);
@@ -758,7 +759,7 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
 
     CrawlDesc crawlDesc = new CrawlDesc()
       .auId(sau.getAuId())
-      .crawlKind(CrawlDesc.CrawlKindEnum.NEWCONTENT)
+      .crawlKind(CrawlKindEnum.NEWCONTENT)
       .crawlerId(crawlerId);
 
     runTestDoCrawl(crawlDesc, USER_ADMIN, HttpStatus.BAD_REQUEST);
@@ -798,7 +799,7 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     xtraData.put("--mirror","true");
     CrawlDesc crawlDesc = new CrawlDesc()
       .auId(sau.getAuId())
-      .crawlKind(CrawlDesc.CrawlKindEnum.NEWCONTENT)
+      .crawlKind(CrawlKindEnum.NEWCONTENT)
       .crawlerId(crawlerId).forceCrawl(true);
 
     // first crawl
@@ -1507,7 +1508,7 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     runTestDeleteCrawlById(null, null, HttpStatus.NOT_FOUND);
     runTestDeleteCrawlById(EMPTY_STRING, ANYBODY, HttpStatus.NOT_FOUND);
 
-    CrawlDesc crawlDesc = new CrawlDesc().auId(sau.getAuId()).crawlKind(CrawlDesc.CrawlKindEnum.NEWCONTENT);
+    CrawlDesc crawlDesc = new CrawlDesc().auId(sau.getAuId()).crawlKind(CrawlKindEnum.NEWCONTENT);
     crawlDesc.forceCrawl(true);
 
     CrawlJob crawlJob = runTestDoCrawl(crawlDesc, null, HttpStatus.ACCEPTED);
@@ -1555,7 +1556,7 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     runTestDeleteCrawlById(null, USER_ADMIN, HttpStatus.NOT_FOUND);
     runTestDeleteCrawlById(EMPTY_STRING, CONTENT_ADMIN, HttpStatus.NOT_FOUND);
 
-    CrawlDesc crawlDesc = new CrawlDesc().auId(sau.getAuId()).crawlKind(CrawlDesc.CrawlKindEnum.NEWCONTENT);
+    CrawlDesc crawlDesc = new CrawlDesc().auId(sau.getAuId()).crawlKind(CrawlKindEnum.NEWCONTENT);
     crawlDesc.forceCrawl(true);
 
     CrawlJob crawlJob = runTestDoCrawl(crawlDesc, USER_ADMIN, HttpStatus.ACCEPTED);
@@ -1699,7 +1700,7 @@ public class TestCrawlsApiServiceImpl extends SpringLockssTestCase4 {
     runTestDeleteCrawls(USER_ADMIN, HttpStatus.OK);
 
     CrawlDesc crawlDesc =
-      new CrawlDesc().auId(sau.getAuId()).crawlKind(CrawlDesc.CrawlKindEnum.NEWCONTENT);
+      new CrawlDesc().auId(sau.getAuId()).crawlKind(CrawlKindEnum.NEWCONTENT);
     crawlDesc.forceCrawl(true);
 
     runTestDoCrawl(crawlDesc, USER_ADMIN, HttpStatus.ACCEPTED);

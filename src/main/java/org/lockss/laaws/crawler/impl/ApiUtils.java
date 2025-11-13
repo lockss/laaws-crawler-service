@@ -11,6 +11,7 @@ import org.lockss.log.L4JLogger;
 import org.lockss.repository.RepoSpec;
 import org.lockss.repository.RepositoryManager;
 import org.lockss.util.rest.crawler.CrawlDesc;
+import org.lockss.util.rest.crawler.CrawlKindEnum;
 import org.lockss.util.rest.crawler.JobStatus;
 import org.lockss.util.rest.repo.LockssRepository;
 import org.lockss.util.rest.repo.model.PageInfo;
@@ -143,10 +144,10 @@ public class ApiUtils {
     String crawlType = cs.getType().toLowerCase();
     log.debug2("Found crawl type string: {}", crawlType);
     if (crawlType.startsWith("new")) {
-      desc.setCrawlKind(CrawlDesc.CrawlKindEnum.NEWCONTENT);
+      desc.setCrawlKind(CrawlKindEnum.NEWCONTENT);
     }
     else {
-      desc.setCrawlKind(CrawlDesc.CrawlKindEnum.REPAIR);
+      desc.setCrawlKind(CrawlKindEnum.REPAIR);
     }
 
     return desc;

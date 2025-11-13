@@ -42,6 +42,7 @@ import org.lockss.log.L4JLogger;
 import org.lockss.util.FileUtil;
 import org.lockss.util.ListUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
+import org.lockss.util.rest.crawler.CrawlKindEnum;
 
 import java.io.File;
 import java.io.IOException;
@@ -93,7 +94,7 @@ public class WgetCommandLineBuilder implements CmdLineCrawler.CommandLineBuilder
     List<String> command = new ArrayList<>();
     command.add("wget");
     command.add("--directory-prefix=./");
-    if(crawlDesc.getCrawlKind().equals(CrawlDesc.CrawlKindEnum.NEWCONTENT)){
+    if(crawlDesc.getCrawlKind().equals(CrawlKindEnum.NEWCONTENT)){
       command.add("-r");
     }
     command.add(DELETE_AFTER_KEY);

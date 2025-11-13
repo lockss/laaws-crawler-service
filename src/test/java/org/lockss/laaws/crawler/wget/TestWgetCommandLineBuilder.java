@@ -44,6 +44,7 @@ import org.lockss.test.LockssTestCase4;
 import org.lockss.util.ListUtil;
 import org.lockss.util.StringUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
+import org.lockss.util.rest.crawler.CrawlKindEnum;
 
 import static org.lockss.laaws.crawler.wget.WgetCommandLineBuilder.WARC_FILE_NAME;
 import static org.lockss.laaws.crawler.wget.WgetCommandOptions.*;
@@ -81,7 +82,7 @@ public class TestWgetCommandLineBuilder extends LockssTestCase4 {
   public void testBuildCommandLineRepair() throws Exception {
     List<String> command = null;
     CrawlDesc crawlDesc = new CrawlDesc();
-    crawlDesc.crawlKind(CrawlDesc.CrawlKindEnum.REPAIR);
+    crawlDesc.crawlKind(CrawlKindEnum.REPAIR);
     List<String> expectedCommand = ListUtil.list("wget");
     expectedCommand.add("--directory-prefix=./");
     expectedCommand.addAll(WgetCommandLineBuilder.DEFAULT_CONFIG);
@@ -107,7 +108,7 @@ public class TestWgetCommandLineBuilder extends LockssTestCase4 {
   public void testBuildCommandLineNewContent() throws Exception {
     List<String> command = null;
     CrawlDesc crawlDesc = new CrawlDesc();
-    crawlDesc.crawlKind(CrawlDesc.CrawlKindEnum.NEWCONTENT);
+    crawlDesc.crawlKind(CrawlKindEnum.NEWCONTENT);
     crawlDesc.crawlList(crawlList);
 
     List<String> expectedCommand = ListUtil.list("wget");
@@ -127,7 +128,7 @@ public class TestWgetCommandLineBuilder extends LockssTestCase4 {
   public void testBuildCommandWithExtraData() throws Exception {
     List<String> command = null;
     CrawlDesc crawlDesc = new CrawlDesc();
-    crawlDesc.crawlKind(CrawlDesc.CrawlKindEnum.NEWCONTENT);
+    crawlDesc.crawlKind(CrawlKindEnum.NEWCONTENT);
     crawlDesc.crawlList(crawlList);
     List<String> inputFileUrls = ListUtil.list("https://ip1","https://ip2","http://ip3");
 

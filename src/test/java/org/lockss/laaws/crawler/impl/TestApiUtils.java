@@ -1,6 +1,6 @@
 package org.lockss.laaws.crawler.impl;
 
-import static org.lockss.util.rest.crawler.CrawlDesc.CrawlKindEnum.NEWCONTENT;
+import static org.lockss.util.rest.crawler.CrawlKindEnum.NEWCONTENT;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -16,6 +16,7 @@ import org.lockss.plugin.ArchivalUnit;
 import org.lockss.util.ListUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.crawler.CrawlJob;
+import org.lockss.util.rest.crawler.CrawlKindEnum;
 import org.lockss.util.rest.crawler.JobStatus;
 import org.lockss.util.test.LockssTestCase5;
 import org.lockss.util.time.TimeBase;
@@ -118,7 +119,7 @@ class TestApiUtils extends LockssTestCase5 {
 
     CrawlDesc crawlDesc = ApiUtils.makeCrawlDesc(crawlerStatus);
 
-    assertEquals(CrawlDesc.CrawlKindEnum.REPAIR, crawlDesc.getCrawlKind());
+    assertEquals(CrawlKindEnum.REPAIR, crawlDesc.getCrawlKind());
   }
 
 

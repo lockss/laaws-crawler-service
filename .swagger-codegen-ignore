@@ -29,6 +29,7 @@ src/generated/java/org/lockss/laaws/*/api/ApiException.java
 src/generated/java/org/lockss/laaws/*/api/NotFoundException.java
 src/generated/java/org/lockss/laaws/*/model/ApiStatus.java
 src/generated/java/org/lockss/laaws/*/model/CrawlDesc.java
+src/generated/java/org/lockss/laaws/*/model/CrawlKindEnum.java
 src/generated/java/org/lockss/laaws/*/model/CrawlJob.java
 src/generated/java/org/lockss/laaws/*/model/JobStatus.java
 src/generated/java/org/lockss/laaws/*/model/PageInfo.java

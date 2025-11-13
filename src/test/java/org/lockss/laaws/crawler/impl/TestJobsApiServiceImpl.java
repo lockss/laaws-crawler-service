@@ -52,6 +52,7 @@ import org.lockss.spring.test.SpringLockssTestCase4;
 import org.lockss.util.rest.RestUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.crawler.CrawlJob;
+import org.lockss.util.rest.crawler.CrawlKindEnum;
 import org.lockss.util.rest.crawler.JobStatus;
 import org.lockss.util.rest.crawler.JobStatus.StatusCodeEnum;
 import org.lockss.util.rest.repo.model.PageInfo;
@@ -677,7 +678,7 @@ public class TestJobsApiServiceImpl extends SpringLockssTestCase4 {
     runTestQueueJob(new CrawlDesc(), ANYBODY, HttpStatus.BAD_REQUEST);
 
     CrawlDesc crawlDesc = new CrawlDesc().auId(sau.getAuId())
-        .crawlKind(CrawlDesc.CrawlKindEnum.NEWCONTENT);
+        .crawlKind(CrawlKindEnum.NEWCONTENT);
 
     runTestQueueJob(crawlDesc, null, HttpStatus.BAD_REQUEST);
     crawlDesc.forceCrawl(true);
@@ -740,7 +741,7 @@ public class TestJobsApiServiceImpl extends SpringLockssTestCase4 {
 
     CrawlDesc crawlDesc = new CrawlDesc()
         .auId(sau.getAuId())
-        .crawlKind(CrawlDesc.CrawlKindEnum.NEWCONTENT)
+        .crawlKind(CrawlKindEnum.NEWCONTENT)
         .crawlerId(crawlerId);
 
     runTestQueueJob(crawlDesc, USER_ADMIN, HttpStatus.BAD_REQUEST);
@@ -912,7 +913,7 @@ public class TestJobsApiServiceImpl extends SpringLockssTestCase4 {
     //runTestDeleteJobs(ANYBODY, HttpStatus.NOT_FOUND);
 
     CrawlDesc crawlDesc = new CrawlDesc().auId(sau.getAuId())
-        .crawlKind(CrawlDesc.CrawlKindEnum.NEWCONTENT);
+        .crawlKind(CrawlKindEnum.NEWCONTENT);
     crawlDesc.forceCrawl(true);
 
     CrawlJob crawlJob = runTestQueueJob(crawlDesc, null, HttpStatus.ACCEPTED);
@@ -1028,7 +1029,7 @@ public class TestJobsApiServiceImpl extends SpringLockssTestCase4 {
 //    runTestDeleteJobs(CONTENT_ADMIN, HttpStatus.NOT_FOUND);
 
     CrawlDesc crawlDesc = new CrawlDesc().auId(sau.getAuId())
-        .crawlKind(CrawlDesc.CrawlKindEnum.NEWCONTENT);
+        .crawlKind(CrawlKindEnum.NEWCONTENT);
     crawlDesc.forceCrawl(true);
 
     CrawlJob crawlJob = runTestQueueJob(crawlDesc, USER_ADMIN, HttpStatus.ACCEPTED);

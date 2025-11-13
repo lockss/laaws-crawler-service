@@ -64,6 +64,7 @@ import org.lockss.util.JsonUtil;
 import org.lockss.util.RateLimiter;
 import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.crawler.CrawlJob;
+import org.lockss.util.rest.crawler.CrawlKindEnum;
 import org.lockss.util.rest.crawler.JobStatus;
 import org.lockss.util.rest.crawler.JobStatus.StatusCodeEnum;
 import org.lockss.util.time.TimeBase;
@@ -174,7 +175,7 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
     HttpStatus httpStatus;
     CrawlJob crawlJob = new CrawlJob().crawlDesc(crawlDesc);
     String crawlerId = crawlDesc.getCrawlerId();
-    CrawlDesc.CrawlKindEnum crawlKind = crawlDesc.getCrawlKind();
+    CrawlKindEnum crawlKind = crawlDesc.getCrawlKind();
 
     try {
       // Check whether the service has not been fully initialized.
@@ -593,7 +594,7 @@ public class JobsApiServiceImpl extends BaseSpringApiServiceImpl implements Jobs
     log.debug2("crawlDesc = {}", crawlDesc);
     String msg;
     String auId = crawlDesc.getAuId();
-    boolean isRepair = crawlDesc.getCrawlKind() == CrawlDesc.CrawlKindEnum.NEWCONTENT;
+    boolean isRepair = crawlDesc.getCrawlKind() == CrawlKindEnum.NEWCONTENT;
     PluggableCrawlManager pcMgr = getPluggableCrawlManager();
     Collection<String> urls = crawlDesc.getCrawlList();
     if(!isRepair && !pcMgr.isEligibleForCrawl(auId)) {

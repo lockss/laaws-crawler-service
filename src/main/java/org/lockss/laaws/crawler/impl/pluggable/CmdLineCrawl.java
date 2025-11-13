@@ -21,6 +21,7 @@ import org.lockss.util.UrlUtil;
 import org.lockss.util.io.FileUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.crawler.CrawlJob;
+import org.lockss.util.rest.crawler.CrawlKindEnum;
 import org.lockss.util.rest.crawler.JobStatus;
 import org.lockss.util.time.Deadline;
 
@@ -79,7 +80,7 @@ public class CmdLineCrawl extends PluggableCrawl {
     final Configuration currentConfig = ConfigManager.getCurrentConfig();
     outputLogLevel = crawler.getOutputLogLevel();
     errorLogLevel = crawler.getErrorLogLevel();
-    isRepairCrawl = crawlJob.getCrawlDesc().getCrawlKind() == CrawlDesc.CrawlKindEnum.REPAIR;
+    isRepairCrawl = crawlJob.getCrawlDesc().getCrawlKind() == CrawlKindEnum.REPAIR;
     reqUrls = crawlDesc.getCrawlList();
   }
 

@@ -716,7 +716,8 @@ components:
           type: integer
           description: The priority for the crawl.
           format: int32
-          default: 0
+          nullable: true
+          default: null
         crawlList:
           type: array
           description: The list of URLs to crawl.

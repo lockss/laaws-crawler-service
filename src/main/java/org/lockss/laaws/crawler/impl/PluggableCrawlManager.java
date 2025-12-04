@@ -25,7 +25,6 @@
  */
 package org.lockss.laaws.crawler.impl;
 
-import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.dizitart.no2.IndexOptions;
 import org.dizitart.no2.IndexType;
@@ -568,7 +567,6 @@ public class PluggableCrawlManager extends BaseLockssDaemonManager implements Co
 
   void initDb(File dbDir) {
     crawlServiceDb = Nitrite.builder()
-      .registerModule(new Jdk8Module()) // add jackson support
       .registerModule(new JavaTimeModule())
       .filePath(dbDir)
       .openOrCreate();

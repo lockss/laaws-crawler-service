@@ -5,6 +5,7 @@ import org.josql.QueryExecutionException;
 import org.josql.QueryParseException;
 import org.josql.QueryResults;
 import org.lockss.laaws.crawler.api.WsApiDelegate;
+import org.lockss.log.L4JLogger;
 import org.lockss.spring.auth.AuthUtil;
 import org.lockss.spring.auth.Roles;
 import org.lockss.spring.base.BaseSpringApiServiceImpl;
@@ -18,6 +19,7 @@ import java.util.List;
 
 @Service
 public class WsApiServiceImpl extends BaseSpringApiServiceImpl implements WsApiDelegate {
+  private static L4JLogger log = L4JLogger.getLogger();
   public ResponseEntity getWsCrawls(String crawlQuery) {
     log.debug("crawlQuery = {}", crawlQuery);
 

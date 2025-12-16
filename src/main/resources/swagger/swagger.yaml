@@ -387,7 +387,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/errorResult'
-  /crawls/{jobId}/mimeType/{type}:
+  /crawls/{jobId}/mediatypes/{type}:
     get:
       tags:
       - crawls

@@ -32,7 +32,7 @@ public class ApiUtils {
   private static final String COUNTER_URI = "crawls/{jobId}/{counterName}";
   // A template URI for returning a counter for a list of URLs of a specific
   // mimeType.
-  private static final String MIME_URI = "crawls/{jobId}/mimeType/{mimeType}";
+  private static final String MIME_URI = "crawls/{jobId}/mediatypes/{mimeType}";
   private static PluggableCrawlManager pluggableCrawlManager;
   private static CrawlManagerImpl lockssCrawlManager;
 

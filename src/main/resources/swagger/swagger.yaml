@@ -239,7 +239,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/errorResult'
-  /crawls/{jobId}/notModified:
+  /crawls/{jobId}/notmodified:
     get:
       tags:
       - crawls

@@ -253,7 +253,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/errorResult'
-  /crawls/{jobId}/notModified:
+  /crawls/{jobId}/notmodified:
     get:
       tags:
       - crawls
@@ -401,7 +401,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/errorResult'
-  /crawls/{jobId}/mimeType/{type}:
+  /crawls/{jobId}/mediatypes/{type}:
     get:
       tags:
       - crawls

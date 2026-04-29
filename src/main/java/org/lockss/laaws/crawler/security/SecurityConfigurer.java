@@ -27,7 +27,6 @@ package org.lockss.laaws.crawler.security;
 
 import org.lockss.spring.auth.SpringSecurityConfigurer;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 
 /**
@@ -38,7 +37,6 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
  */
 @Configuration
 @EnableWebSecurity
-//@EnableGlobalMethodSecurity(prePostEnabled = true)
 public class SecurityConfigurer extends SpringSecurityConfigurer {
   // To use an authentication filter different than the default
   // org.lockss.rs.auth.SpringAuthenticationFilter, override the

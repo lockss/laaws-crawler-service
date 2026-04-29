@@ -80,7 +80,7 @@ public class CrawlersApiServiceImpl extends BaseSpringApiServiceImpl implements 
 
     if (config == null) {
       log.debug2("NOT_FOUND");
-      return new ResponseEntity<>(null, HttpStatus.NOT_FOUND);
+      return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
     }
 
     log.debug2("OK");

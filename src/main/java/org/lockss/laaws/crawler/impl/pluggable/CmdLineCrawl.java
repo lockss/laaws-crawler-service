@@ -153,7 +153,7 @@ public class CmdLineCrawl extends PluggableCrawl {
   }
 
   public Collection<File> getWarcFiles(List<String> exts) {
-    return FileUtils.listFiles(tmpDir, new WildcardFileFilter(exts), null);
+    return FileUtils.listFiles(tmpDir, WildcardFileFilter.builder().setWildcards(exts).get(), null);
   }
 
   /**

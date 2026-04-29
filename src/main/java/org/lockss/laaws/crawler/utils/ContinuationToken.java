@@ -70,7 +70,7 @@ public class ContinuationToken {
 
   public List<Long> splitToken(String str) {
     String[] tokenArray = str.split("\\" + SEPARATOR);
-    log.trace("tokenArray = {}", tokenArray);
+    log.trace("tokenArray = {}", (Object) tokenArray);
 
     return Stream.of(tokenArray)
       .map(num -> Long.parseLong(num.trim()))

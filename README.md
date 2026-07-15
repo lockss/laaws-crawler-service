@@ -38,10 +38,11 @@ ongoing development.
 
 ## Standard build and deployment
 The LOCKSS cluster, including this project, is normally built and deployed using
-the LOCKSS Installer, which uses `docker`.
+the LOCKSS Installer, which uses `kubernetes`.
 
 You can find more information about the installation of the LOCKSS system in the
-[LOCKSS system manual](https://lockss.github.io/software/manual).
+[LOCKSS system manual](https://docs.lockss.org/projects/manual).
+
 
 ## Development build and deployment
 ### Clone the repo
@@ -70,9 +71,9 @@ this `README.md` file resides.
 
 The log is at `./logs/app.log`.
 
-The API is documented at <http://127.0.0.1:24660/swagger-ui.html>.
+The API is documented at <http://127.0.0.1:24640/swagger-ui.html>.
 
 The status of the web service may be obtained at
-<http://127.0.0.1:24660/status>.
+<http://127.0.0.1:24640/status>.
 
-The administration UI of the web service is at <http://127.0.0.1:24661>.
+The administration UI of the web service is at <http://127.0.0.1:24641>.

@@ -11,6 +11,7 @@ import org.lockss.test.ConfigurationUtil;
 import org.lockss.util.ListUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.crawler.CrawlJob;
+import org.lockss.util.rest.crawler.CrawlKindEnum;
 import org.lockss.util.rest.crawler.JobStatus;
 import org.lockss.util.test.LockssTestCase5;
 import org.lockss.util.time.TimeBase;
@@ -314,7 +315,7 @@ class TestPluggableCrawlManager  extends LockssTestCase5 {
     {
         CrawlDesc cd = new CrawlDesc()
           .auId(auId)
-          .crawlKind(CrawlDesc.CrawlKindEnum.NEWCONTENT)
+          .crawlKind(CrawlKindEnum.NEWCONTENT)
           .crawlerId("crawlerId")
           .crawlDepth(1);
         return new CrawlJob()

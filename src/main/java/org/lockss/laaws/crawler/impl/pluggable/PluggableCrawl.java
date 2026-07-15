@@ -33,6 +33,7 @@ import org.lockss.laaws.crawler.model.CrawlerConfig;
 import org.lockss.plugin.ArchivalUnit;
 import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.crawler.CrawlJob;
+import org.lockss.util.rest.crawler.CrawlKindEnum;
 import org.lockss.util.rest.crawler.JobStatus;
 
 import java.util.UUID;
@@ -218,7 +219,7 @@ public abstract class PluggableCrawl {
       this.key = crawl.getCrawlKey();
       this.au = crawl.getAu();
       this.auName = au.getName();
-      if(desc.getCrawlKind() == CrawlDesc.CrawlKindEnum.NEWCONTENT)
+      if(desc.getCrawlKind() == CrawlKindEnum.NEWCONTENT)
         setType(Crawler.Type.NEW_CONTENT.toString());
       else {
         setType(Crawler.Type.REPAIR.toString());

@@ -10,14 +10,14 @@ import org.lockss.laaws.crawler.utils.ContinuationToken;
 import org.lockss.log.L4JLogger;
 import org.lockss.repository.RepoSpec;
 import org.lockss.repository.RepositoryManager;
-import org.lockss.util.UrlUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
+import org.lockss.util.rest.crawler.CrawlKindEnum;
 import org.lockss.util.rest.crawler.JobStatus;
 import org.lockss.util.rest.repo.LockssRepository;
+import org.lockss.util.rest.repo.model.PageInfo;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import java.net.MalformedURLException;
 import java.util.*;
 
 import javax.ws.rs.NotFoundException;
@@ -33,7 +33,7 @@ public class ApiUtils {
   private static final String COUNTER_URI = "crawls/{jobId}/{counterName}";
   // A template URI for returning a counter for a list of URLs of a specific
   // mimeType.
-  private static final String MIME_URI = "crawls/{jobId}/mimeType/{mimeType}";
+  private static final String MIME_URI = "crawls/{jobId}/mediatypes/{mimeType}";
   private static PluggableCrawlManager pluggableCrawlManager;
   private static CrawlManagerImpl lockssCrawlManager;
 
@@ -99,8 +99,8 @@ public class ApiUtils {
     return repoManager;
   }
 
-  public static PageInfo getPageInfo(Integer resultsPerPage, Long lastElement, int totalCount, Long timeStamp) {
-    log.debug2("resultsPerPage = {}", resultsPerPage);
+  public static PageInfo getPageInfo(Integer itemsInPage, Long lastElement, int totalCount, Long timeStamp) {
+    log.debug2("itemsInPage = {}", itemsInPage);
     log.debug2("lastElement = {}", lastElement);
     log.debug2("totalCount = {}", totalCount);
     log.debug2("timeStamp = {}", timeStamp);
@@ -108,7 +108,7 @@ public class ApiUtils {
     PageInfo pi = new PageInfo();
 
     pi.setTotalCount(totalCount);
-    pi.setResultsPerPage(resultsPerPage);
+    pi.setItemsInPage(itemsInPage);
 
     ServletUriComponentsBuilder builder = getServletUrlBuilder();
 
@@ -144,10 +144,10 @@ public class ApiUtils {
     String crawlType = cs.getType().toLowerCase();
     log.debug2("Found crawl type string: {}", crawlType);
     if (crawlType.startsWith("new")) {
-      desc.setCrawlKind(CrawlDesc.CrawlKindEnum.NEWCONTENT);
+      desc.setCrawlKind(CrawlKindEnum.NEWCONTENT);
     }
     else {
-      desc.setCrawlKind(CrawlDesc.CrawlKindEnum.REPAIR);
+      desc.setCrawlKind(CrawlKindEnum.REPAIR);
     }
 
     return desc;

@@ -45,7 +45,6 @@ import org.lockss.crawler.FuncNewContentCrawler.MySimulatedPlugin;
 import org.lockss.jms.JMSManager;
 import org.lockss.laaws.crawler.CrawlerApplication;
 import org.lockss.laaws.crawler.model.JobPager;
-import org.lockss.laaws.crawler.model.PageInfo;
 import org.lockss.log.L4JLogger;
 import org.lockss.plugin.PluginTestUtil;
 import org.lockss.plugin.simulated.SimulatedContentGenerator;
@@ -53,8 +52,10 @@ import org.lockss.spring.test.SpringLockssTestCase4;
 import org.lockss.util.rest.RestUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.crawler.CrawlJob;
+import org.lockss.util.rest.crawler.CrawlKindEnum;
 import org.lockss.util.rest.crawler.JobStatus;
 import org.lockss.util.rest.crawler.JobStatus.StatusCodeEnum;
+import org.lockss.util.rest.repo.model.PageInfo;
 import org.lockss.util.time.TimerUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
@@ -85,6 +86,8 @@ public class TestJobsApiServiceImpl extends SpringLockssTestCase4 {
 
   // Credentials.
   private final Credentials USER_ADMIN = this.new Credentials("lockss-u", "lockss-p");
+  private final Credentials AU_ADMIN =
+      new Credentials("au-admin", "I'mAuAdmin");
   private final Credentials CONTENT_ADMIN =
       this.new Credentials("content-admin", "I'mContentAdmin");
   private final Credentials ACCESS_CONTENT =
@@ -519,7 +522,7 @@ public class TestJobsApiServiceImpl extends SpringLockssTestCase4 {
 
     // Validate the pagination information.
     PageInfo pageInfo = jobPager.getPageInfo();
-    assertEquals(actualLimit, pageInfo.getResultsPerPage().intValue());
+    assertEquals(actualLimit, pageInfo.getItemsInPage().intValue());
 
     if (expectedCount >= 0) {
       assertEquals(expectedCount, pageInfo.getTotalCount().intValue());
@@ -655,7 +658,7 @@ public class TestJobsApiServiceImpl extends SpringLockssTestCase4 {
     JobPager jobPager = runTestGetJobs(USER_ADMIN, null, null, HttpStatus.OK);
     validateGetJobsResult(jobPager, null, 1);
 
-    jobPager = runTestGetJobs(CONTENT_ADMIN, null, null, HttpStatus.OK);
+    jobPager = runTestGetJobs(AU_ADMIN, null, null, HttpStatus.OK);
     validateGetJobsResult(jobPager, null, 1);
 
     log.debug2("Done");
@@ -675,7 +678,7 @@ public class TestJobsApiServiceImpl extends SpringLockssTestCase4 {
     runTestQueueJob(new CrawlDesc(), ANYBODY, HttpStatus.BAD_REQUEST);
 
     CrawlDesc crawlDesc = new CrawlDesc().auId(sau.getAuId())
-        .crawlKind(CrawlDesc.CrawlKindEnum.NEWCONTENT);
+        .crawlKind(CrawlKindEnum.NEWCONTENT);
 
     runTestQueueJob(crawlDesc, null, HttpStatus.BAD_REQUEST);
     crawlDesc.forceCrawl(true);
@@ -738,16 +741,16 @@ public class TestJobsApiServiceImpl extends SpringLockssTestCase4 {
 
     CrawlDesc crawlDesc = new CrawlDesc()
         .auId(sau.getAuId())
-        .crawlKind(CrawlDesc.CrawlKindEnum.NEWCONTENT)
+        .crawlKind(CrawlKindEnum.NEWCONTENT)
         .crawlerId(crawlerId);
 
     runTestQueueJob(crawlDesc, USER_ADMIN, HttpStatus.BAD_REQUEST);
     crawlDesc.forceCrawl(true);
 
-    CrawlJob crawlJob = runTestQueueJob(crawlDesc, CONTENT_ADMIN, HttpStatus.ACCEPTED);
+    CrawlJob crawlJob = runTestQueueJob(crawlDesc, AU_ADMIN, HttpStatus.ACCEPTED);
     assertEquals(sau.getAuId(), crawlJob.getCrawlDesc().getAuId());
 
-    jobPager = runTestGetJobs(CONTENT_ADMIN, null, null, HttpStatus.OK);
+    jobPager = runTestGetJobs(AU_ADMIN, null, null, HttpStatus.OK);
     validateGetJobsResult(jobPager, null, ++jobCount);
 
     crawlJob = runTestQueueJob(crawlDesc, USER_ADMIN, HttpStatus.ACCEPTED);
@@ -853,7 +856,7 @@ public class TestJobsApiServiceImpl extends SpringLockssTestCase4 {
     int pageSize = 2;
     int remainingJobCount = jobCount;
 
-    jobPager = runTestGetJobs(CONTENT_ADMIN, pageSize, null, HttpStatus.OK);
+    jobPager = runTestGetJobs(AU_ADMIN, pageSize, null, HttpStatus.OK);
     validateGetJobsResult(jobPager, pageSize, jobCount);
 
     assertEquals(jobIds.get(0), jobPager.getJobs().get(0).getJobId());
@@ -885,7 +888,7 @@ public class TestJobsApiServiceImpl extends SpringLockssTestCase4 {
       else {
         assertNotNull(continuationToken);
 
-        jobPager = runTestGetJobs(CONTENT_ADMIN, pageSize, continuationToken, HttpStatus.OK);
+        jobPager = runTestGetJobs(AU_ADMIN, pageSize, continuationToken, HttpStatus.OK);
         validateGetJobsResult(jobPager, pageSize, jobCount);
 
         assertEquals(jobIds.get(4), jobPager.getJobs().get(0).getJobId());
@@ -910,7 +913,7 @@ public class TestJobsApiServiceImpl extends SpringLockssTestCase4 {
     //runTestDeleteJobs(ANYBODY, HttpStatus.NOT_FOUND);
 
     CrawlDesc crawlDesc = new CrawlDesc().auId(sau.getAuId())
-        .crawlKind(CrawlDesc.CrawlKindEnum.NEWCONTENT);
+        .crawlKind(CrawlKindEnum.NEWCONTENT);
     crawlDesc.forceCrawl(true);
 
     CrawlJob crawlJob = runTestQueueJob(crawlDesc, null, HttpStatus.ACCEPTED);
@@ -1026,14 +1029,14 @@ public class TestJobsApiServiceImpl extends SpringLockssTestCase4 {
 //    runTestDeleteJobs(CONTENT_ADMIN, HttpStatus.NOT_FOUND);
 
     CrawlDesc crawlDesc = new CrawlDesc().auId(sau.getAuId())
-        .crawlKind(CrawlDesc.CrawlKindEnum.NEWCONTENT);
+        .crawlKind(CrawlKindEnum.NEWCONTENT);
     crawlDesc.forceCrawl(true);
 
     CrawlJob crawlJob = runTestQueueJob(crawlDesc, USER_ADMIN, HttpStatus.ACCEPTED);
     runTestDeleteJobs(USER_ADMIN, HttpStatus.OK);
 
-    crawlJob = runTestQueueJob(crawlDesc, CONTENT_ADMIN, HttpStatus.ACCEPTED);
-    runTestDeleteJobs(CONTENT_ADMIN, HttpStatus.OK);
+    crawlJob = runTestQueueJob(crawlDesc, AU_ADMIN, HttpStatus.ACCEPTED);
+    runTestDeleteJobs(AU_ADMIN, HttpStatus.OK);
 
     log.debug2("Done");
   }

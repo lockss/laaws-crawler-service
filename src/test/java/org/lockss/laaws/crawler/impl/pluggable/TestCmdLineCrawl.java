@@ -13,6 +13,7 @@ import org.lockss.util.ListUtil;
 import org.lockss.util.MimeUtil;
 import org.lockss.util.rest.crawler.CrawlDesc;
 import org.lockss.util.rest.crawler.CrawlJob;
+import org.lockss.util.rest.crawler.CrawlKindEnum;
 import org.lockss.util.rest.crawler.JobStatus;
 import org.lockss.util.test.LockssTestCase5;
 
@@ -29,8 +30,8 @@ import static org.lockss.laaws.crawler.impl.pluggable.CmdLineCrawl.successPatter
 import static org.mockito.Mockito.*;
 
 class TestCmdLineCrawl extends LockssTestCase5 {
-  static final CrawlDesc.CrawlKindEnum NEWCONTENT = CrawlDesc.CrawlKindEnum.NEWCONTENT;
-  static final CrawlDesc.CrawlKindEnum REPAIR = CrawlDesc.CrawlKindEnum.REPAIR;
+  static final CrawlKindEnum NEWCONTENT = CrawlKindEnum.NEWCONTENT;
+  static final CrawlKindEnum REPAIR = CrawlKindEnum.REPAIR;
   private static final String TEST_CRAWLER = "cmdLineCrawler";
   private static final String DEF_JOB_ID = "1000";
   private static final String[] TEST_CMD_LINE ={"wget", "--debug", "--mirror", "https://webscraper.io/test-sites/e-commerce/allinone"};

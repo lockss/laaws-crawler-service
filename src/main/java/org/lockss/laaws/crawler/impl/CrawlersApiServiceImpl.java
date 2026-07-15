@@ -34,6 +34,8 @@ import org.lockss.laaws.crawler.model.CrawlerConfig;
 import org.lockss.laaws.crawler.model.CrawlerStatus;
 import org.lockss.laaws.crawler.model.CrawlerStatuses;
 import org.lockss.log.L4JLogger;
+import org.lockss.spring.auth.AuthUtil;
+import org.lockss.spring.auth.Roles;
 import org.lockss.spring.base.BaseSpringApiServiceImpl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -69,6 +71,9 @@ public class CrawlersApiServiceImpl extends BaseSpringApiServiceImpl implements 
       // Yes: Notify the client.
       return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
     }
+
+    AuthUtil.checkHasRole(Roles.ROLE_AU_ADMIN);
+
     PluggableCrawlManager pcm = getPluggableCrawlManager();
     CrawlerConfig config = pcm.getCrawlerConfig(crawler);
     log.trace("config = {}", config);
@@ -96,6 +101,8 @@ public class CrawlersApiServiceImpl extends BaseSpringApiServiceImpl implements 
       // Yes: Notify the client.
       return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
     }
+
+    AuthUtil.checkHasRole(Roles.ROLE_AU_ADMIN);
 
     PluggableCrawlManager pcm = getPluggableCrawlManager();
     boolean crawlingEnabled = pcm.isCrawlerEnabled();

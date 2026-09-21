@@ -42,7 +42,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import jakarta.servlet.http.HttpServletRequest;
-import javax.ws.rs.NotFoundException;
+import jakarta.ws.rs.NotFoundException;
 import org.lockss.app.LockssDaemon;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;

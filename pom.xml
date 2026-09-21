@@ -119,5 +119,14 @@ POSSIBILITY OF SUCH DAMAGE.
       <version>${version.group.jackson}</version>
     </dependency>
 
+    <!-- jakarta.ws.rs.NotFoundException is used directly by the impl classes;
+         declare it explicitly rather than relying on it arriving transitively
+         through lockss-core's Apache CXF JAX-RS frontend. -->
+    <dependency>
+      <groupId>jakarta.ws.rs</groupId>
+      <artifactId>jakarta.ws.rs-api</artifactId>
+      <version>${version.dependency.jakarta.ws.rs-api}</version>
+    </dependency>
+
   </dependencies>
 </project>

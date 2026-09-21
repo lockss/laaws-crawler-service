@@ -20,7 +20,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.*;
 
-import javax.ws.rs.NotFoundException;
+import jakarta.ws.rs.NotFoundException;
 
 import static org.lockss.daemon.Crawler.STATUS_QUEUED;
 import static org.lockss.laaws.crawler.CrawlerApplication.PLUGGABLE_CRAWL_MANAGER;

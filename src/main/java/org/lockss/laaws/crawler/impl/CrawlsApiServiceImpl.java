@@ -53,7 +53,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import jakarta.servlet.http.HttpServletRequest;
-import javax.ws.rs.NotFoundException;
+import jakarta.ws.rs.NotFoundException;
 
 import static org.lockss.laaws.crawler.impl.ApiUtils.*;
 import static org.lockss.util.rest.crawler.CrawlDesc.CLASSIC_CRAWLER_ID;
